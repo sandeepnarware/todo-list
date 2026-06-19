@@ -26,6 +26,7 @@
       <div class="timer-controls">
         <button id="startBtn">Start</button>
         <button id="resetBtn">Reset</button>
+        <button id="pipBtn" title="Pin timer on top">Pin</button>
       </div>
       <div class="session-count">
         Sessions completed: <span id="sessionCount">0</span>
@@ -56,6 +57,13 @@
       </div>
       <div id="statsContent"></div>
     </section>
+  </div>
+
+  <div id="pipTemplate" style="display:none">
+    <div class="pip-timer">
+      <div class="pip-time" id="pipTime">25:00</div>
+      <div class="pip-phase" id="pipPhase">Focus</div>
+    </div>
   </div>
 
   <script src="app.js"></script>

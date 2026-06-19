@@ -149,6 +149,52 @@ startBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', resetTimer);
 
+/* ===== Picture-in-Picture ===== */
+const pipBtn = document.getElementById('pipBtn');
+let pipWindow = null;
+let pipUpdateId = null;
+
+function updatePipWindow() {
+  if (!pipWindow || pipWindow.closed) return;
+  try {
+    pipWindow.document.getElementById('pipTime').textContent = formatTime(pomState.timeLeft);
+    pipWindow.document.getElementById('pipPhase').textContent = pomState.phase === 'focus' ? 'Focus' : 'Break';
+  } catch { closePip(); }
+}
+
+function closePip() {
+  if (pipUpdateId) { clearInterval(pipUpdateId); pipUpdateId = null; }
+  if (pipWindow && !pipWindow.closed) pipWindow.close();
+  pipWindow = null;
+  pipBtn.classList.remove('active');
+}
+
+async function togglePip() {
+  if (pipWindow) { closePip(); return; }
+  try {
+    pipWindow = await documentPictureInPicture.requestWindow({ width: 300, height: 160 });
+    pipBtn.classList.add('active');
+    const template = document.getElementById('pipTemplate').content.cloneNode(true);
+    pipWindow.document.body.innerHTML = template.querySelector('.pip-timer').outerHTML;
+    const style = pipWindow.document.createElement('style');
+    style.textContent = `
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+             background: #0f0f23; color: #e0e0e0; display: flex;
+             align-items: center; justify-content: center; height: 100vh; }
+      .pip-timer { text-align: center; }
+      .pip-time { font-size: 4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .pip-phase { font-size: 1rem; text-transform: uppercase; letter-spacing: 3px; color: #888; margin-top: 0.5rem; }
+    `;
+    pipWindow.document.head.appendChild(style);
+    updatePipWindow();
+    pipUpdateId = setInterval(updatePipWindow, 500);
+    pipWindow.addEventListener('pagehide', closePip);
+  } catch { pipWindow = null; }
+}
+
+pipBtn.addEventListener('click', togglePip);
+
 /* ===== Todo State ===== */
 const todoForm = document.getElementById('todoForm');
 const todoInput = document.getElementById('todoInput');
