@@ -174,17 +174,14 @@ async function togglePip() {
   try {
     pipWindow = await documentPictureInPicture.requestWindow({ width: 300, height: 160 });
     pipBtn.classList.add('active');
-    const template = document.getElementById('pipTemplate').content.cloneNode(true);
-    pipWindow.document.body.innerHTML = template.querySelector('.pip-timer').outerHTML;
+    const frag = document.getElementById('pipTemplate').content.cloneNode(true);
+    pipWindow.document.body.append(frag);
     const style = pipWindow.document.createElement('style');
-    style.textContent = `
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-             background: #0f0f23; color: #e0e0e0; display: flex;
-             align-items: center; justify-content: center; height: 100vh; }
-      .pip-timer { text-align: center; }
-      .pip-time { font-size: 4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-      .pip-phase { font-size: 1rem; text-transform: uppercase; letter-spacing: 3px; color: #888; margin-top: 0.5rem; }
+    style.textContent = `*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f23;color:#e0e0e0;display:flex;align-items:center;justify-content:center;height:100vh}
+.pip-timer{text-align:center}
+.pip-time{font-size:4rem;font-weight:700;font-variant-numeric:tabular-nums}
+.pip-phase{font-size:1rem;text-transform:uppercase;letter-spacing:3px;color:#888;margin-top:0.5rem}`
     `;
     pipWindow.document.head.appendChild(style);
     updatePipWindow();
