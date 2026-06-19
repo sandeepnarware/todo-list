@@ -131,14 +131,18 @@ function highlightTags(text) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  return escaped.replace(/#([\w-]+)/g, '<span class="tag">#$1</span>');
+  return escaped
+    .replace(/#([\w-]+)/g, '<span class="tag">#$1</span>')
+    .replace(/#(\w+)\[([^\]]+)\]/g, '<span class="tag">#$1[$2]</span>');
 }
 
 function extractTags() {
   const set = new Set();
   todos.forEach(t => {
-    const matches = t.text.match(/#([\w-]+)/g);
-    if (matches) matches.forEach(m => set.add(m.toLowerCase()));
+    const simple = t.text.match(/#([\w-]+)/g);
+    if (simple) simple.forEach(m => set.add(m.toLowerCase()));
+    const bracketed = t.text.match(/#(\w+)\[/g);
+    if (bracketed) bracketed.forEach(m => set.add(m.slice(0, -1).toLowerCase()));
   });
   return [...set].sort();
 }
@@ -183,7 +187,15 @@ function renderTodos() {
     cb.type = 'checkbox';
     cb.checked = todo.done;
     cb.addEventListener('change', () => {
-      todos[origIndex].done = cb.checked;
+      const todo = todos[origIndex];
+      todo.done = cb.checked;
+      if (todo.done && !/#CompleteOn\[\d{2}\/\d{2}\/\d{2}\]/.test(todo.text)) {
+        const d = new Date();
+        const dd = String(d.getDate()).padStart(2,'0');
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const yy = String(d.getFullYear()).slice(-2);
+        todo.text += ` #CompleteOn[${dd}/${mm}/${yy}]`;
+      }
       saveTodos();
       renderTagCloud();
       renderTodos();
