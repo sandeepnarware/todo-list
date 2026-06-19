@@ -111,6 +111,7 @@ const todoList = document.getElementById('todoList');
 const taskCount = document.getElementById('taskCount');
 
 let todos = loadTodos();
+let tagFilter = null;
 
 /* ===== Todo localStorage ===== */
 function loadTodos() {
@@ -130,15 +131,51 @@ function highlightTags(text) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  return escaped.replace(/#(\w+)/g, '<span class="tag">#$1</span>');
+  return escaped.replace(/#([\w-]+)/g, '<span class="tag">#$1</span>');
+}
+
+function extractTags() {
+  const set = new Set();
+  todos.forEach(t => {
+    const matches = t.text.match(/#([\w-]+)/g);
+    if (matches) matches.forEach(m => set.add(m.toLowerCase()));
+  });
+  return [...set].sort();
+}
+
+function renderTagCloud() {
+  const tags = extractTags();
+  const html = tags.map(t => {
+    const count = todos.filter(td => td.text.toLowerCase().includes(t)).length;
+    const active = tagFilter === t ? 'active' : '';
+    return `<span class="tag-pill ${active}" data-tag="${t}">${t} <span class="count">${count}</span></span>`;
+  }).join('');
+  document.getElementById('tagCloud').innerHTML = html;
+}
+
+function clearFilter() {
+  tagFilter = null;
+  renderTagCloud();
+  renderTodos();
+}
+
+function filterByTag(tag) {
+  tagFilter = tagFilter === tag ? null : tag;
+  renderTagCloud();
+  renderTodos();
 }
 
 function renderTodos() {
+  const filtered = tagFilter
+    ? todos.filter(t => t.text.toLowerCase().includes(tagFilter))
+    : todos;
+
   todoList.innerHTML = '';
-  const remaining = todos.filter(t => !t.done).length;
+  const remaining = filtered.filter(t => !t.done).length;
   taskCount.textContent = remaining;
 
-  todos.forEach((todo, i) => {
+  filtered.forEach((todo, i) => {
+    const origIndex = todos.indexOf(todo);
     const li = document.createElement('li');
     if (todo.done) li.classList.add('completed');
 
@@ -146,8 +183,9 @@ function renderTodos() {
     cb.type = 'checkbox';
     cb.checked = todo.done;
     cb.addEventListener('change', () => {
-      todos[i].done = cb.checked;
+      todos[origIndex].done = cb.checked;
       saveTodos();
+      renderTagCloud();
       renderTodos();
     });
 
@@ -159,8 +197,9 @@ function renderTodos() {
     del.textContent = '✕';
     del.setAttribute('aria-label', 'Delete task');
     del.addEventListener('click', () => {
-      todos.splice(i, 1);
+      todos.splice(origIndex, 1);
       saveTodos();
+      renderTagCloud();
       renderTodos();
     });
 
@@ -178,6 +217,7 @@ todoForm.addEventListener('submit', (e) => {
   todos.push({ text, done: false });
   todoInput.value = '';
   saveTodos();
+  renderTagCloud();
   renderTodos();
 });
 
@@ -344,8 +384,14 @@ function renderSlots() {
   statsContent.innerHTML = html;
 }
 
+document.getElementById('tagCloud').addEventListener('click', (e) => {
+  const pill = e.target.closest('.tag-pill');
+  if (pill) filterByTag(pill.dataset.tag);
+});
+
 /* ===== Init ===== */
 updateDisplay();
 updatePhaseLabel();
+renderTagCloud();
 renderTodos();
 renderStats();
