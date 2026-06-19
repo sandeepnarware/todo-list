@@ -19,6 +19,40 @@ const sessionCountEl = document.getElementById('sessionCount');
 const progressFg = document.querySelector('.progress-ring .fg');
 const circumference = 553;
 
+/* ===== Audio ===== */
+let audioCtx = null;
+
+function playBeep() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 800;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.8);
+  } catch {}
+}
+
+function playTripleBeep() {
+  playBeep();
+  setTimeout(() => playBeep(), 250);
+  setTimeout(() => playBeep(), 500);
+}
+
+/* ===== Notifications ===== */
+if (Notification.permission === 'default') Notification.requestPermission();
+
+function notifyPhaseEnd(phase) {
+  if (Notification.permission !== 'granted') return;
+  const labels = { focus: 'Focus session complete — time for a break!', break: 'Break over — back to focus!' };
+  new Notification('Pomodoro', { body: labels[phase] || 'Timer done!', icon: '/favicon.ico' });
+}
+
 /* ===== Pomodoro Timer ===== */
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -26,8 +60,16 @@ function formatTime(seconds) {
   return `${m}:${s}`;
 }
 
+const BASE_TITLE = document.title;
+
 function updateDisplay() {
   timerEl.textContent = formatTime(pomState.timeLeft);
+  if (pomState.running) {
+    const label = pomState.phase === 'focus' ? 'F' : 'B';
+    document.title = `${formatTime(pomState.timeLeft)} [${label}] - Todo & Pomodoro`;
+  } else {
+    document.title = BASE_TITLE;
+  }
   const total = pomState.phase === 'focus' ? FOCUS_TIME : BREAK_TIME;
   const offset = circumference * (1 - pomState.timeLeft / total);
   progressFg.style.strokeDashoffset = offset;
@@ -51,6 +93,7 @@ function pauseTimer() {
   pomState.running = false;
   startBtn.textContent = 'Resume';
   clearInterval(pomState.timerId);
+  updateDisplay();
 }
 
 function resetTimer() {
@@ -93,6 +136,8 @@ function tick() {
   updateDisplay();
   if (pomState.timeLeft <= 0) {
     pauseTimer();
+    playTripleBeep();
+    notifyPhaseEnd(pomState.phase);
     switchPhase();
     startTimer();
   }
