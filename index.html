@@ -35,13 +35,25 @@
     <section class="todo">
       <h2>Tasks</h2>
       <form id="todoForm">
-        <input type="text" id="todoInput" placeholder="Add a new task..." required>
+        <input type="text" id="todoInput" placeholder="Add a new task... use #tag to tag" required>
         <button type="submit">Add</button>
       </form>
       <ul id="todoList"></ul>
       <div class="todo-stats">
         <span id="taskCount">0</span> tasks remaining
       </div>
+    </section>
+
+    <section class="stats">
+      <div class="stats-header">
+        <h2>Statistics</h2>
+        <div class="view-tabs" id="viewTabs">
+          <button class="active" data-view="calendar">Calendar</button>
+          <button data-view="hours">Hours</button>
+          <button data-view="slots">Slots</button>
+        </div>
+      </div>
+      <div id="statsContent"></div>
     </section>
   </div>
 
