@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo + Pomodoro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Todo <span class="amp">&amp;</span> Pomodoro</h1>
+    </header>
+
+    <section class="pomodoro">
+      <div class="timer-display">
+        <div class="progress-ring">
+          <svg width="200" height="200">
+            <circle class="bg" cx="100" cy="100" r="88" />
+            <circle class="fg" cx="100" cy="100" r="88" />
+          </svg>
+          <div class="time-text" id="timer">25:00</div>
+        </div>
+      </div>
+      <div class="phase-label" id="phase">Focus</div>
+      <div class="timer-controls">
+        <button id="startBtn">Start</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+      <div class="session-count">
+        Sessions completed: <span id="sessionCount">0</span>
+      </div>
+    </section>
+
+    <section class="todo">
+      <h2>Tasks</h2>
+      <form id="todoForm">
+        <input type="text" id="todoInput" placeholder="Add a new task..." required>
+        <button type="submit">Add</button>
+      </form>
+      <ul id="todoList"></ul>
+      <div class="todo-stats">
+        <span id="taskCount">0</span> tasks remaining
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

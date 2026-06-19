@@ -1,0 +1,250 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f0f23;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.container {
+  width: 100%;
+  max-width: 520px;
+}
+
+header h1 {
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  letter-spacing: 0.5px;
+}
+
+.amp {
+  color: #ff6b6b;
+}
+
+/* Pomodoro */
+.pomodoro {
+  background: #1a1a2e;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.timer-display {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.progress-ring {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+
+.progress-ring svg {
+  transform: rotate(-90deg);
+}
+
+.progress-ring circle {
+  fill: none;
+  stroke-width: 8;
+  cx: 100;
+  cy: 100;
+  r: 88;
+}
+
+.progress-ring .bg {
+  stroke: #2d2d44;
+}
+
+.progress-ring .fg {
+  stroke: #ff6b6b;
+  stroke-linecap: round;
+  stroke-dasharray: 553;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.time-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.phase-label {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #888;
+  margin-bottom: 1.25rem;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.timer-controls button {
+  padding: 0.6rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#startBtn {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+#startBtn:hover {
+  background: #e55a5a;
+}
+
+#startBtn.running {
+  background: #4ecdc4;
+}
+
+#startBtn.running:hover {
+  background: #3dbdb5;
+}
+
+#resetBtn {
+  background: #2d2d44;
+  color: #e0e0e0;
+}
+
+#resetBtn:hover {
+  background: #3d3d55;
+}
+
+.session-count {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* Todo */
+.todo {
+  background: #1a1a2e;
+  border-radius: 16px;
+  padding: 2rem;
+}
+
+.todo h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+#todoForm {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+#todoInput {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1px solid #2d2d44;
+  border-radius: 8px;
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#todoInput:focus {
+  border-color: #ff6b6b;
+}
+
+#todoForm button {
+  padding: 0.65rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#todoForm button:hover {
+  background: #e55a5a;
+}
+
+#todoList {
+  list-style: none;
+  margin-bottom: 1rem;
+}
+
+#todoList li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #2d2d44;
+}
+
+#todoList li:last-child {
+  border-bottom: none;
+}
+
+#todoList li.completed span {
+  text-decoration: line-through;
+  color: #555;
+}
+
+#todoList li input[type="checkbox"] {
+  accent-color: #4ecdc4;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#todoList li span {
+  flex: 1;
+  word-break: break-word;
+}
+
+#todoList li button {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+#todoList li button:hover {
+  opacity: 1;
+}
+
+.todo-stats {
+  font-size: 0.85rem;
+  color: #888;
+}
