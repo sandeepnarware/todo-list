@@ -245,6 +245,17 @@ header h1 {
   opacity: 1;
 }
 
+#todoList li .edit-input {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #ff6b6b;
+  border-radius: 4px;
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  outline: none;
+}
+
 .tag {
   display: inline-block;
   background: #ff6b6b33;
@@ -554,4 +565,13 @@ header h1 {
 #pipBtn.active {
   background: #6c5ce7;
   color: #fff;
+}
+
+/* Drag & Drop */
+#todoList li.dragging {
+  opacity: 0.4;
+}
+
+#todoList li.drag-over {
+  border-top: 2px solid #ff6b6b;
 }

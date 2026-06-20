@@ -212,6 +212,7 @@ const taskCount = document.getElementById('taskCount');
 
 let todos = loadTodos();
 let tagFilter = null;
+let draggedIndex = null;
 
 /* ===== Todo localStorage ===== */
 function loadTodos() {
@@ -305,6 +306,42 @@ function renderTodos() {
     span.className = 'task-text';
     span.innerHTML = highlightTags(todo.text);
 
+    li.draggable = !tagFilter;
+    li.dataset.index = origIndex;
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏';
+    editBtn.setAttribute('aria-label', 'Edit task');
+    editBtn.addEventListener('click', function startEdit() {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-input';
+      input.value = todo.text;
+
+      li.replaceChild(input, span);
+      editBtn.textContent = '✓';
+      editBtn.removeEventListener('click', startEdit);
+
+      function saveEdit() {
+        const val = input.value.trim();
+        if (val && val !== todo.text) {
+          todos[origIndex].text = val;
+        }
+        saveTodos();
+        renderTagCloud();
+        renderTodos();
+      }
+
+      editBtn.addEventListener('click', saveEdit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveEdit();
+        if (e.key === 'Escape') renderTodos();
+      });
+
+      input.focus();
+      input.select();
+    });
+
     const del = document.createElement('button');
     del.textContent = '✕';
     del.setAttribute('aria-label', 'Delete task');
@@ -317,6 +354,7 @@ function renderTodos() {
 
     li.appendChild(cb);
     li.appendChild(span);
+    li.appendChild(editBtn);
     li.appendChild(del);
     todoList.appendChild(li);
   });
@@ -331,6 +369,54 @@ todoForm.addEventListener('submit', (e) => {
   saveTodos();
   renderTagCloud();
   renderTodos();
+});
+
+/* ===== Drag and Drop Reorder ===== */
+todoList.addEventListener('dragstart', (e) => {
+  const li = e.target.closest('li');
+  if (!li) return;
+  draggedIndex = parseInt(li.dataset.index);
+  e.dataTransfer.effectAllowed = 'move';
+  li.classList.add('dragging');
+});
+
+todoList.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  todoList.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  const li = e.target.closest('li');
+  if (!li) return;
+  const box = li.getBoundingClientRect();
+  const offset = e.clientY - box.top;
+  if (offset < box.height / 2) {
+    li.classList.add('drag-over');
+  } else if (li.nextElementSibling) {
+    li.nextElementSibling.classList.add('drag-over');
+  }
+});
+
+todoList.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (draggedIndex === null) return;
+  const overLi = e.target.closest('li');
+  if (!overLi) return;
+  const box = overLi.getBoundingClientRect();
+  const offset = e.clientY - box.top;
+  const targetOrigIndex = parseInt(overLi.dataset.index);
+  let insertAt = offset < box.height / 2 ? targetOrigIndex : targetOrigIndex + 1;
+  if (draggedIndex === insertAt || draggedIndex === insertAt - 1) return;
+  const [item] = todos.splice(draggedIndex, 1);
+  if (draggedIndex < insertAt) insertAt--;
+  todos.splice(insertAt, 0, item);
+  draggedIndex = null;
+  saveTodos();
+  renderTagCloud();
+  renderTodos();
+});
+
+todoList.addEventListener('dragend', () => {
+  todoList.querySelectorAll('.dragging, .drag-over').forEach(el => el.classList.remove('dragging', 'drag-over'));
+  draggedIndex = null;
 });
 
 /* ===== History ===== */
