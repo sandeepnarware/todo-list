@@ -283,9 +283,7 @@ function highlightTags(text, tagColors) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/@Due\[[^\]]*\]/gi, '');
-  let result = escaped
-    .replace(/@Tomorrow\b/gi, '<span class="tag at-tag" style="background:#feca5733;color:#feca57">@Tomorrow</span>')
-    .replace(/@Today\b/gi, '<span class="tag at-tag" style="background:#ff6b6b33;color:#ff6b6b">@Today</span>');
+  let result = escaped;
   result = result
     .replace(/#([\w-]+)/g, (m, tag) => {
       const c = tagColors?.['#' + tag.toLowerCase()];
