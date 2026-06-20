@@ -224,12 +224,35 @@ const TAG_COLORS = [
 function getTagColorMap() {
   const tags = extractTags();
   const map = {};
-  tags.forEach((tag, i) => { map[tag] = TAG_COLORS[i % TAG_COLORS.length]; });
+  let ci = 0;
+  tags.forEach(tag => {
+    if (tag === '@today') map[tag] = '#ff6b6b';
+    else if (tag === '@tomorrow') map[tag] = '#feca57';
+    else if (/^@\d/.test(tag)) map[tag] = '#10ac84';
+    else { map[tag] = TAG_COLORS[ci % TAG_COLORS.length]; ci++; }
+  });
   return map;
 }
 
 function parseDueInfo(text) {
-  const m = text.match(/@Due\[(today|tomorrow|\d{1,2}\/\d{1,2}\/\d{2,4})\]/i);
+  let m = text.match(/@(Today|Tomorrow)\b/i);
+  if (m) {
+    const raw = m[1].toLowerCase();
+    const due = new Date();
+    if (raw === 'tomorrow') due.setDate(due.getDate() + 1);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    return { date: due, label: raw === 'today' ? 'Today' : 'Tomorrow', overdue: due < today };
+  }
+  m = text.match(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/);
+  if (m) {
+    const p = m[1].split('/');
+    const due = new Date(p[2].length === 2 ? 2000 + +p[2] : +p[2], +p[1] - 1, +p[0]);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    return { date: due, label: m[1], overdue: due < today };
+  }
+  m = text.match(/@Due\[(today|tomorrow|\d{1,2}\/\d{1,2}\/\d{2,4})\]/i);
   if (!m) return null;
   const raw = m[1].toLowerCase();
   let due;
@@ -260,7 +283,13 @@ function highlightTags(text, tagColors) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/@Due\[[^\]]*\]/gi, '');
-  return escaped
+  let result = escaped
+    .replace(/@Tomorrow\b/gi, '<span class="tag at-tag" style="background:#feca5733;color:#feca57">@Tomorrow</span>')
+    .replace(/@Today\b/gi, '<span class="tag at-tag" style="background:#ff6b6b33;color:#ff6b6b">@Today</span>')
+    .replace(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g, (m, d) => {
+      return `<span class="tag at-tag" style="background:#10ac8433;color:#10ac84">@${d}</span>`;
+    });
+  result = result
     .replace(/#([\w-]+)/g, (m, tag) => {
       const c = tagColors?.['#' + tag.toLowerCase()];
       return c ? `<span class="tag" style="background:${c}33;color:${c}">#${tag}</span>` : `<span class="tag">#${tag}</span>`;
@@ -269,6 +298,7 @@ function highlightTags(text, tagColors) {
       const c = tagColors?.['#' + tag.toLowerCase()];
       return c ? `<span class="tag" style="background:${c}33;color:${c}">#${tag}[${val}]</span>` : `<span class="tag">#${tag}[${val}]</span>`;
     });
+  return result;
 }
 
 function extractTags() {
@@ -278,6 +308,10 @@ function extractTags() {
     if (simple) simple.forEach(m => set.add(m.toLowerCase()));
     const bracketed = t.text.match(/#(\w+)\[/g);
     if (bracketed) bracketed.forEach(m => set.add(m.slice(0, -1).toLowerCase()));
+    if (/@Tomorrow\b/i.test(t.text)) set.add('@tomorrow');
+    if (/@Today\b/i.test(t.text)) set.add('@today');
+    const dates = t.text.match(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g);
+    if (dates) dates.forEach(m => set.add(m.toLowerCase()));
   });
   return [...set].sort();
 }
