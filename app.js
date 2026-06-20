@@ -214,6 +214,33 @@ let todos = loadTodos();
 let tagFilter = null;
 let draggedIndex = null;
 
+const TAG_COLORS = [
+  '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff',
+  '#5f27cd', '#01a3a4', '#f368e0', '#ff9f43', '#10ac84',
+  '#ee5a24', '#0abde3', '#a29bfe', '#fd79a8', '#6c5ce7',
+  '#00b894', '#e17055', '#00cec9', '#e056fd', '#badc58',
+];
+
+function getTagColorMap() {
+  const tags = extractTags();
+  const map = {};
+  tags.forEach((tag, i) => { map[tag] = TAG_COLORS[i % TAG_COLORS.length]; });
+  return map;
+}
+
+function parseDueInfo(text) {
+  const m = text.match(/@Due\[(today|tomorrow|\d{1,2}\/\d{1,2}\/\d{2,4})\]/i);
+  if (!m) return null;
+  const raw = m[1].toLowerCase();
+  let due;
+  if (raw === 'today') { due = new Date(); }
+  else if (raw === 'tomorrow') { due = new Date(); due.setDate(due.getDate() + 1); }
+  else { const p = raw.split('/'); due = new Date(p[2].length === 2 ? 2000 + +p[2] : +p[2], +p[1] - 1, +p[0]); }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return { date: due, label: raw === 'today' ? 'Today' : raw === 'tomorrow' ? 'Tomorrow' : m[1], overdue: due < today };
+}
+
 /* ===== Todo localStorage ===== */
 function loadTodos() {
   try {
@@ -227,14 +254,21 @@ function saveTodos() {
   localStorage.setItem('todos', JSON.stringify(todos));
 }
 
-function highlightTags(text) {
+function highlightTags(text, tagColors) {
   const escaped = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/@Due\[[^\]]*\]/gi, '');
   return escaped
-    .replace(/#([\w-]+)/g, '<span class="tag">#$1</span>')
-    .replace(/#(\w+)\[([^\]]+)\]/g, '<span class="tag">#$1[$2]</span>');
+    .replace(/#([\w-]+)/g, (m, tag) => {
+      const c = tagColors?.['#' + tag.toLowerCase()];
+      return c ? `<span class="tag" style="background:${c}33;color:${c}">#${tag}</span>` : `<span class="tag">#${tag}</span>`;
+    })
+    .replace(/#(\w+)\[([^\]]+)\]/g, (m, tag, val) => {
+      const c = tagColors?.['#' + tag.toLowerCase()];
+      return c ? `<span class="tag" style="background:${c}33;color:${c}">#${tag}[${val}]</span>` : `<span class="tag">#${tag}[${val}]</span>`;
+    });
 }
 
 function extractTags() {
@@ -250,10 +284,13 @@ function extractTags() {
 
 function renderTagCloud() {
   const tags = extractTags();
+  const colorMap = getTagColorMap();
   const html = tags.map(t => {
     const count = todos.filter(td => td.text.toLowerCase().includes(t)).length;
     const active = tagFilter === t ? 'active' : '';
-    return `<span class="tag-pill ${active}" data-tag="${t}">${t} <span class="count">${count}</span></span>`;
+    const c = colorMap[t];
+    const style = c ? `style="background:${c}22;color:${c};border-color:${c}44"` : '';
+    return `<span class="tag-pill ${active}" data-tag="${t}" ${style}>${t} <span class="count">${count}</span></span>`;
   }).join('');
   document.getElementById('tagCloud').innerHTML = html;
 }
@@ -278,6 +315,7 @@ function renderTodos() {
   todoList.innerHTML = '';
   const remaining = filtered.filter(t => !t.done).length;
   taskCount.textContent = remaining;
+  const tagColors = getTagColorMap();
 
   filtered.forEach((todo, i) => {
     const origIndex = todos.indexOf(todo);
@@ -304,7 +342,20 @@ function renderTodos() {
 
     const span = document.createElement('span');
     span.className = 'task-text';
-    span.innerHTML = highlightTags(todo.text);
+    span.innerHTML = highlightTags(todo.text, tagColors);
+
+    const dueInfo = parseDueInfo(todo.text);
+    if (dueInfo) {
+      const badge = document.createElement('span');
+      badge.className = 'due-badge' + (dueInfo.overdue && !todo.done ? ' overdue' : '');
+      badge.textContent = '📅 ' + dueInfo.label;
+      li.appendChild(cb);
+      li.appendChild(span);
+      li.appendChild(badge);
+    } else {
+      li.appendChild(cb);
+      li.appendChild(span);
+    }
 
     li.draggable = !tagFilter;
     li.dataset.index = origIndex;
@@ -352,8 +403,6 @@ function renderTodos() {
       renderTodos();
     });
 
-    li.appendChild(cb);
-    li.appendChild(span);
     li.appendChild(editBtn);
     li.appendChild(del);
     todoList.appendChild(li);
@@ -603,6 +652,12 @@ themeToggle.addEventListener('click', () => {
   const current = document.documentElement.getAttribute('data-theme');
   setTheme(current === 'dark' ? 'light' : 'dark');
 });
+
+/* ===== Help Overlay ===== */
+const helpOverlay = document.getElementById('helpOverlay');
+document.getElementById('helpBtn').addEventListener('click', () => helpOverlay.classList.remove('hidden'));
+document.getElementById('helpClose').addEventListener('click', () => helpOverlay.classList.add('hidden'));
+helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.add('hidden'); });
 
 /* ===== Init ===== */
 updateDisplay();

@@ -104,20 +104,24 @@ header h1 {
 }
 
 header {
-  position: relative;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 2rem;
 }
 
 header h1 {
   margin-bottom: 0;
+  font-size: 1.4rem;
 }
 
-#themeToggle {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+.header-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+#themeToggle,
+#helpBtn {
   background: none;
   border: 1px solid var(--border-default);
   border-radius: 8px;
@@ -129,9 +133,17 @@ header h1 {
   transition: all 0.2s;
 }
 
-#themeToggle:hover {
+#themeToggle:hover,
+#helpBtn:hover {
   color: var(--text-primary);
   border-color: var(--text-secondary);
+}
+
+#helpBtn {
+  font-weight: 700;
+  font-size: 1rem;
+  width: 30px;
+  text-align: center;
 }
 
 .amp {
@@ -681,4 +693,120 @@ header h1 {
 
 #todoList li.drag-over {
   border-top: 2px solid var(--drag-border);
+}
+
+/* Due badge */
+.due-badge {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.due-badge.overdue {
+  color: var(--accent);
+  background: var(--tag-bg);
+}
+
+/* Help overlay */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.help-overlay.hidden {
+  display: none;
+}
+
+.help-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.help-header h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.help-header button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.help-header button:hover {
+  color: var(--text-primary);
+}
+
+.help-body {
+  padding: 1.5rem;
+}
+
+.help-body h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.help-body h3:first-child {
+  margin-top: 0;
+}
+
+.help-body p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.help-body ul {
+  list-style: none;
+  padding: 0;
+}
+
+.help-body li {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  padding: 0.25rem 0;
+  line-height: 1.5;
+}
+
+.help-body code {
+  background: var(--bg-surface);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.help-body kbd {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 0.05em 0.4em;
+  font-size: 0.85em;
+  font-family: inherit;
 }

@@ -12,7 +12,10 @@
   <div class="container">
     <header>
       <h1>Todo <span class="amp">&amp;</span> Pomodoro</h1>
-      <button id="themeToggle" aria-label="Toggle theme">🌙</button>
+      <div class="header-actions">
+        <button id="helpBtn" aria-label="Help">?</button>
+        <button id="themeToggle" aria-label="Toggle theme">🌙</button>
+      </div>
     </header>
 
     <section class="pomodoro">
@@ -39,7 +42,7 @@
     <section class="todo">
       <h2>Tasks</h2>
       <form id="todoForm">
-        <input type="text" id="todoInput" placeholder="Add a new task... use #tag to tag" required>
+        <input type="text" id="todoInput" placeholder="Add a task... use #tag and @Due[today]" required>
         <button type="submit">Add</button>
       </form>
       <div id="tagCloud"></div>
@@ -60,6 +63,33 @@
       </div>
       <div id="statsContent"></div>
     </section>
+  </div>
+
+  <div id="helpOverlay" class="help-overlay hidden">
+    <div class="help-modal">
+      <div class="help-header">
+        <h2>How to use</h2>
+        <button id="helpClose">✕</button>
+      </div>
+      <div class="help-body">
+        <h3>📝 Tasks</h3>
+        <ul>
+          <li><strong>Add</strong> — Type a task and press <kbd>Add</kbd></li>
+          <li><strong>Complete</strong> — Check the checkbox</li>
+          <li><strong>Edit</strong> — Click ✏ to edit inline, press <kbd>Enter</kbd> to save</li>
+          <li><strong>Delete</strong> — Click ✕</li>
+          <li><strong>Reorder</strong> — Drag and drop tasks</li>
+        </ul>
+        <h3>🏷️ Tags</h3>
+        <p>Use <code>#tagname</code> in any task. Each tag gets its own color automatically. Click a tag pill to filter tasks by that tag.</p>
+        <h3>📅 Due Dates</h3>
+        <p>Add a due date with <code>@Due[today]</code>, <code>@Due[tomorrow]</code>, or <code>@Due[dd/mm/yy]</code>. Overdue tasks are highlighted in red.</p>
+        <h3>🎨 Themes</h3>
+        <p>Click 🌙/☀️ to toggle between dark and light mode.</p>
+        <h3>⏱️ Pomodoro Timer</h3>
+        <p>Use the timer for focus sessions. Click <strong>Pin</strong> to keep the timer always on top.</p>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
