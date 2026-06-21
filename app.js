@@ -135,11 +135,13 @@ function tick() {
   pomState.timeLeft--;
   updateDisplay();
   if (pomState.timeLeft <= 0) {
-    pauseTimer();
+    pomState.running = false;
+    clearInterval(pomState.timerId);
+    startBtn.textContent = 'Start';
+    startBtn.classList.remove('running');
     playTripleBeep();
     notifyPhaseEnd(pomState.phase);
     switchPhase();
-    startTimer();
   }
 }
 
