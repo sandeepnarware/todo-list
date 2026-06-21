@@ -41,16 +41,76 @@
 
     <section class="todo">
       <h2>Tasks</h2>
-      <form id="todoForm">
-        <input type="text" id="todoInput" placeholder="Add a task... use #tag and @Due[today]" required>
-        <button type="submit">Add</button>
-      </form>
+      <button id="addTaskBtn" class="add-task-btn">+ Add Task</button>
       <div id="tagCloud"></div>
       <ul id="todoList"></ul>
       <div class="todo-stats">
         <span id="taskCount">0</span> tasks remaining
       </div>
     </section>
+
+  <div id="taskModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Task</h2>
+        <button id="modalClose" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editId" value="">
+        <div class="form-group">
+          <label for="taskTitle">Title *</label>
+          <input type="text" id="taskTitle" placeholder="What needs to be done?" required>
+        </div>
+        <div class="form-group">
+          <label for="taskDescription">Description</label>
+          <textarea id="taskDescription" rows="3" placeholder="Add details..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="taskDue">Due Date</label>
+            <input type="date" id="taskDue">
+          </div>
+          <div class="form-group">
+            <label for="taskPriority">Priority</label>
+            <select id="taskPriority">
+              <option value="none">None</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="taskProject">Project</label>
+            <input type="text" id="taskProject" placeholder="e.g. Work, Personal">
+          </div>
+          <div class="form-group">
+            <label for="taskFrequency">Repeat</label>
+            <select id="taskFrequency">
+              <option value="none">Never</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tags</label>
+          <div class="tags-input-wrapper">
+            <input type="text" id="taskTags" placeholder="Type a tag and press Enter">
+            <div id="tagsContainer" class="tags-container"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="modalCancel" class="btn-secondary">Cancel</button>
+          <button id="modalSave" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
     <section class="stats">
       <div class="stats-header">
@@ -74,16 +134,16 @@
       <div class="help-body">
         <h3>📝 Tasks</h3>
         <ul>
-          <li><strong>Add</strong> — Type a task and press <kbd>Add</kbd></li>
+          <li><strong>Add</strong> — Click <kbd>+ Add Task</kbd> to open the task form. Fill in title, description, due date, priority, project, repeat frequency, and tags.</li>
           <li><strong>Complete</strong> — Check the checkbox</li>
-          <li><strong>Edit</strong> — Click ✏ to edit inline, press <kbd>Enter</kbd> to save</li>
+          <li><strong>Edit</strong> — Click ✏ to open the task form and edit all fields</li>
           <li><strong>Delete</strong> — Click ✕</li>
           <li><strong>Reorder</strong> — Drag and drop tasks</li>
         </ul>
         <h3>🏷️ Tags</h3>
-        <p>Use <code>#tagname</code> in any task. Each tag gets its own color automatically. Click a tag pill to filter tasks by that tag.</p>
-        <h3>📅 Due Dates</h3>
-        <p>Add a due date with <code>@Due[today]</code>, <code>@Due[tomorrow]</code>, or <code>@Due[dd/mm/yy]</code>. Overdue tasks are highlighted in red.</p>
+        <p>Add tags in the task form (no <code>#</code> needed). Each tag gets its own color automatically. Click a tag pill to filter tasks by that tag.</p>
+        <h3>📅 Due Dates &amp; Repeat</h3>
+        <p>Set a due date and optional repeat frequency (Daily, Weekly, Monthly, Yearly). Repeating tasks are automatically recreated on their next due date when completed.</p>
         <h3>🎨 Themes</h3>
         <p>Click 🌙/☀️ to toggle between dark and light mode.</p>
         <h3>⏱️ Pomodoro Timer</h3>

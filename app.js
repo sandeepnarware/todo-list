@@ -205,14 +205,28 @@ async function togglePip() {
 pipBtn.addEventListener('click', togglePip);
 
 /* ===== Todo State ===== */
-const todoForm = document.getElementById('todoForm');
-const todoInput = document.getElementById('todoInput');
+const addTaskBtn = document.getElementById('addTaskBtn');
 const todoList = document.getElementById('todoList');
 const taskCount = document.getElementById('taskCount');
+const taskModal = document.getElementById('taskModal');
+const modalTitle = document.getElementById('modalTitle');
+const editId = document.getElementById('editId');
+const taskTitle = document.getElementById('taskTitle');
+const taskDescription = document.getElementById('taskDescription');
+const taskDue = document.getElementById('taskDue');
+const taskPriority = document.getElementById('taskPriority');
+const taskProject = document.getElementById('taskProject');
+const taskFrequency = document.getElementById('taskFrequency');
+const taskTags = document.getElementById('taskTags');
+const tagsContainer = document.getElementById('tagsContainer');
+const modalSave = document.getElementById('modalSave');
+const modalCancel = document.getElementById('modalCancel');
+const modalClose = document.getElementById('modalClose');
 
 let todos = loadTodos();
 let tagFilter = null;
 let draggedIndex = null;
+let tagsList = [];
 
 const TAG_COLORS = [
   '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff',
@@ -221,53 +235,46 @@ const TAG_COLORS = [
   '#00b894', '#e17055', '#00cec9', '#e056fd', '#badc58',
 ];
 
+function calcNextDue(dueDate, frequency) {
+  if (!dueDate || frequency === 'none') return null;
+  const d = new Date(dueDate + 'T00:00:00');
+  if (frequency === 'daily') d.setDate(d.getDate() + 1);
+  else if (frequency === 'weekly') d.setDate(d.getDate() + 7);
+  else if (frequency === 'monthly') d.setMonth(d.getMonth() + 1);
+  else if (frequency === 'yearly') d.setFullYear(d.getFullYear() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function getTagColorMap() {
   const tags = extractTags();
   const map = {};
   let ci = 0;
   tags.forEach(tag => {
-    if (tag === '@today') map[tag] = '#ff6b6b';
-    else if (tag === '@tomorrow') map[tag] = '#feca57';
-    else if (/^@\d/.test(tag)) map[tag] = '#10ac84';
-    else { map[tag] = TAG_COLORS[ci % TAG_COLORS.length]; ci++; }
+    map[tag] = TAG_COLORS[ci % TAG_COLORS.length]; ci++;
   });
   return map;
 }
 
-function parseDueInfo(text) {
-  let m = text.match(/@(Today|Tomorrow)\b/i);
-  if (m) {
-    const raw = m[1].toLowerCase();
-    const due = new Date();
-    if (raw === 'tomorrow') due.setDate(due.getDate() + 1);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
-    return { date: due, label: raw === 'today' ? 'Today' : 'Tomorrow', overdue: due < today };
-  }
-  m = text.match(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/);
-  if (m) {
-    const p = m[1].split('/');
-    const due = new Date(p[2].length === 2 ? 2000 + +p[2] : +p[2], +p[1] - 1, +p[0]);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
-    return { date: due, label: m[1], overdue: due < today };
-  }
-  m = text.match(/@Due\[(today|tomorrow|\d{1,2}\/\d{1,2}\/\d{2,4})\]/i);
-  if (!m) return null;
-  const raw = m[1].toLowerCase();
-  let due;
-  if (raw === 'today') { due = new Date(); }
-  else if (raw === 'tomorrow') { due = new Date(); due.setDate(due.getDate() + 1); }
-  else { const p = raw.split('/'); due = new Date(p[2].length === 2 ? 2000 + +p[2] : +p[2], +p[1] - 1, +p[0]); }
+function parseDueInfo(todo) {
+  if (!todo.dueDate) return null;
+  const p = todo.dueDate.split('-');
+  const due = new Date(+p[0], +p[1] - 1, +p[2]);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
-  return { date: due, label: raw === 'today' ? 'Today' : raw === 'tomorrow' ? 'Tomorrow' : m[1], overdue: due < today };
+  const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+  let label;
+  if (diff === 0) label = 'Today';
+  else if (diff === 1) label = 'Tomorrow';
+  else if (diff < 0) label = todo.dueDate;
+  else label = todo.dueDate;
+  return { date: due, label, overdue: due < today };
 }
 
 /* ===== Todo localStorage ===== */
 function loadTodos() {
   try {
-    return JSON.parse(localStorage.getItem('todos')) || [];
+    const data = JSON.parse(localStorage.getItem('todos')) || [];
+    return data.map(migrateTodo);
   } catch {
     return [];
   }
@@ -277,36 +284,55 @@ function saveTodos() {
   localStorage.setItem('todos', JSON.stringify(todos));
 }
 
-function highlightTags(text, tagColors) {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/@Due\[[^\]]*\]/gi, '');
-  let result = escaped;
-  result = result
-    .replace(/#([\w-]+)/g, (m, tag) => {
-      const c = tagColors?.['#' + tag.toLowerCase()];
-      return c ? `<span class="tag" style="background:${c}33;color:${c}">#${tag}</span>` : `<span class="tag">#${tag}</span>`;
-    })
-    .replace(/#(\w+)\[([^\]]+)\]/g, (m, tag, val) => {
-      const c = tagColors?.['#' + tag.toLowerCase()];
-      return c ? `<span class="tag" style="background:${c}33;color:${c}">#${tag}[${val}]</span>` : `<span class="tag">#${tag}[${val}]</span>`;
+function migrateTodo(old) {
+  if (old.id) return old;
+  const tags = [];
+  let text = old.text;
+  const tagMatches = text.match(/#([\w-]+)/g);
+  if (tagMatches) {
+    tagMatches.forEach(m => {
+      tags.push(m.slice(1));
+      text = text.replace(m, '').trim();
     });
-  return result;
+  }
+  let dueDate = null;
+  const dueMatch = text.match(/@Due\[(today|tomorrow|\d{1,2}\/\d{1,2}\/\d{2,4})\]/i);
+  if (dueMatch) {
+    const raw = dueMatch[1].toLowerCase();
+    if (raw === 'today') { const d = new Date(); dueDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    else if (raw === 'tomorrow') { const d = new Date(); d.setDate(d.getDate() + 1); dueDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    else { const p = raw.split('/'); const d = new Date(p[2].length === 2 ? 2000 + +p[2] : +p[2], +p[1] - 1, +p[0]); dueDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    text = text.replace(dueMatch[0], '').trim();
+  }
+  text = text.replace(/@(Today|Tomorrow)\b/gi, '').trim();
+  text = text.replace(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g, '').trim();
+  text = text.replace(/#CompleteOn\[\d{2}\/\d{2}\/\d{2}\]/g, '').trim();
+  return {
+    id: crypto.randomUUID(),
+    title: text || 'Untitled',
+    description: '',
+    dueDate,
+    priority: 'none',
+    project: '',
+    frequency: 'none',
+    tags,
+    done: old.done,
+    createdAt: Date.now()
+  };
+}
+
+function renderTagsList(tags, tagColors) {
+  return tags.map(t => {
+    const c = tagColors[t.toLowerCase()] || TAG_COLORS[0];
+    return `<span class="tag" style="background:${c}33;color:${c}">${t}</span>`;
+  }).join('');
 }
 
 function extractTags() {
   const set = new Set();
+  todos.forEach(t => (t.tags || []).forEach(tag => set.add(tag.toLowerCase())));
   todos.forEach(t => {
-    const simple = t.text.match(/#([\w-]+)/g);
-    if (simple) simple.forEach(m => set.add(m.toLowerCase()));
-    const bracketed = t.text.match(/#(\w+)\[/g);
-    if (bracketed) bracketed.forEach(m => set.add(m.slice(0, -1).toLowerCase()));
-    if (/@Tomorrow\b/i.test(t.text)) set.add('@tomorrow');
-    if (/@Today\b/i.test(t.text)) set.add('@today');
-    const dates = t.text.match(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g);
-    if (dates) dates.forEach(m => set.add(m.toLowerCase()));
+    if (t.project) set.add('project:' + t.project.toLowerCase());
   });
   return [...set].sort();
 }
@@ -315,7 +341,10 @@ function renderTagCloud() {
   const tags = extractTags();
   const colorMap = getTagColorMap();
   const html = tags.map(t => {
-    const count = todos.filter(td => td.text.toLowerCase().includes(t)).length;
+    const isProject = t.startsWith('project:');
+    const count = isProject
+      ? todos.filter(td => td.project && td.project.toLowerCase() === t.slice(8)).length
+      : todos.filter(td => (td.tags || []).some(tag => tag.toLowerCase() === t)).length;
     const active = tagFilter === t ? 'active' : '';
     const c = colorMap[t];
     const style = c ? `style="background:${c}22;color:${c};border-color:${c}44"` : '';
@@ -336,10 +365,17 @@ function filterByTag(tag) {
   renderTodos();
 }
 
+function matchesTagFilter(todo, tagFilter) {
+  if (!tagFilter) return true;
+  if (tagFilter.startsWith('project:')) {
+    const proj = tagFilter.slice(8);
+    return todo.project && todo.project.toLowerCase() === proj;
+  }
+  return (todo.tags || []).some(t => t.toLowerCase() === tagFilter);
+}
+
 function renderTodos() {
-  const filtered = tagFilter
-    ? todos.filter(t => t.text.toLowerCase().includes(tagFilter))
-    : todos;
+  const filtered = tagFilter ? todos.filter(t => matchesTagFilter(t, tagFilter)) : todos;
 
   todoList.innerHTML = '';
   const remaining = filtered.filter(t => !t.done).length;
@@ -355,36 +391,95 @@ function renderTodos() {
     cb.type = 'checkbox';
     cb.checked = todo.done;
     cb.addEventListener('change', () => {
-      const todo = todos[origIndex];
-      todo.done = cb.checked;
-      if (todo.done && !/#CompleteOn\[\d{2}\/\d{2}\/\d{2}\]/.test(todo.text)) {
-        const d = new Date();
-        const dd = String(d.getDate()).padStart(2,'0');
-        const mm = String(d.getMonth()+1).padStart(2,'0');
-        const yy = String(d.getFullYear()).slice(-2);
-        todo.text += ` #CompleteOn[${dd}/${mm}/${yy}]`;
+      const t = todos[origIndex];
+      t.done = cb.checked;
+      if (t.done && t.frequency && t.frequency !== 'none') {
+        const nextDue = calcNextDue(t.dueDate, t.frequency);
+        if (nextDue) {
+          todos.push({
+            id: crypto.randomUUID(),
+            title: t.title,
+            description: t.description,
+            dueDate: nextDue,
+            priority: t.priority,
+            project: t.project,
+            frequency: t.frequency,
+            tags: [...t.tags],
+            done: false,
+            createdAt: Date.now()
+          });
+        }
       }
       saveTodos();
       renderTagCloud();
       renderTodos();
     });
 
-    const span = document.createElement('span');
-    span.className = 'task-text';
-    span.innerHTML = highlightTags(todo.text, tagColors);
+    const content = document.createElement('div');
+    content.className = 'task-content';
 
-    const dueInfo = parseDueInfo(todo.text);
+    const titleRow = document.createElement('div');
+    titleRow.className = 'task-title-row';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'task-text';
+    titleSpan.textContent = todo.title;
+    titleRow.appendChild(titleSpan);
+
+    const badges = document.createElement('div');
+    badges.className = 'task-badges';
+
+    if (todo.priority && todo.priority !== 'none') {
+      const pBadge = document.createElement('span');
+      pBadge.className = `priority-badge ${todo.priority}`;
+      pBadge.textContent = todo.priority;
+      badges.appendChild(pBadge);
+    }
+
+    if (todo.project) {
+      const projBadge = document.createElement('span');
+      projBadge.className = 'project-badge';
+      projBadge.textContent = todo.project;
+      badges.appendChild(projBadge);
+    }
+
+    if (todo.frequency && todo.frequency !== 'none') {
+      const freqBadge = document.createElement('span');
+      freqBadge.className = 'freq-badge';
+      freqBadge.textContent = '🔄 ' + todo.frequency;
+      badges.appendChild(freqBadge);
+    }
+
+    const dueInfo = parseDueInfo(todo);
     if (dueInfo) {
       const badge = document.createElement('span');
       badge.className = 'due-badge' + (dueInfo.overdue && !todo.done ? ' overdue' : '');
       badge.textContent = '📅 ' + dueInfo.label;
-      li.appendChild(cb);
-      li.appendChild(span);
-      li.appendChild(badge);
-    } else {
-      li.appendChild(cb);
-      li.appendChild(span);
+      badges.appendChild(badge);
     }
+
+    if (badges.children.length > 0) {
+      titleRow.appendChild(badges);
+    }
+
+    content.appendChild(titleRow);
+
+    if (todo.tags && todo.tags.length > 0) {
+      const tagsRow = document.createElement('div');
+      tagsRow.className = 'task-tags-row';
+      tagsRow.innerHTML = renderTagsList(todo.tags, tagColors);
+      content.appendChild(tagsRow);
+    }
+
+    if (todo.description) {
+      const desc = document.createElement('div');
+      desc.className = 'task-desc';
+      desc.textContent = todo.description;
+      content.appendChild(desc);
+    }
+
+    li.appendChild(cb);
+    li.appendChild(content);
 
     li.draggable = !tagFilter;
     li.dataset.index = origIndex;
@@ -392,35 +487,7 @@ function renderTodos() {
     const editBtn = document.createElement('button');
     editBtn.textContent = '✏';
     editBtn.setAttribute('aria-label', 'Edit task');
-    editBtn.addEventListener('click', function startEdit() {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'edit-input';
-      input.value = todo.text;
-
-      li.replaceChild(input, span);
-      editBtn.textContent = '✓';
-      editBtn.removeEventListener('click', startEdit);
-
-      function saveEdit() {
-        const val = input.value.trim();
-        if (val && val !== todo.text) {
-          todos[origIndex].text = val;
-        }
-        saveTodos();
-        renderTagCloud();
-        renderTodos();
-      }
-
-      editBtn.addEventListener('click', saveEdit);
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') saveEdit();
-        if (e.key === 'Escape') renderTodos();
-      });
-
-      input.focus();
-      input.select();
-    });
+    editBtn.addEventListener('click', () => openEditModal(origIndex));
 
     const del = document.createElement('button');
     del.textContent = '✕';
@@ -438,15 +505,115 @@ function renderTodos() {
   });
 }
 
-todoForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = todoInput.value.trim();
-  if (!text) return;
-  todos.push({ text, done: false });
-  todoInput.value = '';
+/* ===== Modal ===== */
+function openAddModal() {
+  modalTitle.textContent = 'Add Task';
+  editId.value = '';
+  taskTitle.value = '';
+  taskDescription.value = '';
+  taskDue.value = '';
+  taskPriority.value = 'none';
+  taskProject.value = '';
+  taskFrequency.value = 'none';
+  tagsList = [];
+  renderTagChips();
+  taskModal.classList.remove('hidden');
+  taskTitle.focus();
+}
+
+function openEditModal(index) {
+  const todo = todos[index];
+  if (!todo) return;
+  modalTitle.textContent = 'Edit Task';
+  editId.value = index;
+  taskTitle.value = todo.title;
+  taskDescription.value = todo.description || '';
+  taskDue.value = todo.dueDate || '';
+  taskPriority.value = todo.priority || 'none';
+  taskProject.value = todo.project || '';
+  taskFrequency.value = todo.frequency || 'none';
+  tagsList = [...(todo.tags || [])];
+  renderTagChips();
+  taskModal.classList.remove('hidden');
+  taskTitle.focus();
+}
+
+function closeModal() {
+  taskModal.classList.add('hidden');
+}
+
+function saveModal() {
+  const title = taskTitle.value.trim();
+  if (!title) { taskTitle.focus(); return; }
+
+  const dueDate = taskDue.value || null;
+  const data = {
+    title,
+    description: taskDescription.value.trim(),
+    dueDate,
+    priority: taskPriority.value,
+    project: taskProject.value.trim(),
+    frequency: taskFrequency.value,
+    tags: [...tagsList],
+  };
+
+  const editIdx = editId.value;
+  if (editIdx !== '') {
+    Object.assign(todos[parseInt(editIdx)], data);
+  } else {
+    data.id = crypto.randomUUID();
+    data.done = false;
+    data.createdAt = Date.now();
+    todos.push(data);
+  }
+
   saveTodos();
+  closeModal();
   renderTagCloud();
   renderTodos();
+}
+
+function addTag(tag) {
+  const t = tag.trim().replace(/^#/, '');
+  if (t && !tagsList.includes(t)) {
+    tagsList.push(t);
+    renderTagChips();
+  }
+}
+
+function removeTag(tag) {
+  tagsList = tagsList.filter(t => t !== tag);
+  renderTagChips();
+}
+
+function renderTagChips() {
+  tagsContainer.innerHTML = tagsList.map(t =>
+    `<span class="tag-chip">${t} <span class="tag-chip-remove" data-tag="${t}">&times;</span></span>`
+  ).join('');
+  tagsContainer.querySelectorAll('.tag-chip-remove').forEach(el => {
+    el.addEventListener('click', () => removeTag(el.dataset.tag));
+  });
+}
+
+addTaskBtn.addEventListener('click', openAddModal);
+modalClose.addEventListener('click', closeModal);
+modalCancel.addEventListener('click', closeModal);
+taskModal.addEventListener('click', (e) => { if (e.target === taskModal) closeModal(); });
+modalSave.addEventListener('click', saveModal);
+
+taskTags.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = taskTags.value.trim();
+    if (val) {
+      addTag(val);
+      taskTags.value = '';
+    }
+  }
+});
+
+taskModal.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
 });
 
 /* ===== Drag and Drop Reorder ===== */
