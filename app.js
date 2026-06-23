@@ -566,8 +566,8 @@ function renderTodos() {
   if (showCompleted && completed.length > 0) {
     const groups = {};
     completed.forEach(todo => {
-      if (!todo.completedAt) return;
-      const key = new Date(todo.completedAt).toISOString().slice(0, 10);
+      const completedAt = todo.completedAt || todo.createdAt || 0;
+      const key = new Date(completedAt).toISOString().slice(0, 10);
       if (!groups[key]) groups[key] = [];
       groups[key].push(todo);
     });
