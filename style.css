@@ -236,16 +236,27 @@ header h1 {
   color: var(--text-on-accent);
 }
 
-#startBtn:hover {
+#startBtn:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
-#startBtn.running {
-  background: var(--accent-break);
+#startBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
-#startBtn.running:hover {
+#pauseBtn {
+  background: var(--accent-break);
+  color: var(--text-on-accent);
+}
+
+#pauseBtn:hover:not(:disabled) {
   background: var(--accent-break-hover);
+}
+
+#pauseBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 #resetBtn {
@@ -253,8 +264,13 @@ header h1 {
   color: var(--text-primary);
 }
 
-#resetBtn:hover {
+#resetBtn:hover:not(:disabled) {
   background: var(--bg-surface-hover);
+}
+
+#resetBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .session-count {

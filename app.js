@@ -14,6 +14,7 @@ let pomState = {
 const timerEl = document.getElementById('timer');
 const phaseEl = document.getElementById('phase');
 const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const sessionCountEl = document.getElementById('sessionCount');
 const progressFg = document.querySelector('.progress-ring .fg');
@@ -84,26 +85,34 @@ function updatePhaseLabel() {
 function startTimer() {
   if (pomState.running) return;
   pomState.running = true;
-  startBtn.textContent = 'Pause';
-  startBtn.classList.add('running');
+  startBtn.disabled = true;
+  pauseBtn.disabled = false;
+  resetBtn.disabled = false;
   pomState.timerId = setInterval(tick, 1000);
+  updatePipControls();
 }
 
 function pauseTimer() {
   pomState.running = false;
-  startBtn.textContent = 'Resume';
+  startBtn.disabled = false;
+  pauseBtn.disabled = true;
+  resetBtn.disabled = false;
   clearInterval(pomState.timerId);
   updateDisplay();
+  updatePipControls();
 }
 
 function resetTimer() {
-  pauseTimer();
-  startBtn.classList.remove('running');
-  startBtn.textContent = 'Start';
+  pomState.running = false;
+  clearInterval(pomState.timerId);
+  startBtn.disabled = false;
+  pauseBtn.disabled = true;
+  resetBtn.disabled = false;
   pomState.phase = 'focus';
   pomState.timeLeft = FOCUS_TIME;
   updatePhaseLabel();
   updateDisplay();
+  updatePipControls();
 }
 
 function recordSession() {
@@ -137,18 +146,18 @@ function tick() {
   if (pomState.timeLeft <= 0) {
     pomState.running = false;
     clearInterval(pomState.timerId);
-    startBtn.textContent = 'Start';
-    startBtn.classList.remove('running');
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    resetBtn.disabled = false;
     playTripleBeep();
     notifyPhaseEnd(pomState.phase);
     switchPhase();
+    updatePipControls();
   }
 }
 
-startBtn.addEventListener('click', () => {
-  pomState.running ? pauseTimer() : startTimer();
-});
-
+startBtn.addEventListener('click', startTimer);
+pauseBtn.addEventListener('click', pauseTimer);
 resetBtn.addEventListener('click', resetTimer);
 
 /* ===== Picture-in-Picture ===== */
@@ -161,7 +170,20 @@ function updatePipWindow() {
   try {
     pipWindow.document.getElementById('pipTime').textContent = formatTime(pomState.timeLeft);
     pipWindow.document.getElementById('pipPhase').textContent = pomState.phase === 'focus' ? 'Focus' : 'Break';
+    updatePipControls();
   } catch { closePip(); }
+}
+
+function updatePipControls() {
+  if (!pipWindow || pipWindow.closed) return;
+  try {
+    const pipStart = pipWindow.document.getElementById('pipStartBtn');
+    const pipPause = pipWindow.document.getElementById('pipPauseBtn');
+    const pipReset = pipWindow.document.getElementById('pipResetBtn');
+    if (pipStart) pipStart.disabled = pomState.running;
+    if (pipPause) pipPause.disabled = !pomState.running;
+    if (pipReset) pipReset.disabled = false;
+  } catch {}
 }
 
 function closePip() {
@@ -178,22 +200,39 @@ async function togglePip() {
     return;
   }
   try {
-    pipWindow = await documentPictureInPicture.requestWindow({ width: 300, height: 160 });
+    pipWindow = await documentPictureInPicture.requestWindow({ width: 300, height: 240 });
     pipBtn.classList.add('active');
     pipWindow.document.body.innerHTML = `
       <div class="pip-timer">
         <div class="pip-time" id="pipTime">25:00</div>
         <div class="pip-phase" id="pipPhase">Focus</div>
+        <div class="pip-controls">
+          <button id="pipStartBtn" class="pip-btn pip-start">Start</button>
+          <button id="pipPauseBtn" class="pip-btn pip-pause" disabled>Pause</button>
+          <button id="pipResetBtn" class="pip-btn pip-reset">Reset</button>
+        </div>
       </div>
       <style>
         *{margin:0;padding:0;box-sizing:border-box}
         html,body{height:100%}
         body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f23;color:#e0e0e0;display:flex;align-items:center;justify-content:center}
         .pip-timer{text-align:center}
-        .pip-time{font-size:4rem;font-weight:700;font-variant-numeric:tabular-nums}
-        .pip-phase{font-size:1rem;text-transform:uppercase;letter-spacing:3px;color:#888;margin-top:0.5rem}
+        .pip-time{font-size:3rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+        .pip-phase{font-size:0.8rem;text-transform:uppercase;letter-spacing:3px;color:#888;margin-top:0.25rem}
+        .pip-controls{display:flex;gap:0.4rem;justify-content:center;margin-top:0.6rem}
+        .pip-btn{padding:0.3rem 0.6rem;border:none;border-radius:5px;font-size:0.7rem;font-weight:600;cursor:pointer;transition:background 0.2s;text-transform:uppercase;letter-spacing:0.5px}
+        .pip-start{background:#ff6b6b;color:#fff}
+        .pip-start:hover:not(:disabled){background:#e55a5a}
+        .pip-pause{background:#4ecdc4;color:#fff}
+        .pip-pause:hover:not(:disabled){background:#3dbdb5}
+        .pip-reset{background:#2d2d44;color:#e0e0e0}
+        .pip-reset:hover:not(:disabled){background:#3d3d55}
+        .pip-btn:disabled{opacity:0.35;cursor:default}
       </style>
     `;
+    pipWindow.document.getElementById('pipStartBtn').addEventListener('click', startTimer);
+    pipWindow.document.getElementById('pipPauseBtn').addEventListener('click', pauseTimer);
+    pipWindow.document.getElementById('pipResetBtn').addEventListener('click', resetTimer);
     updatePipWindow();
     pipUpdateId = setInterval(updatePipWindow, 500);
     pipWindow.addEventListener('pagehide', closePip);
@@ -858,6 +897,9 @@ document.getElementById('helpClose').addEventListener('click', () => helpOverlay
 helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.add('hidden'); });
 
 /* ===== Init ===== */
+startBtn.disabled = false;
+pauseBtn.disabled = true;
+resetBtn.disabled = false;
 updateDisplay();
 updatePhaseLabel();
 renderTagCloud();
