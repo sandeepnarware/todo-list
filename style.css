@@ -942,6 +942,10 @@ header h1 {
   transition: border-color 0.2s;
 }
 
+.form-group input[type="date"] {
+  color-scheme: dark;
+}
+
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
