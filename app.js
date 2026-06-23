@@ -564,14 +564,33 @@ function renderTodos() {
   pending.forEach(todo => renderTodoItem(todo, tagColors, false));
 
   if (showCompleted && completed.length > 0) {
-    const separator = document.createElement('li');
-    separator.className = 'completed-section-header';
-    const sepSpan = document.createElement('span');
-    sepSpan.textContent = 'Completed';
-    separator.appendChild(sepSpan);
-    todoList.appendChild(separator);
+    const groups = {};
+    completed.forEach(todo => {
+      if (!todo.completedAt) return;
+      const key = new Date(todo.completedAt).toISOString().slice(0, 10);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(todo);
+    });
 
-    completed.forEach(todo => renderTodoItem(todo, tagColors, true));
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    Object.keys(groups).sort().reverse().forEach(dateKey => {
+      const date = new Date(dateKey + 'T00:00:00');
+      let label;
+      if (dateKey === today) label = 'Today';
+      else if (dateKey === yesterday) label = 'Yesterday';
+      else label = date.toLocaleDateString();
+
+      const separator = document.createElement('li');
+      separator.className = 'completed-section-header';
+      const sepSpan = document.createElement('span');
+      sepSpan.textContent = label;
+      separator.appendChild(sepSpan);
+      todoList.appendChild(separator);
+
+      groups[dateKey].forEach(todo => renderTodoItem(todo, tagColors, true));
+    });
   }
 
   const toggleBtn = document.getElementById('completedToggle');
