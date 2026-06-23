@@ -268,6 +268,7 @@ let todos = loadTodos();
 let tagFilter = null;
 let draggedIndex = null;
 let tagsList = [];
+let showCompleted = false;
 
 const TAG_COLORS = [
   '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff',
@@ -358,6 +359,7 @@ function migrateTodo(old) {
     frequency: 'none',
     tags,
     done: old.done,
+    completedAt: null,
     createdAt: Date.now()
   };
 }
@@ -415,135 +417,170 @@ function matchesTagFilter(todo, tagFilter) {
   return (todo.tags || []).some(t => t.toLowerCase() === tagFilter);
 }
 
+function renderTodoItem(todo, tagColors, showCompleted) {
+  const origIndex = todos.indexOf(todo);
+  const li = document.createElement('li');
+  if (todo.done) li.classList.add('completed');
+
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = todo.done;
+  cb.addEventListener('change', () => {
+    const t = todos[origIndex];
+    t.done = cb.checked;
+    t.completedAt = cb.checked ? Date.now() : null;
+    if (t.done && t.frequency && t.frequency !== 'none') {
+      const nextDue = calcNextDue(t.dueDate, t.frequency);
+      if (nextDue) {
+        todos.push({
+          id: crypto.randomUUID(),
+          title: t.title,
+          description: t.description,
+          dueDate: nextDue,
+          priority: t.priority,
+          project: t.project,
+          frequency: t.frequency,
+          tags: [...t.tags],
+          done: false,
+          completedAt: null,
+          createdAt: Date.now()
+        });
+      }
+    }
+    saveTodos();
+    renderTagCloud();
+    renderTodos();
+  });
+
+  const content = document.createElement('div');
+  content.className = 'task-content';
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'task-title-row';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'task-text';
+  titleSpan.textContent = todo.title;
+  titleRow.appendChild(titleSpan);
+
+  const badges = document.createElement('div');
+  badges.className = 'task-badges';
+
+  if (todo.priority && todo.priority !== 'none') {
+    const pBadge = document.createElement('span');
+    pBadge.className = `priority-badge ${todo.priority}`;
+    pBadge.textContent = todo.priority;
+    badges.appendChild(pBadge);
+  }
+
+  if (todo.project) {
+    const projBadge = document.createElement('span');
+    projBadge.className = 'project-badge';
+    projBadge.textContent = todo.project;
+    badges.appendChild(projBadge);
+  }
+
+  if (todo.frequency && todo.frequency !== 'none') {
+    const freqBadge = document.createElement('span');
+    freqBadge.className = 'freq-badge';
+    freqBadge.textContent = '🔄 ' + todo.frequency;
+    badges.appendChild(freqBadge);
+  }
+
+  const dueInfo = parseDueInfo(todo);
+  if (dueInfo) {
+    const badge = document.createElement('span');
+    badge.className = 'due-badge' + (dueInfo.overdue && !todo.done ? ' overdue' : '');
+    badge.textContent = '📅 ' + dueInfo.label;
+    badges.appendChild(badge);
+  }
+
+  if (showCompleted && todo.completedAt) {
+    const completedBadge = document.createElement('span');
+    completedBadge.className = 'completed-badge';
+    const d = new Date(todo.completedAt);
+    completedBadge.textContent = '✓ ' + d.toLocaleDateString();
+    badges.appendChild(completedBadge);
+  }
+
+  if (badges.children.length > 0) {
+    titleRow.appendChild(badges);
+  }
+
+  content.appendChild(titleRow);
+
+  if (todo.tags && todo.tags.length > 0) {
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'task-tags-row';
+    tagsRow.innerHTML = renderTagsList(todo.tags, tagColors);
+    content.appendChild(tagsRow);
+  }
+
+  if (todo.description) {
+    const desc = document.createElement('div');
+    desc.className = 'task-desc';
+    desc.textContent = todo.description;
+    content.appendChild(desc);
+  }
+
+  li.appendChild(cb);
+  li.appendChild(content);
+
+  li.draggable = !tagFilter && !todo.done;
+  li.dataset.index = origIndex;
+
+  const editBtn = document.createElement('button');
+  editBtn.textContent = '✏';
+  editBtn.setAttribute('aria-label', 'Edit task');
+  editBtn.addEventListener('click', () => openEditModal(origIndex));
+
+  const del = document.createElement('button');
+  del.textContent = '✕';
+  del.setAttribute('aria-label', 'Delete task');
+  del.addEventListener('click', () => {
+    todos.splice(origIndex, 1);
+    saveTodos();
+    renderTagCloud();
+    renderTodos();
+  });
+
+  li.appendChild(editBtn);
+  li.appendChild(del);
+  todoList.appendChild(li);
+}
+
 function renderTodos() {
   const filtered = tagFilter ? todos.filter(t => matchesTagFilter(t, tagFilter)) : todos;
 
+  const pending = filtered.filter(t => !t.done);
+  const completed = filtered.filter(t => t.done);
+
   todoList.innerHTML = '';
-  const remaining = filtered.filter(t => !t.done).length;
+
+  const remaining = pending.length;
   taskCount.textContent = remaining;
   const tagColors = getTagColorMap();
 
-  filtered.forEach((todo, i) => {
-    const origIndex = todos.indexOf(todo);
-    const li = document.createElement('li');
-    if (todo.done) li.classList.add('completed');
+  pending.forEach(todo => renderTodoItem(todo, tagColors, false));
 
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = todo.done;
-    cb.addEventListener('change', () => {
-      const t = todos[origIndex];
-      t.done = cb.checked;
-      if (t.done && t.frequency && t.frequency !== 'none') {
-        const nextDue = calcNextDue(t.dueDate, t.frequency);
-        if (nextDue) {
-          todos.push({
-            id: crypto.randomUUID(),
-            title: t.title,
-            description: t.description,
-            dueDate: nextDue,
-            priority: t.priority,
-            project: t.project,
-            frequency: t.frequency,
-            tags: [...t.tags],
-            done: false,
-            createdAt: Date.now()
-          });
-        }
-      }
-      saveTodos();
-      renderTagCloud();
-      renderTodos();
-    });
+  if (showCompleted && completed.length > 0) {
+    const separator = document.createElement('li');
+    separator.className = 'completed-section-header';
+    const sepSpan = document.createElement('span');
+    sepSpan.textContent = 'Completed';
+    separator.appendChild(sepSpan);
+    todoList.appendChild(separator);
 
-    const content = document.createElement('div');
-    content.className = 'task-content';
+    completed.forEach(todo => renderTodoItem(todo, tagColors, true));
+  }
 
-    const titleRow = document.createElement('div');
-    titleRow.className = 'task-title-row';
-
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'task-text';
-    titleSpan.textContent = todo.title;
-    titleRow.appendChild(titleSpan);
-
-    const badges = document.createElement('div');
-    badges.className = 'task-badges';
-
-    if (todo.priority && todo.priority !== 'none') {
-      const pBadge = document.createElement('span');
-      pBadge.className = `priority-badge ${todo.priority}`;
-      pBadge.textContent = todo.priority;
-      badges.appendChild(pBadge);
-    }
-
-    if (todo.project) {
-      const projBadge = document.createElement('span');
-      projBadge.className = 'project-badge';
-      projBadge.textContent = todo.project;
-      badges.appendChild(projBadge);
-    }
-
-    if (todo.frequency && todo.frequency !== 'none') {
-      const freqBadge = document.createElement('span');
-      freqBadge.className = 'freq-badge';
-      freqBadge.textContent = '🔄 ' + todo.frequency;
-      badges.appendChild(freqBadge);
-    }
-
-    const dueInfo = parseDueInfo(todo);
-    if (dueInfo) {
-      const badge = document.createElement('span');
-      badge.className = 'due-badge' + (dueInfo.overdue && !todo.done ? ' overdue' : '');
-      badge.textContent = '📅 ' + dueInfo.label;
-      badges.appendChild(badge);
-    }
-
-    if (badges.children.length > 0) {
-      titleRow.appendChild(badges);
-    }
-
-    content.appendChild(titleRow);
-
-    if (todo.tags && todo.tags.length > 0) {
-      const tagsRow = document.createElement('div');
-      tagsRow.className = 'task-tags-row';
-      tagsRow.innerHTML = renderTagsList(todo.tags, tagColors);
-      content.appendChild(tagsRow);
-    }
-
-    if (todo.description) {
-      const desc = document.createElement('div');
-      desc.className = 'task-desc';
-      desc.textContent = todo.description;
-      content.appendChild(desc);
-    }
-
-    li.appendChild(cb);
-    li.appendChild(content);
-
-    li.draggable = !tagFilter;
-    li.dataset.index = origIndex;
-
-    const editBtn = document.createElement('button');
-    editBtn.textContent = '✏';
-    editBtn.setAttribute('aria-label', 'Edit task');
-    editBtn.addEventListener('click', () => openEditModal(origIndex));
-
-    const del = document.createElement('button');
-    del.textContent = '✕';
-    del.setAttribute('aria-label', 'Delete task');
-    del.addEventListener('click', () => {
-      todos.splice(origIndex, 1);
-      saveTodos();
-      renderTagCloud();
-      renderTodos();
-    });
-
-    li.appendChild(editBtn);
-    li.appendChild(del);
-    todoList.appendChild(li);
-  });
+  const toggleBtn = document.getElementById('completedToggle');
+  if (completed.length > 0) {
+    toggleBtn.textContent = showCompleted ? 'Hide completed' : `Show completed (${completed.length})`;
+    toggleBtn.classList.remove('hidden');
+  } else {
+    toggleBtn.classList.add('hidden');
+  }
 }
 
 /* ===== Modal ===== */
@@ -604,6 +641,7 @@ function saveModal() {
   } else {
     data.id = crypto.randomUUID();
     data.done = false;
+    data.completedAt = null;
     data.createdAt = Date.now();
     todos.push(data);
   }
@@ -895,6 +933,12 @@ const helpOverlay = document.getElementById('helpOverlay');
 document.getElementById('helpBtn').addEventListener('click', () => helpOverlay.classList.remove('hidden'));
 document.getElementById('helpClose').addEventListener('click', () => helpOverlay.classList.add('hidden'));
 helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.add('hidden'); });
+
+/* ===== Completed Toggle ===== */
+document.getElementById('completedToggle').addEventListener('click', () => {
+  showCompleted = !showCompleted;
+  renderTodos();
+});
 
 /* ===== Init ===== */
 startBtn.disabled = false;
