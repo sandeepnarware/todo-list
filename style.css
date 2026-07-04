@@ -279,6 +279,18 @@ header h1 {
   color: var(--text-secondary);
 }
 
+/* Current task display */
+.current-task {
+  font-size: 0.9rem;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  font-weight: 500;
+  min-height: 1.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Todo */
 .todo {
   background: var(--bg-card);
@@ -344,6 +356,20 @@ header h1 {
 
 #todoList li button:hover {
   opacity: 1;
+}
+
+.play-btn {
+  font-size: 0.9rem !important;
+  flex-shrink: 0;
+  padding: 0 0.15rem !important;
+}
+
+.task-pomo-count {
+  font-size: 0.75rem;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 0.25rem;
 }
 
 #todoList li .edit-input {

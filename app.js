@@ -130,6 +130,12 @@ function switchPhase() {
     pomState.sessionCount++;
     sessionCountEl.textContent = pomState.sessionCount;
     recordSession();
+    const task = getActiveTask();
+    if (task) {
+      task.pomodoros = (task.pomodoros || 0) + 1;
+      saveTodos();
+      renderTodos();
+    }
     pomState.phase = 'break';
     pomState.timeLeft = BREAK_TIME;
   } else {
@@ -170,6 +176,9 @@ function updatePipWindow() {
   try {
     pipWindow.document.getElementById('pipTime').textContent = formatTime(pomState.timeLeft);
     pipWindow.document.getElementById('pipPhase').textContent = pomState.phase === 'focus' ? 'Focus' : 'Break';
+    const task = getActiveTask();
+    const pipTask = pipWindow.document.getElementById('pipCurrentTask');
+    if (pipTask) pipTask.textContent = task ? '▶ ' + task.title : '';
     updatePipControls();
   } catch { closePip(); }
 }
@@ -206,6 +215,7 @@ async function togglePip() {
       <div class="pip-timer">
         <div class="pip-time" id="pipTime">25:00</div>
         <div class="pip-phase" id="pipPhase">Focus</div>
+        <div class="pip-current-task" id="pipCurrentTask"></div>
         <div class="pip-controls">
           <button id="pipStartBtn" class="pip-btn pip-start">Start</button>
           <button id="pipPauseBtn" class="pip-btn pip-pause" disabled>Pause</button>
@@ -219,6 +229,7 @@ async function togglePip() {
         .pip-timer{text-align:center}
         .pip-time{font-size:3rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
         .pip-phase{font-size:0.8rem;text-transform:uppercase;letter-spacing:3px;color:#888;margin-top:0.25rem}
+        .pip-current-task{font-size:0.75rem;color:#ff6b6b;margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:inline-block}
         .pip-controls{display:flex;gap:0.4rem;justify-content:center;margin-top:0.6rem}
         .pip-btn{padding:0.3rem 0.6rem;border:none;border-radius:5px;font-size:0.7rem;font-weight:600;cursor:pointer;transition:background 0.2s;text-transform:uppercase;letter-spacing:0.5px}
         .pip-start{background:#ff6b6b;color:#fff}
@@ -269,6 +280,52 @@ let tagFilter = null;
 let draggedIndex = null;
 let tagsList = [];
 let showCompleted = false;
+
+/* ===== Active Task ===== */
+const currentTaskDisplay = document.getElementById('currentTaskDisplay');
+let activeTaskId = loadActiveTask();
+
+function loadActiveTask() {
+  return localStorage.getItem('activeTaskId') || null;
+}
+
+function saveActiveTask(id) {
+  activeTaskId = id;
+  if (id) {
+    localStorage.setItem('activeTaskId', id);
+  } else {
+    localStorage.removeItem('activeTaskId');
+  }
+  updateCurrentTaskDisplay();
+  renderTodos();
+}
+
+function getActiveTask() {
+  if (!activeTaskId) return null;
+  const task = todos.find(t => t.id === activeTaskId);
+  if (!task) {
+    saveActiveTask(null);
+    return null;
+  }
+  return task;
+}
+
+function setActiveTask(id) {
+  if (activeTaskId === id) {
+    saveActiveTask(null);
+  } else {
+    saveActiveTask(id);
+  }
+}
+
+function updateCurrentTaskDisplay() {
+  const task = getActiveTask();
+  currentTaskDisplay.textContent = task ? '▶ ' + task.title : '';
+  if (pipWindow && !pipWindow.closed) {
+    const el = pipWindow.document.getElementById('pipCurrentTask');
+    if (el) el.textContent = task ? '▶ ' + task.title : '';
+  }
+}
 
 const TAG_COLORS = [
   '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff',
@@ -327,7 +384,10 @@ function saveTodos() {
 }
 
 function migrateTodo(old) {
-  if (old.id) return old;
+  if (old.id) {
+    if (old.pomodoros === undefined) old.pomodoros = 0;
+    return old;
+  }
   const tags = [];
   let text = old.text;
   const tagMatches = text.match(/#([\w-]+)/g);
@@ -360,7 +420,8 @@ function migrateTodo(old) {
     tags,
     done: old.done,
     completedAt: null,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    pomodoros: 0
   };
 }
 
@@ -443,7 +504,8 @@ function renderTodoItem(todo, tagColors, showCompleted) {
           tags: [...t.tags],
           done: false,
           completedAt: null,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          pomodoros: 0
         });
       }
     }
@@ -523,8 +585,23 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     content.appendChild(desc);
   }
 
+  const playBtn = document.createElement('button');
+  playBtn.className = 'play-btn';
+  playBtn.innerHTML = todo.id === activeTaskId ? '⏹' : '▶';
+  playBtn.setAttribute('aria-label', 'Focus on this task');
+  playBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setActiveTask(todo.id);
+  });
+
+  const pomoBadge = document.createElement('span');
+  pomoBadge.className = 'task-pomo-count';
+  pomoBadge.textContent = '🍅 ' + (todo.pomodoros || 0);
+
   li.appendChild(cb);
   li.appendChild(content);
+  li.appendChild(playBtn);
+  li.appendChild(pomoBadge);
 
   li.draggable = !tagFilter && !todo.done;
   li.dataset.index = origIndex;
@@ -538,7 +615,9 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   del.textContent = '✕';
   del.setAttribute('aria-label', 'Delete task');
   del.addEventListener('click', () => {
+    const wasActive = todos[origIndex] && todos[origIndex].id === activeTaskId;
     todos.splice(origIndex, 1);
+    if (wasActive) saveActiveTask(null);
     saveTodos();
     renderTagCloud();
     renderTodos();
@@ -662,6 +741,7 @@ function saveModal() {
     data.done = false;
     data.completedAt = null;
     data.createdAt = Date.now();
+    data.pomodoros = 0;
     todos.push(data);
   }
 
@@ -965,6 +1045,7 @@ pauseBtn.disabled = true;
 resetBtn.disabled = false;
 updateDisplay();
 updatePhaseLabel();
+updateCurrentTaskDisplay();
 renderTagCloud();
 renderTodos();
 renderStats();
