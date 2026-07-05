@@ -280,6 +280,7 @@ let tagFilter = null;
 let draggedIndex = null;
 let tagsList = [];
 let showCompleted = false;
+let completedPage = 0;
 
 /* ===== Active Task ===== */
 const currentTaskDisplay = document.getElementById('currentTaskDisplay');
@@ -651,10 +652,16 @@ function renderTodos() {
       groups[key].push(todo);
     });
 
+    const dateKeys = Object.keys(groups).sort().reverse();
+    const totalPages = Math.ceil(dateKeys.length / 2);
+    if (completedPage >= totalPages) completedPage = totalPages - 1;
+    if (completedPage < 0) completedPage = 0;
+
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const startIdx = completedPage * 2;
 
-    Object.keys(groups).sort().reverse().forEach(dateKey => {
+    dateKeys.slice(startIdx, startIdx + 2).forEach(dateKey => {
       const date = new Date(dateKey + 'T00:00:00');
       let label;
       if (dateKey === today) label = 'Today';
@@ -670,6 +677,29 @@ function renderTodos() {
 
       groups[dateKey].forEach(todo => renderTodoItem(todo, tagColors, true));
     });
+
+    if (totalPages > 1) {
+      const nav = document.createElement('li');
+      nav.className = 'completed-pagination';
+
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Newer';
+      prevBtn.disabled = completedPage === 0;
+      prevBtn.addEventListener('click', () => { completedPage--; renderTodos(); });
+
+      const pageInfo = document.createElement('span');
+      pageInfo.textContent = `${completedPage + 1} / ${totalPages}`;
+
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Older →';
+      nextBtn.disabled = completedPage >= totalPages - 1;
+      nextBtn.addEventListener('click', () => { completedPage++; renderTodos(); });
+
+      nav.appendChild(prevBtn);
+      nav.appendChild(pageInfo);
+      nav.appendChild(nextBtn);
+      todoList.appendChild(nav);
+    }
   }
 
   const toggleBtn = document.getElementById('completedToggle');
@@ -1036,6 +1066,7 @@ helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) hel
 /* ===== Completed Toggle ===== */
 document.getElementById('completedToggle').addEventListener('click', () => {
   showCompleted = !showCompleted;
+  completedPage = 0;
   renderTodos();
 });
 
