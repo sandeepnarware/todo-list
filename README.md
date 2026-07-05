@@ -15,4 +15,4 @@ Open `index.html` in any browser or visit the GitHub Pages URL.
 
 ## Deploy
 
-Push to `main`, then enable Pages in repo settings → Source: Deploy from branch `main`, root folder.
+Push to `main` and enable Pages in repo settings → Source: **GitHub Actions**.
