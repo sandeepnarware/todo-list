@@ -276,6 +276,7 @@ const modalCancel = document.getElementById('modalCancel');
 const modalClose = document.getElementById('modalClose');
 
 let todos = loadTodos();
+let goldenTaskId = loadGoldenTask();
 validateGoldenTask();
 let tagFilter = null;
 let draggedIndex = null;
@@ -286,7 +287,6 @@ let completedPage = 0;
 /* ===== Active Task ===== */
 const currentTaskDisplay = document.getElementById('currentTaskDisplay');
 let activeTaskId = loadActiveTask();
-let goldenTaskId = loadGoldenTask();
 
 function loadActiveTask() {
   return localStorage.getItem('activeTaskId') || null;
