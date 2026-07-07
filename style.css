@@ -785,6 +785,29 @@ header h1 {
   color: var(--text-on-accent);
 }
 
+/* Golden task */
+#todoList li.golden {
+  border-left: 3px solid #f1c40f;
+  background: linear-gradient(90deg, #f1c40f0d, transparent);
+  padding-left: 0.5rem;
+}
+
+.golden-btn {
+  font-size: 0.9rem !important;
+  flex-shrink: 0;
+  padding: 0 0.15rem !important;
+  opacity: 0.4;
+  transition: opacity 0.2s, transform 0.2s;
+  cursor: pointer;
+  filter: grayscale(1);
+}
+
+.golden-btn.active {
+  opacity: 1;
+  transform: scale(1.15);
+  filter: grayscale(0);
+}
+
 /* Drag & Drop */
 #todoList li.dragging {
   opacity: 0.4;

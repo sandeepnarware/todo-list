@@ -276,6 +276,7 @@ const modalCancel = document.getElementById('modalCancel');
 const modalClose = document.getElementById('modalClose');
 
 let todos = loadTodos();
+validateGoldenTask();
 let tagFilter = null;
 let draggedIndex = null;
 let tagsList = [];
@@ -285,6 +286,7 @@ let completedPage = 0;
 /* ===== Active Task ===== */
 const currentTaskDisplay = document.getElementById('currentTaskDisplay');
 let activeTaskId = loadActiveTask();
+let goldenTaskId = loadGoldenTask();
 
 function loadActiveTask() {
   return localStorage.getItem('activeTaskId') || null;
@@ -326,6 +328,35 @@ function updateCurrentTaskDisplay() {
     const el = pipWindow.document.getElementById('pipCurrentTask');
     if (el) el.textContent = task ? '▶ ' + task.title : '';
   }
+}
+
+/* ===== Golden Task ===== */
+function loadGoldenTask() {
+  return localStorage.getItem('goldenTaskId') || null;
+}
+
+function saveGoldenTask(id) {
+  goldenTaskId = id;
+  if (id) {
+    localStorage.setItem('goldenTaskId', id);
+  } else {
+    localStorage.removeItem('goldenTaskId');
+  }
+  renderTodos();
+}
+
+function toggleGoldenTask(id) {
+  if (goldenTaskId === id) {
+    saveGoldenTask(null);
+  } else {
+    saveGoldenTask(id);
+  }
+}
+
+function validateGoldenTask() {
+  if (!goldenTaskId) return;
+  const task = todos.find(t => t.id === goldenTaskId && !t.done);
+  if (!task) saveGoldenTask(null);
 }
 
 const TAG_COLORS = [
@@ -483,6 +514,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   const origIndex = todos.indexOf(todo);
   const li = document.createElement('li');
   if (todo.done) li.classList.add('completed');
+  if (!todo.done && todo.id === goldenTaskId) li.classList.add('golden');
 
   const cb = document.createElement('input');
   cb.type = 'checkbox';
@@ -491,6 +523,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     const t = todos[origIndex];
     t.done = cb.checked;
     t.completedAt = cb.checked ? Date.now() : null;
+    if (t.done && t.id === goldenTaskId) saveGoldenTask(null);
     if (t.done && t.frequency && t.frequency !== 'none') {
       const nextDue = calcNextDue(t.dueDate, t.frequency);
       if (nextDue) {
@@ -599,8 +632,18 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   pomoBadge.className = 'task-pomo-count';
   pomoBadge.textContent = '🍅 ' + (todo.pomodoros || 0);
 
+  const goldenBtn = document.createElement('button');
+  goldenBtn.className = 'golden-btn' + (todo.id === goldenTaskId ? ' active' : '');
+  goldenBtn.textContent = '⭐';
+  goldenBtn.setAttribute('aria-label', 'Mark as golden task');
+  goldenBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleGoldenTask(todo.id);
+  });
+
   li.appendChild(cb);
   li.appendChild(content);
+  li.appendChild(goldenBtn);
   li.appendChild(playBtn);
   li.appendChild(pomoBadge);
 
@@ -617,8 +660,10 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   del.setAttribute('aria-label', 'Delete task');
   del.addEventListener('click', () => {
     const wasActive = todos[origIndex] && todos[origIndex].id === activeTaskId;
+    const wasGolden = todos[origIndex] && todos[origIndex].id === goldenTaskId;
     todos.splice(origIndex, 1);
     if (wasActive) saveActiveTask(null);
+    if (wasGolden) saveGoldenTask(null);
     saveTodos();
     renderTagCloud();
     renderTodos();
@@ -634,6 +679,12 @@ function renderTodos() {
 
   const pending = filtered.filter(t => !t.done);
   const completed = filtered.filter(t => t.done);
+
+  pending.sort((a, b) => {
+    if (a.id === goldenTaskId) return -1;
+    if (b.id === goldenTaskId) return 1;
+    return 0;
+  });
 
   todoList.innerHTML = '';
 
