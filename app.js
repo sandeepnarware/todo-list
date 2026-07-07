@@ -418,6 +418,7 @@ function saveTodos() {
 function migrateTodo(old) {
   if (old.id) {
     if (old.pomodoros === undefined) old.pomodoros = 0;
+    if (old.wasGolden === undefined) old.wasGolden = false;
     return old;
   }
   const tags = [];
@@ -453,7 +454,8 @@ function migrateTodo(old) {
     done: old.done,
     completedAt: null,
     createdAt: Date.now(),
-    pomodoros: 0
+    pomodoros: 0,
+    wasGolden: false
   };
 }
 
@@ -523,7 +525,10 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     const t = todos[origIndex];
     t.done = cb.checked;
     t.completedAt = cb.checked ? Date.now() : null;
-    if (t.done && t.id === goldenTaskId) saveGoldenTask(null);
+    if (t.done && t.id === goldenTaskId) {
+      t.wasGolden = true;
+      saveGoldenTask(null);
+    }
     if (t.done && t.frequency && t.frequency !== 'none') {
       const nextDue = calcNextDue(t.dueDate, t.frequency);
       if (nextDue) {
@@ -539,7 +544,8 @@ function renderTodoItem(todo, tagColors, showCompleted) {
           done: false,
           completedAt: null,
           createdAt: Date.now(),
-          pomodoros: 0
+          pomodoros: 0,
+          wasGolden: false
         });
       }
     }
@@ -828,6 +834,7 @@ function saveModal() {
     data.completedAt = null;
     data.createdAt = Date.now();
     data.pomodoros = 0;
+    data.wasGolden = false;
     todos.push(data);
   }
 
@@ -1003,6 +1010,19 @@ function renderStats() {
 }
 
 /* ===== Calendar ===== */
+function getGoldenDays(year, month) {
+  const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const golden = {};
+  todos.forEach(t => {
+    if (t.wasGolden && t.completedAt) {
+      const d = new Date(t.completedAt);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (dateStr.startsWith(prefix)) golden[dateStr] = true;
+    }
+  });
+  return golden;
+}
+
 function renderCalendar() {
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
@@ -1019,6 +1039,7 @@ function renderCalendar() {
   });
 
   const maxCount = Math.max(...Object.values(counts), 1);
+  const goldenDays = getGoldenDays(year, month);
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   let html = `
@@ -1042,6 +1063,7 @@ function renderCalendar() {
     const count = counts[dateStr] || 0;
     const level = count === 0 ? 0 : Math.min(5, Math.ceil((count / maxCount) * 5));
     html += `<div class="day-cell level-${level}"><div class="day-num">${d}</div>`;
+    if (goldenDays[dateStr]) html += `<div class="day-star">⭐</div>`;
     if (count > 0) html += `<div class="day-count">${count}</div>`;
     html += '</div>';
   }

@@ -647,6 +647,11 @@ header h1 {
   font-weight: 500;
 }
 
+.calendar-grid .day-cell .day-star {
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
 .calendar-grid .day-cell .day-count {
   font-size: 0.6rem;
   color: var(--text-secondary);
