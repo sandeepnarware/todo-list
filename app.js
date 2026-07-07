@@ -623,11 +623,11 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   playBtn.className = 'play-btn';
   playBtn.innerHTML = todo.id === activeTaskId ? '⏹' : '▶';
   playBtn.setAttribute('aria-label', 'Focus on this task');
-  playBtn.addEventListener('click', (e) => {
+  playBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (activeTaskId && activeTaskId !== todo.id) {
       const current = getActiveTask();
-      if (!confirm(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
+      if (!await showConfirmModal(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
     }
     setActiveTask(todo.id);
   });
@@ -662,8 +662,8 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   const del = document.createElement('button');
   del.textContent = '✕';
   del.setAttribute('aria-label', 'Delete task');
-  del.addEventListener('click', () => {
-    if (!confirm(`Delete "${todo.title}"?`)) return;
+  del.addEventListener('click', async () => {
+    if (!await showConfirmModal(`Delete "${todo.title}"?`)) return;
     const wasActive = todos[origIndex] && todos[origIndex].id === activeTaskId;
     const wasGolden = todos[origIndex] && todos[origIndex].id === goldenTaskId;
     todos.splice(origIndex, 1);
@@ -858,6 +858,45 @@ function renderTagChips() {
     el.addEventListener('click', () => removeTag(el.dataset.tag));
   });
 }
+
+/* ===== Confirm Modal ===== */
+function showConfirmModal(message) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('confirmModal');
+    const msgEl = document.getElementById('confirmMessage');
+    const okBtn = document.getElementById('confirmOk');
+    const cancelBtn = document.getElementById('confirmCancel');
+
+    msgEl.textContent = message;
+    overlay.classList.remove('hidden');
+
+    function cleanup(result) {
+      overlay.classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
+document.getElementById('confirmModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('confirmModal').classList.add('hidden');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('confirmModal');
+    if (!overlay.classList.contains('hidden')) overlay.classList.add('hidden');
+  }
+});
 
 addTaskBtn.addEventListener('click', openAddModal);
 modalClose.addEventListener('click', closeModal);
