@@ -625,6 +625,10 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   playBtn.setAttribute('aria-label', 'Focus on this task');
   playBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (activeTaskId && activeTaskId !== todo.id) {
+      const current = getActiveTask();
+      if (!confirm(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
+    }
     setActiveTask(todo.id);
   });
 
@@ -659,6 +663,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   del.textContent = '✕';
   del.setAttribute('aria-label', 'Delete task');
   del.addEventListener('click', () => {
+    if (!confirm(`Delete "${todo.title}"?`)) return;
     const wasActive = todos[origIndex] && todos[origIndex].id === activeTaskId;
     const wasGolden = todos[origIndex] && todos[origIndex].id === goldenTaskId;
     todos.splice(origIndex, 1);
