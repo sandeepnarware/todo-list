@@ -646,8 +646,12 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   goldenBtn.className = 'golden-btn' + (todo.id === goldenTaskId ? ' active' : '');
   goldenBtn.textContent = '⭐';
   goldenBtn.setAttribute('aria-label', 'Mark as golden task');
-  goldenBtn.addEventListener('click', (e) => {
+  goldenBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
+    if (goldenTaskId && goldenTaskId !== todo.id) {
+      const current = todos.find(t => t.id === goldenTaskId && !t.done);
+      if (current && !await showConfirmModal(`"${current.title}" is your golden task. Make "${todo.title}" the golden task instead?`)) return;
+    }
     toggleGoldenTask(todo.id);
   });
 
