@@ -1230,7 +1230,16 @@ function formatMonthLabel(key) {
 function renderQGCard(key, isPast) {
   const goals = loadQuarterlyGoals();
   const items = goals[key] || [];
-  const label = formatMonthLabel(key);
+  let label = formatMonthLabel(key);
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const currentKey = getMonthKey(now);
+  if (key === currentKey) {
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const remaining = lastDay - today.getDate();
+    label += ` (${remaining}d left)`;
+  }
 
   let itemsHtml = items.length === 0
     ? '<div class="qg-empty">No goals set</div>'
