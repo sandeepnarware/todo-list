@@ -625,22 +625,8 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     content.appendChild(desc);
   }
 
-  const playBtn = document.createElement('button');
-  playBtn.className = 'play-btn';
-  playBtn.innerHTML = todo.id === activeTaskId ? '⏹' : '▶';
-  playBtn.setAttribute('aria-label', 'Focus on this task');
-  playBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (activeTaskId && activeTaskId !== todo.id) {
-      const current = getActiveTask();
-      if (!await showConfirmModal(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
-    }
-    setActiveTask(todo.id);
-  });
-
-  const pomoBadge = document.createElement('span');
-  pomoBadge.className = 'task-pomo-count';
-  pomoBadge.textContent = '🍅 ' + (todo.pomodoros || 0);
+  const actionsRow = document.createElement('div');
+  actionsRow.className = 'task-actions-row';
 
   const goldenBtn = document.createElement('button');
   goldenBtn.className = 'golden-btn' + (todo.id === goldenTaskId ? ' active' : '');
@@ -654,20 +640,32 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     }
     toggleGoldenTask(todo.id);
   });
+  actionsRow.appendChild(goldenBtn);
 
-  li.appendChild(cb);
-  li.appendChild(content);
-  li.appendChild(goldenBtn);
-  li.appendChild(playBtn);
-  li.appendChild(pomoBadge);
+  const playBtn = document.createElement('button');
+  playBtn.className = 'play-btn';
+  playBtn.innerHTML = todo.id === activeTaskId ? '⏹' : '▶';
+  playBtn.setAttribute('aria-label', 'Focus on this task');
+  playBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (activeTaskId && activeTaskId !== todo.id) {
+      const current = getActiveTask();
+      if (!await showConfirmModal(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
+    }
+    setActiveTask(todo.id);
+  });
+  actionsRow.appendChild(playBtn);
 
-  li.draggable = !tagFilter && !todo.done;
-  li.dataset.index = origIndex;
+  const pomoBadge = document.createElement('span');
+  pomoBadge.className = 'task-pomo-count';
+  pomoBadge.textContent = '🍅 ' + (todo.pomodoros || 0);
+  actionsRow.appendChild(pomoBadge);
 
   const editBtn = document.createElement('button');
   editBtn.textContent = '✏';
   editBtn.setAttribute('aria-label', 'Edit task');
   editBtn.addEventListener('click', () => openEditModal(origIndex));
+  actionsRow.appendChild(editBtn);
 
   const del = document.createElement('button');
   del.textContent = '✕';
@@ -683,9 +681,16 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     renderTagCloud();
     renderTodos();
   });
+  actionsRow.appendChild(del);
 
-  li.appendChild(editBtn);
-  li.appendChild(del);
+  content.appendChild(actionsRow);
+
+  li.appendChild(cb);
+  li.appendChild(content);
+
+  li.draggable = !tagFilter && !todo.done;
+  li.dataset.index = origIndex;
+
   todoList.appendChild(li);
 }
 
