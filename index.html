@@ -19,6 +19,11 @@
     </header>
 
     <section class="pomodoro pomodoro--compact" id="pomodoroSection">
+      <div class="section-title-bar">
+        <span class="section-toggle" data-section="pomodoro">▾</span>
+        <span class="section-label">Pomodoro</span>
+      </div>
+      <div class="section-content" id="pomodoroContent">
       <div class="pomodoro-compact-bar">
         <span class="compact-time" id="compactTimer">25:00</span>
         <span class="compact-phase" id="compactPhase">Focus</span>
@@ -45,20 +50,36 @@
       <div class="session-count">
         Sessions completed: <span id="sessionCount">0</span>
       </div>
+      </div>
     </section>
 
     <section class="todo">
-      <h2>Tasks</h2>
+      <div class="section-title-bar">
+        <span class="section-toggle" data-section="tasks">▾</span>
+        <span class="section-label">Tasks</span>
+      </div>
+      <div class="section-content" id="tasksContent">
       <div class="quick-add-row">
         <input type="text" id="quickAddInput" placeholder="Add a task…">
         <button id="quickAddBtn" class="quick-add-btn">+</button>
         <button id="addTaskBtn" class="quick-add-details-btn" title="Add with details">⋯</button>
       </div>
+      <div class="task-search-row">
+        <input type="text" id="taskSearch" placeholder="Search tasks…">
+      </div>
       <div id="tagCloud"></div>
+      <div id="taskStatBar" class="task-stat-bar"></div>
       <ul id="todoList"></ul>
       <div class="todo-stats">
         <span id="taskCount">0</span> tasks remaining
+        <div class="sort-controls">
+          <button class="sort-btn active" data-sort="custom">Custom</button>
+          <button class="sort-btn" data-sort="date">Date</button>
+          <button class="sort-btn" data-sort="priority">Priority</button>
+          <button class="sort-btn" data-sort="title">Title</button>
+        </div>
         <button id="completedToggle" class="completed-toggle-btn hidden"></button>
+      </div>
       </div>
     </section>
 
@@ -111,6 +132,10 @@
           </div>
         </div>
         <div class="form-group">
+          <label for="taskEstPomodoros">Estimated Pomodoros</label>
+          <input type="number" id="taskEstPomodoros" min="0" value="0" placeholder="0">
+        </div>
+        <div class="form-group">
           <label>Tags</label>
           <div class="tags-input-wrapper">
             <input type="text" id="taskTags" placeholder="Type a tag and press Enter">
@@ -126,18 +151,31 @@
   </div>
 
     <section class="stats">
-      <div class="stats-header">
-        <h2>Statistics</h2>
+      <div class="section-title-bar">
+        <span class="section-toggle" data-section="stats">▾</span>
+        <span class="section-label">Statistics</span>
+        <button id="exportBtn" class="export-btn" title="Export all data">📥</button>
       </div>
-      <div id="statsContent"></div>
+      <div class="section-content" id="statsContent">
+        <div id="weeklyStats" class="weekly-stats"></div>
+        <div id="statsViews"></div>
+      </div>
     </section>
 
     <section class="quarterly-goals">
-      <div class="stats-header">
-        <h2>Quarterly Goals</h2>
+      <div class="section-title-bar">
+        <span class="section-toggle" data-section="goals">▾</span>
+        <span class="section-label">Quarterly Goals</span>
       </div>
-      <div id="quarterlyGoalsContent"></div>
+      <div class="section-content" id="goalsContent">
+        <div id="quarterlyGoalsContent"></div>
+      </div>
     </section>
+  </div>
+
+  <div id="toast" class="toast hidden">
+    <span id="toastMsg"></span>
+    <button id="toastUndo" class="toast-undo">Undo</button>
   </div>
 
   <div id="confirmModal" class="modal-overlay hidden">

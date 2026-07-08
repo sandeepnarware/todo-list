@@ -292,9 +292,16 @@ const taskProject = document.getElementById('taskProject');
 const taskFrequency = document.getElementById('taskFrequency');
 const taskTags = document.getElementById('taskTags');
 const tagsContainer = document.getElementById('tagsContainer');
+const taskEstPomodoros = document.getElementById('taskEstPomodoros');
 const modalSave = document.getElementById('modalSave');
 const modalCancel = document.getElementById('modalCancel');
 const modalClose = document.getElementById('modalClose');
+
+const taskSearch = document.getElementById('taskSearch');
+const taskStatBar = document.getElementById('taskStatBar');
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+const toastUndo = document.getElementById('toastUndo');
 
 let todos = loadTodos();
 let goldenTaskId = loadGoldenTask();
@@ -304,6 +311,10 @@ let draggedIndex = null;
 let tagsList = [];
 let showCompleted = false;
 let completedPage = 0;
+let sortBy = 'custom';
+let searchQuery = '';
+let toastTimer = null;
+let undoData = null;
 
 /* ===== Active Task ===== */
 const currentTaskDisplay = document.getElementById('currentTaskDisplay');
@@ -476,6 +487,7 @@ function migrateTodo(old) {
     completedAt: null,
     createdAt: Date.now(),
     pomodoros: 0,
+    estPomodoros: 0,
     wasGolden: false
   };
 }
@@ -566,6 +578,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
           completedAt: null,
           createdAt: Date.now(),
           pomodoros: 0,
+          estPomodoros: t.estPomodoros || 0,
           wasGolden: false
         });
       }
@@ -679,7 +692,13 @@ function renderTodoItem(todo, tagColors, showCompleted) {
 
   const pomoBadge = document.createElement('span');
   pomoBadge.className = 'task-pomo-count';
-  pomoBadge.textContent = '🍅 ' + (todo.pomodoros || 0);
+  const est = todo.estPomodoros || 0;
+  if (est > 0) {
+    const done = todo.pomodoros || 0;
+    pomoBadge.innerHTML = `🍅 <span class="est-pomo-done">${done}</span><span class="est-pomo-sep">/</span>${est}`;
+  } else {
+    pomoBadge.textContent = '🍅 ' + (todo.pomodoros || 0);
+  }
   actionsRow.appendChild(pomoBadge);
 
   const editBtn = document.createElement('button');
@@ -691,13 +710,24 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   const del = document.createElement('button');
   del.textContent = '✕';
   del.setAttribute('aria-label', 'Delete task');
-  del.addEventListener('click', async () => {
-    if (!await showConfirmModal(`Delete "${todo.title}"?`)) return;
-    const wasActive = todos[origIndex] && todos[origIndex].id === activeTaskId;
-    const wasGolden = todos[origIndex] && todos[origIndex].id === goldenTaskId;
+  del.addEventListener('click', () => {
+    const removed = todos[origIndex];
+    const wasActive = removed && removed.id === activeTaskId;
+    const wasGolden = removed && removed.id === goldenTaskId;
     todos.splice(origIndex, 1);
     if (wasActive) saveActiveTask(null);
     if (wasGolden) saveGoldenTask(null);
+    const restoredIndex = origIndex;
+    showToast(`Deleted "${removed.title}"`, () => {
+      todos.splice(restoredIndex, 0, removed);
+      if (wasActive) activeTaskId = removed.id;
+      if (wasGolden) goldenTaskId = removed.id;
+      saveTodos();
+      if (wasActive) saveActiveTask(removed.id);
+      if (wasGolden) saveGoldenTask(removed.id);
+      renderTagCloud();
+      renderTodos();
+    });
     saveTodos();
     renderTagCloud();
     renderTodos();
@@ -713,32 +743,138 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   li.appendChild(cb);
   li.appendChild(content);
 
-  li.draggable = !tagFilter && !todo.done;
+  li.draggable = !tagFilter && !searchQuery.trim() && sortBy === 'custom' && !todo.done;
   li.dataset.index = origIndex;
 
   todoList.appendChild(li);
 }
 
+function getDueGroup(todo) {
+  if (!todo.dueDate) return 'none';
+  const p = todo.dueDate.split('-');
+  const due = new Date(+p[0], +p[1] - 1, +p[2]);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return 'overdue';
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff <= 7) return 'week';
+  return 'later';
+}
+
 function renderTodos() {
-  const filtered = tagFilter ? todos.filter(t => matchesTagFilter(t, tagFilter)) : todos;
+  const q = searchQuery.trim().toLowerCase();
+  let filtered = tagFilter ? todos.filter(t => matchesTagFilter(t, tagFilter)) : todos;
+  if (q) filtered = filtered.filter(t => t.title.toLowerCase().includes(q));
 
   const pending = filtered.filter(t => !t.done);
   const completed = filtered.filter(t => t.done);
 
-  pending.sort((a, b) => {
-    if (a.id === goldenTaskId) return -1;
-    if (b.id === goldenTaskId) return 1;
-    return 0;
-  });
+  const tagColors = getTagColorMap();
+
+  const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+
+  if (sortBy === 'custom') {
+    pending.sort((a, b) => {
+      if (a.id === goldenTaskId) return -1;
+      if (b.id === goldenTaskId) return 1;
+      return 0;
+    });
+  } else if (sortBy === 'date') {
+    pending.sort((a, b) => {
+      if (a.id === goldenTaskId) return -1;
+      if (b.id === goldenTaskId) return 1;
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate < b.dueDate ? -1 : 1;
+    });
+  } else if (sortBy === 'priority') {
+    pending.sort((a, b) => {
+      if (a.id === goldenTaskId) return -1;
+      if (b.id === goldenTaskId) return 1;
+      const pa = priorityOrder[a.priority] ?? 4;
+      const pb = priorityOrder[b.priority] ?? 4;
+      return pa - pb;
+    });
+  } else if (sortBy === 'title') {
+    pending.sort((a, b) => {
+      if (a.id === goldenTaskId) return -1;
+      if (b.id === goldenTaskId) return 1;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  const canDrag = !tagFilter && !q && sortBy === 'custom';
 
   todoList.innerHTML = '';
 
+  // stat bar
+  const now = new Date(); now.setHours(0,0,0,0);
+  let overdueCount = 0, todayCount = 0;
+  pending.forEach(t => {
+    if (!t.dueDate) return;
+    const p = t.dueDate.split('-');
+    const due = new Date(+p[0], +p[1]-1, +p[2]);
+    due.setHours(0,0,0,0);
+    const diff = Math.ceil((due - now) / 86400000);
+    if (diff < 0) overdueCount++;
+    if (diff === 0) todayCount++;
+  });
+  const statHtml = [];
+  if (overdueCount > 0) statHtml.push(`<span class="task-stat overdue" data-filter="overdue">⚠ ${overdueCount} overdue</span>`);
+  if (todayCount > 0) statHtml.push(`<span class="task-stat" data-filter="today">📅 ${todayCount} today</span>`);
+  statHtml.push(`<span class="task-stat" data-filter="all">${pending.length} total</span>`);
+  taskStatBar.innerHTML = statHtml.join('');
+  taskStatBar.querySelectorAll('.task-stat').forEach(el => {
+    el.addEventListener('click', () => {
+      const f = el.dataset.filter;
+      if (f === 'overdue') {
+        const now2 = new Date(); now2.setHours(0,0,0,0);
+        const ov = pending.filter(t => {
+          if (!t.dueDate) return false;
+          const p2 = t.dueDate.split('-');
+          const d2 = new Date(+p2[0], +p2[1]-1, +p2[2]);
+          d2.setHours(0,0,0,0);
+          return d2 < now2;
+        });
+        todoList.innerHTML = '';
+        ov.forEach(t => renderTodoItem(t, tagColors, false));
+        return;
+      }
+      renderTodos();
+    });
+  });
+
   const remaining = pending.length;
   taskCount.textContent = remaining;
-  const tagColors = getTagColorMap();
 
-  pending.forEach(todo => renderTodoItem(todo, tagColors, false));
+  let needsSeparator = false;
 
+  function addSection(label, items, cls) {
+    if (items.length === 0) return;
+    const hdr = document.createElement('li');
+    hdr.className = 'due-section-header' + (cls ? ' ' + cls : '');
+    hdr.innerHTML = `${label} <span class="due-count">${items.length}</span>`;
+    todoList.appendChild(hdr);
+    items.forEach(t => renderTodoItem(t, tagColors, false));
+  }
+
+  if (sortBy === 'date') {
+    const groups = { overdue: [], today: [], tomorrow: [], week: [], later: [], none: [] };
+    pending.forEach(t => { groups[getDueGroup(t)].push(t); });
+    addSection('Overdue', groups.overdue, 'overdue');
+    addSection('Today', groups.today);
+    addSection('Tomorrow', groups.tomorrow);
+    addSection('This Week', groups.week);
+    addSection('Later', groups.later);
+    addSection('No Date', groups.none);
+  } else {
+    pending.forEach(todo => renderTodoItem(todo, tagColors, false));
+  }
+
+  // Completed tasks
   if (showCompleted && completed.length > 0) {
     const groups = {};
     completed.forEach(todo => {
@@ -817,6 +953,7 @@ function openAddModal() {
   taskPriority.value = 'none';
   taskProject.value = '';
   taskFrequency.value = 'none';
+  taskEstPomodoros.value = '0';
   tagsList = [];
   renderTagChips();
   taskModal.classList.remove('hidden');
@@ -834,6 +971,7 @@ function openEditModal(index) {
   taskPriority.value = todo.priority || 'none';
   taskProject.value = todo.project || '';
   taskFrequency.value = todo.frequency || 'none';
+  taskEstPomodoros.value = todo.estPomodoros || 0;
   tagsList = [...(todo.tags || [])];
   renderTagChips();
   taskModal.classList.remove('hidden');
@@ -856,6 +994,7 @@ function saveModal() {
     priority: taskPriority.value,
     project: taskProject.value.trim(),
     frequency: taskFrequency.value,
+    estPomodoros: parseInt(taskEstPomodoros.value) || 0,
     tags: [...tagsList],
   };
 
@@ -958,6 +1097,7 @@ function quickAddTask() {
     completedAt: null,
     createdAt: Date.now(),
     pomodoros: 0,
+    estPomodoros: 0,
     wasGolden: false
   };
   todos.push(todo);
@@ -998,6 +1138,106 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     document.getElementById('quickAddInput').focus();
   }
+});
+
+/* ===== Search & Sort ===== */
+taskSearch.addEventListener('input', () => {
+  searchQuery = taskSearch.value;
+  renderTodos();
+});
+
+document.querySelectorAll('.sort-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    sortBy = btn.dataset.sort;
+    renderTodos();
+  });
+});
+
+/* ===== Collapse Sections ===== */
+function loadCollapseState() {
+  try { return JSON.parse(localStorage.getItem('collapseState')) || {}; } catch { return {}; }
+}
+function saveCollapseState(state) {
+  localStorage.setItem('collapseState', JSON.stringify(state));
+}
+
+document.querySelectorAll('.section-toggle').forEach(toggle => {
+  const section = toggle.dataset.section;
+  const content = toggle.closest('section').querySelector('.section-content');
+  const state = loadCollapseState();
+  if (state[section]) {
+    toggle.classList.add('collapsed');
+    content.classList.add('collapsed');
+  }
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isCollapsed = toggle.classList.toggle('collapsed');
+    content.classList.toggle('collapsed', isCollapsed);
+    const s = loadCollapseState();
+    s[section] = isCollapsed;
+    saveCollapseState(s);
+  });
+});
+
+/* ===== Toast/Undo ===== */
+function showToast(msg, onUndo) {
+  clearTimeout(toastTimer);
+  undoData = onUndo ? { fn: onUndo } : null;
+  toastMsg.textContent = msg;
+  toast.classList.remove('hidden');
+  toastUndo.style.display = onUndo ? '' : 'none';
+  toastTimer = setTimeout(hideToast, 5000);
+}
+
+function hideToast() {
+  toast.classList.add('hidden');
+  undoData = null;
+}
+
+toastUndo.addEventListener('click', () => {
+  if (undoData && undoData.fn) undoData.fn();
+  hideToast();
+});
+
+/* ===== Weekly Stats ===== */
+function renderWeeklyStats() {
+  const history = loadHistory();
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+  const weekStartStr = weekStart.toISOString().slice(0, 10);
+  const weekSessions = history.filter(s => s.date >= weekStartStr).length;
+  const weekCompleted = todos.filter(t => t.done && t.completedAt && new Date(t.completedAt) >= weekStart).length;
+  const el = document.getElementById('weeklyStats');
+  if (weekSessions === 0 && weekCompleted === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `This week: <strong>${weekSessions}</strong> pomodoros · <strong>${weekCompleted}</strong> tasks completed`;
+}
+
+/* ===== Export ===== */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    todos: loadTodos(),
+    quarterlyGoals: loadQuarterlyGoals(),
+    pomodoroHistory: loadHistory(),
+    goldenTaskId: loadGoldenTask(),
+    activeTaskId: loadActiveTask(),
+    theme: localStorage.getItem('theme') || 'dark'
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `todo-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data exported');
 });
 
 /* ===== Drag and Drop Reorder ===== */
@@ -1062,16 +1302,17 @@ function saveHistory(history) {
 }
 
 /* ===== Stats ===== */
-const statsContent = document.getElementById('statsContent');
+const statsViews = document.getElementById('statsViews');
 let calendarDate = new Date();
 calendarDate.setDate(1);
 
 function renderStats() {
+  renderWeeklyStats();
   let html = renderCalendarHTML();
   html += '<div class="stats-separator"></div>' + renderHoursHTML();
   html += '<div class="stats-separator"></div>' + renderSlotsHTML();
-  statsContent.innerHTML = html;
-  statsContent.querySelectorAll('[data-cal-nav]').forEach(btn => {
+  statsViews.innerHTML = html;
+  statsViews.querySelectorAll('[data-cal-nav]').forEach(btn => {
     btn.addEventListener('click', () => {
       calendarDate.setMonth(calendarDate.getMonth() + (btn.dataset.calNav === 'next' ? 1 : -1));
       renderStats();
@@ -1440,4 +1681,5 @@ updateCurrentTaskDisplay();
 renderTagCloud();
 renderTodos();
 renderStats();
+renderWeeklyStats();
 renderQuarterlyGoals();
