@@ -20,6 +20,12 @@ const sessionCountEl = document.getElementById('sessionCount');
 const progressFg = document.querySelector('.progress-ring .fg');
 const circumference = 553;
 
+const pomSection = document.getElementById('pomodoroSection');
+const compactTimer = document.getElementById('compactTimer');
+const compactPhase = document.getElementById('compactPhase');
+const compactSessions = document.getElementById('compactSessions');
+const compactStartBtn = document.getElementById('compactStartBtn');
+
 /* ===== Audio ===== */
 let audioCtx = null;
 
@@ -63,8 +69,19 @@ function formatTime(seconds) {
 
 const BASE_TITLE = document.title;
 
+function updateCompactDisplay() {
+  compactTimer.textContent = formatTime(pomState.timeLeft);
+  compactPhase.textContent = pomState.phase === 'focus' ? 'Focus' : 'Break';
+  compactSessions.textContent = `${pomState.sessionCount} sessions`;
+}
+
+function setCompact(compact) {
+  pomSection.classList.toggle('pomodoro--compact', compact);
+}
+
 function updateDisplay() {
   timerEl.textContent = formatTime(pomState.timeLeft);
+  updateCompactDisplay();
   if (pomState.running) {
     const label = pomState.phase === 'focus' ? 'F' : 'B';
     document.title = `${formatTime(pomState.timeLeft)} [${label}] - Todo & Pomodoro`;
@@ -89,6 +106,7 @@ function startTimer() {
   pauseBtn.disabled = false;
   resetBtn.disabled = false;
   pomState.timerId = setInterval(tick, 1000);
+  setCompact(false);
   updatePipControls();
 }
 
@@ -99,6 +117,7 @@ function pauseTimer() {
   resetBtn.disabled = false;
   clearInterval(pomState.timerId);
   updateDisplay();
+  setCompact(true);
   updatePipControls();
 }
 
@@ -112,6 +131,7 @@ function resetTimer() {
   pomState.timeLeft = FOCUS_TIME;
   updatePhaseLabel();
   updateDisplay();
+  setCompact(true);
   updatePipControls();
 }
 
@@ -163,6 +183,7 @@ function tick() {
 }
 
 startBtn.addEventListener('click', startTimer);
+compactStartBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
 resetBtn.addEventListener('click', resetTimer);
 
@@ -685,6 +706,10 @@ function renderTodoItem(todo, tagColors, showCompleted) {
 
   content.appendChild(actionsRow);
 
+  const grip = document.createElement('span');
+  grip.className = 'drag-handle';
+  grip.textContent = '⠿';
+  li.appendChild(grip);
   li.appendChild(cb);
   li.appendChild(content);
 
@@ -915,6 +940,39 @@ document.addEventListener('keydown', (e) => {
 });
 
 addTaskBtn.addEventListener('click', openAddModal);
+
+function quickAddTask() {
+  const input = document.getElementById('quickAddInput');
+  const title = input.value.trim();
+  if (!title) return;
+  const todo = {
+    id: crypto.randomUUID(),
+    title,
+    description: '',
+    dueDate: null,
+    priority: 'none',
+    project: '',
+    frequency: 'none',
+    tags: [],
+    done: false,
+    completedAt: null,
+    createdAt: Date.now(),
+    pomodoros: 0,
+    wasGolden: false
+  };
+  todos.push(todo);
+  saveTodos();
+  renderTagCloud();
+  renderTodos();
+  input.value = '';
+  input.focus();
+}
+
+document.getElementById('quickAddBtn').addEventListener('click', quickAddTask);
+document.getElementById('quickAddInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); quickAddTask(); }
+});
+
 modalClose.addEventListener('click', closeModal);
 modalCancel.addEventListener('click', closeModal);
 taskModal.addEventListener('click', (e) => { if (e.target === taskModal) closeModal(); });
@@ -933,6 +991,13 @@ taskTags.addEventListener('keydown', (e) => {
 
 taskModal.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.target.closest('input,textarea,select,[contenteditable]')) {
+    e.preventDefault();
+    document.getElementById('quickAddInput').focus();
+  }
 });
 
 /* ===== Drag and Drop Reorder ===== */
@@ -996,26 +1061,22 @@ function saveHistory(history) {
   localStorage.setItem('pomodoroHistory', JSON.stringify(history));
 }
 
-/* ===== Stats View State ===== */
+/* ===== Stats ===== */
 const statsContent = document.getElementById('statsContent');
-const viewTabs = document.getElementById('viewTabs');
-let currentView = 'calendar';
 let calendarDate = new Date();
 calendarDate.setDate(1);
 
-viewTabs.addEventListener('click', (e) => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  currentView = btn.dataset.view;
-  viewTabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderStats();
-});
-
 function renderStats() {
-  if (currentView === 'calendar') renderCalendar();
-  else if (currentView === 'hours') renderHoursChart();
-  else if (currentView === 'slots') renderSlots();
+  let html = renderCalendarHTML();
+  html += '<div class="stats-separator"></div>' + renderHoursHTML();
+  html += '<div class="stats-separator"></div>' + renderSlotsHTML();
+  statsContent.innerHTML = html;
+  statsContent.querySelectorAll('[data-cal-nav]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      calendarDate.setMonth(calendarDate.getMonth() + (btn.dataset.calNav === 'next' ? 1 : -1));
+      renderStats();
+    });
+  });
 }
 
 /* ===== Calendar ===== */
@@ -1032,7 +1093,7 @@ function getGoldenDays(year, month) {
   return golden;
 }
 
-function renderCalendar() {
+function renderCalendarHTML() {
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
   const history = loadHistory();
@@ -1078,22 +1139,14 @@ function renderCalendar() {
   }
 
   html += '</div>';
-  statsContent.innerHTML = html;
-
-  statsContent.querySelectorAll('[data-cal-nav]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      calendarDate.setMonth(calendarDate.getMonth() + (btn.dataset.calNav === 'next' ? 1 : -1));
-      renderCalendar();
-    });
-  });
+  return html;
 }
 
 /* ===== Hours Chart ===== */
-function renderHoursChart() {
+function renderHoursHTML() {
   const history = loadHistory();
   if (history.length === 0) {
-    statsContent.innerHTML = '<div class="no-data">No sessions yet. Complete a pomodoro to see stats.</div>';
-    return;
+    return '<div class="no-data">No sessions yet. Complete a pomodoro to see stats.</div>';
   }
 
   const hourCounts = Array(24).fill(0);
@@ -1118,15 +1171,14 @@ function renderHoursChart() {
   }
 
   html += '</div>';
-  statsContent.innerHTML = html;
+  return html;
 }
 
 /* ===== Time Slots ===== */
-function renderSlots() {
+function renderSlotsHTML() {
   const history = loadHistory();
   if (history.length === 0) {
-    statsContent.innerHTML = '<div class="no-data">No sessions yet. Complete a pomodoro to see stats.</div>';
-    return;
+    return '<div class="no-data">No sessions yet. Complete a pomodoro to see stats.</div>';
   }
 
   const slots = [
@@ -1158,7 +1210,7 @@ function renderSlots() {
   });
 
   html += '</div>';
-  statsContent.innerHTML = html;
+  return html;
 }
 
 document.getElementById('tagCloud').addEventListener('click', (e) => {
@@ -1241,6 +1293,20 @@ function renderQGCard(key, isPast) {
     label += ` (${remaining}d left)`;
   }
 
+  const doneCount = items.filter(i => i.done).length;
+  const totalCount = items.length;
+  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  let progressHtml = '';
+  if (totalCount > 0) {
+    progressHtml = `
+      <div class="qg-progress">
+        <div class="qg-progress-text">${doneCount}/${totalCount} completed</div>
+        <div class="qg-progress-bar"><div class="qg-progress-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }
+
   let itemsHtml = items.length === 0
     ? '<div class="qg-empty">No goals set</div>'
     : items.map((item, i) => `
@@ -1254,6 +1320,7 @@ function renderQGCard(key, isPast) {
   return `
     <div class="qg-card${isPast ? ' past' : ''}" data-month="${key}">
       <div class="qg-month">${label}</div>
+      ${progressHtml}
       <div class="qg-items">${itemsHtml}</div>
       <div class="qg-add-row">
         <input type="text" placeholder="Add goal..." data-key="${key}">
@@ -1286,6 +1353,17 @@ function renderQuarterlyGoals() {
     html += '<div class="qg-grid">';
     html += pastKeys.map(k => renderQGCard(k, true)).join('');
     html += '</div>';
+  }
+
+  const allMonthKeys = [...upcoming, ...pastKeys];
+  let totalDone = 0;
+  let totalItems = 0;
+  allMonthKeys.forEach(k => {
+    const items = allGoals[k] || [];
+    items.forEach(i => { totalItems++; if (i.done) totalDone++; });
+  });
+  if (totalItems > 0) {
+    html += `<div class="qg-summary">${totalDone}/${totalItems} goals completed across all months</div>`;
   }
 
   document.getElementById('quarterlyGoalsContent').innerHTML = html;

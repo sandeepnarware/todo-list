@@ -159,6 +159,59 @@ header h1 {
   text-align: center;
 }
 
+.pomodoro-compact-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pomodoro--compact .pomodoro-compact-bar {
+  display: flex;
+}
+
+.pomodoro--compact .timer-display,
+.pomodoro--compact .phase-label,
+.pomodoro--compact .current-task,
+.pomodoro--compact .timer-controls,
+.pomodoro--compact .session-count {
+  display: none;
+}
+
+.compact-time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compact-phase {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.compact-sessions {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.compact-start-btn {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.compact-start-btn:hover {
+  background: var(--accent-hover);
+}
+
 .timer-display {
   display: flex;
   justify-content: center;
@@ -302,6 +355,11 @@ header h1 {
 .todo h2 {
   font-size: 1.2rem;
   margin-bottom: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-card);
+  padding-bottom: 0.5rem;
 }
 
 
@@ -326,6 +384,26 @@ header h1 {
 #todoList li.completed .task-text {
   text-decoration: line-through;
   color: var(--completed-text);
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0 0.15rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+#todoList li:hover .drag-handle {
+  opacity: 0.5;
+}
+
+.drag-handle:hover {
+  opacity: 1 !important;
 }
 
 #todoList li input[type="checkbox"] {
@@ -495,6 +573,64 @@ header h1 {
   text-align: center;
 }
 
+/* Quick add */
+.quick-add-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.quick-add-row input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 2px dashed var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.quick-add-row input:focus {
+  border-color: var(--accent);
+}
+
+.quick-add-btn {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 10px;
+  width: 42px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.quick-add-btn:hover {
+  background: var(--accent-hover);
+}
+
+.quick-add-details-btn {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 10px;
+  width: 42px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.quick-add-details-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
 /* Tag cloud */
 #tagCloud {
   display: flex;
@@ -555,6 +691,19 @@ header h1 {
 
 .stats-header h2 {
   font-size: 1.2rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-card);
+  padding-bottom: 0.5rem;
+}
+
+.quarterly-goals .stats-header h2 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-card);
+  padding-bottom: 0.5rem;
 }
 
 .view-tabs {
@@ -665,6 +814,12 @@ header h1 {
 .calendar-grid .day-cell.level-3 { background: var(--calendar-3); }
 .calendar-grid .day-cell.level-4 { background: var(--calendar-4); }
 .calendar-grid .day-cell.level-5 { background: var(--calendar-5); }
+
+.stats-separator {
+  height: 1px;
+  background: var(--border-default);
+  margin: 1.5rem 0;
+}
 
 /* Hours chart */
 .hours-chart {
@@ -804,6 +959,30 @@ header h1 {
   text-align: center;
 }
 
+.qg-progress {
+  margin-bottom: 0.5rem;
+}
+
+.qg-progress-text {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.qg-progress-bar {
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.qg-progress-fill {
+  height: 100%;
+  background: var(--accent-break);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 .qg-item {
   display: flex;
   align-items: flex-start;
@@ -919,6 +1098,15 @@ header h1 {
 
 .qg-card.past:hover {
   opacity: 1;
+}
+
+.qg-summary {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-default);
 }
 
 /* PiP button */

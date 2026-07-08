@@ -18,7 +18,13 @@
       </div>
     </header>
 
-    <section class="pomodoro">
+    <section class="pomodoro pomodoro--compact" id="pomodoroSection">
+      <div class="pomodoro-compact-bar">
+        <span class="compact-time" id="compactTimer">25:00</span>
+        <span class="compact-phase" id="compactPhase">Focus</span>
+        <span class="compact-sessions" id="compactSessions">0 sessions</span>
+        <button id="compactStartBtn" class="compact-start-btn">▶ Start</button>
+      </div>
       <div class="timer-display">
         <div class="progress-ring">
           <svg width="200" height="200">
@@ -43,7 +49,11 @@
 
     <section class="todo">
       <h2>Tasks</h2>
-      <button id="addTaskBtn" class="add-task-btn">+ Add Task</button>
+      <div class="quick-add-row">
+        <input type="text" id="quickAddInput" placeholder="Add a task…">
+        <button id="quickAddBtn" class="quick-add-btn">+</button>
+        <button id="addTaskBtn" class="quick-add-details-btn" title="Add with details">⋯</button>
+      </div>
       <div id="tagCloud"></div>
       <ul id="todoList"></ul>
       <div class="todo-stats">
@@ -118,11 +128,6 @@
     <section class="stats">
       <div class="stats-header">
         <h2>Statistics</h2>
-        <div class="view-tabs" id="viewTabs">
-          <button class="active" data-view="calendar">Calendar</button>
-          <button data-view="hours">Hours</button>
-          <button data-view="slots">Slots</button>
-        </div>
       </div>
       <div id="statsContent"></div>
     </section>
