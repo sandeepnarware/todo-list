@@ -1303,15 +1303,25 @@ function saveHistory(history) {
 
 /* ===== Stats ===== */
 const statsViews = document.getElementById('statsViews');
+const viewTabs = document.getElementById('viewTabs');
+let currentView = 'calendar';
 let calendarDate = new Date();
 calendarDate.setDate(1);
 
+viewTabs.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  currentView = btn.dataset.view;
+  viewTabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStats();
+});
+
 function renderStats() {
   renderWeeklyStats();
-  let html = renderCalendarHTML();
-  html += '<div class="stats-separator"></div>' + renderHoursHTML();
-  html += '<div class="stats-separator"></div>' + renderSlotsHTML();
-  statsViews.innerHTML = html;
+  if (currentView === 'calendar') statsViews.innerHTML = renderCalendarHTML();
+  else if (currentView === 'hours') statsViews.innerHTML = renderHoursHTML();
+  else if (currentView === 'slots') statsViews.innerHTML = renderSlotsHTML();
   statsViews.querySelectorAll('[data-cal-nav]').forEach(btn => {
     btn.addEventListener('click', () => {
       calendarDate.setMonth(calendarDate.getMonth() + (btn.dataset.calNav === 'next' ? 1 : -1));
