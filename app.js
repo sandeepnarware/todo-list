@@ -1199,7 +1199,15 @@ document.getElementById('completedToggle').addEventListener('click', () => {
 /* ===== Quarterly Goals ===== */
 function loadQuarterlyGoals() {
   try {
-    return JSON.parse(localStorage.getItem('quarterlyGoals')) || {};
+    const data = JSON.parse(localStorage.getItem('quarterlyGoals')) || {};
+    // migrate old string format to array format
+    Object.keys(data).forEach(key => {
+      if (typeof data[key] === 'string') {
+        const text = data[key].trim();
+        data[key] = text ? [{ id: crypto.randomUUID(), text, done: false }] : [];
+      }
+    });
+    return data;
   } catch {
     return {};
   }
@@ -1219,44 +1227,117 @@ function formatMonthLabel(key) {
   return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
 }
 
-function renderQuarterlyGoals() {
+function renderQGCard(key, isPast) {
   const goals = loadQuarterlyGoals();
+  const items = goals[key] || [];
+  const label = formatMonthLabel(key);
+
+  let itemsHtml = items.length === 0
+    ? '<div class="qg-empty">No goals set</div>'
+    : items.map((item, i) => `
+      <div class="qg-item${item.done ? ' done' : ''}">
+        <input type="checkbox" ${item.done ? 'checked' : ''} data-key="${key}" data-idx="${i}">
+        <span class="qg-item-text">${item.text}</span>
+        <button class="qg-item-del" data-key="${key}" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+
+  return `
+    <div class="qg-card${isPast ? ' past' : ''}" data-month="${key}">
+      <div class="qg-month">${label}</div>
+      <div class="qg-items">${itemsHtml}</div>
+      <div class="qg-add-row">
+        <input type="text" placeholder="Add goal..." data-key="${key}">
+        <button class="qg-add-btn" data-key="${key}">+</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderQuarterlyGoals() {
   const now = new Date();
-  const months = [];
+  const currentKey = getMonthKey(now);
+
+  const upcoming = [];
   for (let i = 0; i < 4; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    months.push(getMonthKey(d));
+    upcoming.push(getMonthKey(d));
   }
 
-  const html = `<div class="qg-grid">${months.map(key => {
-    const label = formatMonthLabel(key);
-    const goal = goals[key] || '';
-    return `
-      <div class="qg-card" data-month="${key}">
-        <div class="qg-month">${label}</div>
-        <div class="qg-goal" contenteditable="true" data-month="${key}" data-placeholder="Click to set goal">${goal}</div>
-      </div>
-    `;
-  }).join('')}</div>`;
+  const allGoals = loadQuarterlyGoals();
+  const pastKeys = Object.keys(allGoals).filter(k => k < currentKey && allGoals[k].length > 0);
+  pastKeys.sort().reverse();
+
+  let html = '<div class="qg-grid">';
+  html += upcoming.map(k => renderQGCard(k, false)).join('');
+  html += '</div>';
+
+  if (pastKeys.length > 0) {
+    html += '<div class="qg-past-header">Past Months</div>';
+    html += '<div class="qg-grid">';
+    html += pastKeys.map(k => renderQGCard(k, true)).join('');
+    html += '</div>';
+  }
 
   document.getElementById('quarterlyGoalsContent').innerHTML = html;
 
-  document.querySelectorAll('.qg-goal').forEach(el => {
-    el.addEventListener('blur', () => {
-      const key = el.dataset.month;
-      const val = el.textContent.trim();
+  // checkbox toggle
+  document.querySelectorAll('.qg-item input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const key = cb.dataset.key;
+      const idx = parseInt(cb.dataset.idx);
       const goals = loadQuarterlyGoals();
-      if (val) {
-        goals[key] = val;
-      } else {
-        delete goals[key];
+      if (goals[key] && goals[key][idx]) {
+        goals[key][idx].done = cb.checked;
+        saveQuarterlyGoals(goals);
+        renderQuarterlyGoals();
       }
-      saveQuarterlyGoals(goals);
     });
-    el.addEventListener('keydown', (e) => {
+  });
+
+  // delete item
+  document.querySelectorAll('.qg-item-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const idx = parseInt(btn.dataset.idx);
+      const goals = loadQuarterlyGoals();
+      if (goals[key]) {
+        goals[key].splice(idx, 1);
+        if (goals[key].length === 0) delete goals[key];
+        saveQuarterlyGoals(goals);
+        renderQuarterlyGoals();
+      }
+    });
+  });
+
+  // add item - button click
+  document.querySelectorAll('.qg-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const input = btn.parentElement.querySelector('input');
+      const text = input.value.trim();
+      if (!text) return;
+      const goals = loadQuarterlyGoals();
+      if (!goals[key]) goals[key] = [];
+      goals[key].push({ id: crypto.randomUUID(), text, done: false });
+      saveQuarterlyGoals(goals);
+      renderQuarterlyGoals();
+    });
+  });
+
+  // add item - enter key
+  document.querySelectorAll('.qg-add-row input').forEach(input => {
+    input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        el.blur();
+        const key = input.dataset.key;
+        const text = input.value.trim();
+        if (!text) return;
+        const goals = loadQuarterlyGoals();
+        if (!goals[key]) goals[key] = [];
+        goals[key].push({ id: crypto.randomUUID(), text, done: false });
+        saveQuarterlyGoals(goals);
+        renderQuarterlyGoals();
       }
     });
   });

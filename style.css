@@ -790,8 +790,8 @@ header h1 {
 .qg-card {
   background: var(--bg-surface);
   border-radius: 10px;
-  padding: 1rem;
-  text-align: center;
+  padding: 0.75rem 1rem;
+  text-align: left;
 }
 
 .qg-card .qg-month {
@@ -800,38 +800,124 @@ header h1 {
   letter-spacing: 1px;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
+  text-align: center;
 }
 
-.qg-card .qg-goal {
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  line-height: 1.4;
-  cursor: text;
-  min-height: 2.5rem;
+.qg-item {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.qg-item input[type="checkbox"] {
+  accent-color: var(--accent-break);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.qg-item .qg-item-text {
+  flex: 1;
   word-break: break-word;
 }
 
-.qg-card .qg-goal:empty::before {
-  content: 'Click to set goal';
-  color: var(--text-muted);
-  font-style: italic;
-  font-size: 0.8rem;
+.qg-item.done .qg-item-text {
+  text-decoration: line-through;
+  color: var(--completed-text);
 }
 
-.qg-card .qg-goal-input {
-  width: 100%;
+.qg-item-del {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.qg-card:hover .qg-item-del {
+  opacity: 0.6;
+}
+
+.qg-item-del:hover {
+  opacity: 1 !important;
+  color: var(--accent);
+}
+
+.qg-add-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.qg-add-row input {
+  flex: 1;
   background: var(--bg-input);
-  border: 1px solid var(--border-focus);
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-family: inherit;
-  text-align: center;
   outline: none;
+}
+
+.qg-add-row input:focus {
+  border-color: var(--border-focus);
+}
+
+.qg-add-btn {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.qg-add-btn:hover {
+  background: var(--accent-hover);
+}
+
+.qg-past-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  padding: 1rem 0 0.5rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border-default);
+  cursor: default;
+}
+
+.qg-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 1rem 0;
+  font-style: italic;
+}
+
+.qg-card.past {
+  opacity: 0.75;
+}
+
+.qg-card.past:hover {
+  opacity: 1;
 }
 
 /* PiP button */
