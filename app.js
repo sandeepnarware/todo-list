@@ -1196,6 +1196,72 @@ document.getElementById('completedToggle').addEventListener('click', () => {
   renderTodos();
 });
 
+/* ===== Quarterly Goals ===== */
+function loadQuarterlyGoals() {
+  try {
+    return JSON.parse(localStorage.getItem('quarterlyGoals')) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveQuarterlyGoals(goals) {
+  localStorage.setItem('quarterlyGoals', JSON.stringify(goals));
+}
+
+function getMonthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonthLabel(key) {
+  const [y, m] = key.split('-');
+  const date = new Date(+y, +m - 1);
+  return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+}
+
+function renderQuarterlyGoals() {
+  const goals = loadQuarterlyGoals();
+  const now = new Date();
+  const months = [];
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    months.push(getMonthKey(d));
+  }
+
+  const html = `<div class="qg-grid">${months.map(key => {
+    const label = formatMonthLabel(key);
+    const goal = goals[key] || '';
+    return `
+      <div class="qg-card" data-month="${key}">
+        <div class="qg-month">${label}</div>
+        <div class="qg-goal" contenteditable="true" data-month="${key}" data-placeholder="Click to set goal">${goal}</div>
+      </div>
+    `;
+  }).join('')}</div>`;
+
+  document.getElementById('quarterlyGoalsContent').innerHTML = html;
+
+  document.querySelectorAll('.qg-goal').forEach(el => {
+    el.addEventListener('blur', () => {
+      const key = el.dataset.month;
+      const val = el.textContent.trim();
+      const goals = loadQuarterlyGoals();
+      if (val) {
+        goals[key] = val;
+      } else {
+        delete goals[key];
+      }
+      saveQuarterlyGoals(goals);
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        el.blur();
+      }
+    });
+  });
+}
+
 /* ===== Init ===== */
 startBtn.disabled = false;
 pauseBtn.disabled = true;
@@ -1206,3 +1272,4 @@ updateCurrentTaskDisplay();
 renderTagCloud();
 renderTodos();
 renderStats();
+renderQuarterlyGoals();
