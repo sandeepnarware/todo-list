@@ -541,6 +541,7 @@ header h1 {
   background: var(--bg-card);
   border-radius: 16px;
   padding: 2rem;
+  margin-bottom: 2rem;
 }
 
 .stats-header {
