@@ -1,7 +1,7 @@
 {
-  "name": "Todo & Pomodoro",
-  "short_name": "TodoPomo",
-  "description": "Todo list with Pomodoro timer",
+  "name": "PomoDone",
+  "short_name": "PomoDone",
+  "description": "Get things done with Pomodoro focus sessions",
   "start_url": "/todo-list/",
   "scope": "/todo-list/",
   "display": "standalone",

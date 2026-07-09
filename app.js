@@ -84,7 +84,7 @@ function updateDisplay() {
   updateCompactDisplay();
   if (pomState.running) {
     const label = pomState.phase === 'focus' ? 'F' : 'B';
-    document.title = `${formatTime(pomState.timeLeft)} [${label}] - Todo & Pomodoro`;
+    document.title = `${formatTime(pomState.timeLeft)} [${label}] - PomoDone`;
   } else {
     document.title = BASE_TITLE;
   }
@@ -1155,30 +1155,15 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
   });
 });
 
-/* ===== Collapse Sections ===== */
-function loadCollapseState() {
-  try { return JSON.parse(localStorage.getItem('collapseState')) || {}; } catch { return {}; }
-}
-function saveCollapseState(state) {
-  localStorage.setItem('collapseState', JSON.stringify(state));
+/* ===== Tab Switching ===== */
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  document.querySelectorAll('section[data-tab]').forEach(s => s.classList.toggle('tab-hidden', s.dataset.tab !== tabId));
+  localStorage.setItem('activeTab', tabId);
 }
 
-document.querySelectorAll('.section-toggle').forEach(toggle => {
-  const section = toggle.dataset.section;
-  const content = toggle.closest('section').querySelector('.section-content');
-  const state = loadCollapseState();
-  if (state[section]) {
-    toggle.classList.add('collapsed');
-    content.classList.add('collapsed');
-  }
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isCollapsed = toggle.classList.toggle('collapsed');
-    content.classList.toggle('collapsed', isCollapsed);
-    const s = loadCollapseState();
-    s[section] = isCollapsed;
-    saveCollapseState(s);
-  });
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
 });
 
 /* ===== Toast/Undo ===== */
@@ -1682,6 +1667,9 @@ function renderQuarterlyGoals() {
 }
 
 /* ===== Init ===== */
+const savedTab = localStorage.getItem('activeTab') || 'pomodoro';
+switchTab(savedTab);
+
 startBtn.disabled = false;
 pauseBtn.disabled = true;
 resetBtn.disabled = false;

@@ -1,4 +1,4 @@
-const CACHE = 'todo-pomo-v1';
+const CACHE = 'pomodone-v1';
 const URLS = ['/', '/todo-list/', '/index.html', '/style.css', '/app.js', '/icon.svg', '/manifest.json'];
 
 self.addEventListener('install', e => {

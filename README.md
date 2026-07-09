@@ -1,13 +1,16 @@
-# Todo &amp; Pomodoro
+# PomoDone
 
-A combined todo list and Pomodoro timer — built as a single-page app for GitHub Pages.
+A personal productivity system with task management, Pomodoro focus sessions, quarterly goals, and analytics — built as a single-page PWA for GitHub Pages.
 
 ## Features
 
-- **Pomodoro Timer** — 25 min focus / 5 min break cycles with progress ring
-- **Todo List** — add, complete, and delete tasks (persisted in localStorage)
-- **Auto-switching** — timer automatically switches between focus and break
-- **Session tracking** — counts completed focus sessions
+- **Task Management** — tasks with priorities, projects, tags, due dates, and recurring schedules
+- **Pomodoro Timer** — 25 min focus / 5 min break cycles with progress ring, PiP mode, and session tracking
+- **Golden Task** — mark your most important task and keep it front and center
+- **Quarterly Goals** — set and track goals month by month
+- **Analytics** — calendar heatmap, 24-hour distribution chart, and time-slot breakdown
+- **Dark/Light Themes** — toggleable, persisted preference
+- **PWA** — installable, works offline
 
 ## Usage
 

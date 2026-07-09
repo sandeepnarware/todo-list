@@ -150,43 +150,56 @@ header h1 {
   color: var(--accent);
 }
 
-/* Section collapse */
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-surface);
+  border-radius: 12px;
+  padding: 0.3rem;
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.5rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+/* Section tab visibility */
+section[data-tab].tab-hidden {
+  display: none;
+}
+
+/* Section title bar */
 .section-title-bar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  cursor: pointer;
-  user-select: none;
-}
-
-.section-toggle {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-
-.section-toggle.collapsed {
-  transform: rotate(-90deg);
 }
 
 .section-label {
   font-size: 1.2rem;
   font-weight: 600;
   flex: 1;
-}
-
-.section-content.collapsed {
-  display: none;
-}
-
-.pomodoro .section-title-bar {
-  margin-bottom: 0;
-}
-
-.pomodoro--compact .section-title-bar {
-  margin-bottom: 0;
 }
 
 /* Pomodoro */
@@ -1647,6 +1660,7 @@ header h1 {
 
 .form-group input[type="text"],
 .form-group input[type="date"],
+.form-group input[type="number"],
 .form-group textarea,
 .form-group select {
   width: 100%;

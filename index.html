@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Todo + Pomodoro</title>
+  <title>PomoDone</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
@@ -11,19 +11,21 @@
 <body>
   <div class="container">
     <header>
-      <h1>Todo <span class="amp">&amp;</span> Pomodoro</h1>
+      <h1>PomoDone</h1>
       <div class="header-actions">
         <button id="helpBtn" aria-label="Help">?</button>
         <button id="themeToggle" aria-label="Toggle theme">🌙</button>
       </div>
     </header>
 
-    <section class="pomodoro pomodoro--compact" id="pomodoroSection">
-      <div class="section-title-bar">
-        <span class="section-toggle" data-section="pomodoro">▾</span>
-        <span class="section-label">Pomodoro</span>
-      </div>
-      <div class="section-content" id="pomodoroContent">
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="pomodoro">Pomodoro</button>
+      <button class="tab" data-tab="tasks">Tasks</button>
+      <button class="tab" data-tab="stats">Stats</button>
+      <button class="tab" data-tab="goals">Goals</button>
+    </nav>
+
+    <section class="pomodoro pomodoro--compact" id="pomodoroSection" data-tab="pomodoro">
       <div class="pomodoro-compact-bar">
         <span class="compact-time" id="compactTimer">25:00</span>
         <span class="compact-phase" id="compactPhase">Focus</span>
@@ -50,15 +52,9 @@
       <div class="session-count">
         Sessions completed: <span id="sessionCount">0</span>
       </div>
-      </div>
     </section>
 
-    <section class="todo">
-      <div class="section-title-bar">
-        <span class="section-toggle" data-section="tasks">▾</span>
-        <span class="section-label">Tasks</span>
-      </div>
-      <div class="section-content" id="tasksContent">
+    <section class="todo" data-tab="tasks">
       <div class="quick-add-row">
         <input type="text" id="quickAddInput" placeholder="Add a task…">
         <button id="quickAddBtn" class="quick-add-btn">+</button>
@@ -79,7 +75,6 @@
           <button class="sort-btn" data-sort="title">Title</button>
         </div>
         <button id="completedToggle" class="completed-toggle-btn hidden"></button>
-      </div>
       </div>
     </section>
 
@@ -150,9 +145,8 @@
     </div>
   </div>
 
-    <section class="stats">
+    <section class="stats" data-tab="stats">
       <div class="section-title-bar">
-        <span class="section-toggle" data-section="stats">▾</span>
         <span class="section-label">Statistics</span>
         <div class="view-tabs" id="viewTabs">
           <button class="active" data-view="calendar">Calendar</button>
@@ -161,20 +155,12 @@
         </div>
         <button id="exportBtn" class="export-btn" title="Export all data">📥</button>
       </div>
-      <div class="section-content" id="statsContent">
-        <div id="weeklyStats" class="weekly-stats"></div>
-        <div id="statsViews"></div>
-      </div>
+      <div id="weeklyStats" class="weekly-stats"></div>
+      <div id="statsViews"></div>
     </section>
 
-    <section class="quarterly-goals">
-      <div class="section-title-bar">
-        <span class="section-toggle" data-section="goals">▾</span>
-        <span class="section-label">Quarterly Goals</span>
-      </div>
-      <div class="section-content" id="goalsContent">
-        <div id="quarterlyGoalsContent"></div>
-      </div>
+    <section class="quarterly-goals" data-tab="goals">
+      <div id="quarterlyGoalsContent"></div>
     </section>
   </div>
 
