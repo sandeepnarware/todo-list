@@ -76,7 +76,7 @@ function updateCompactDisplay() {
 }
 
 function setCompact(compact) {
-  pomSection.classList.toggle('pomodoro--compact', compact);
+  // compact mode disabled — full view always shown
 }
 
 function updateDisplay() {
