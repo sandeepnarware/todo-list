@@ -511,7 +511,13 @@ function extractTags() {
 function renderTagCloud() {
   const tags = extractTags();
   const colorMap = getTagColorMap();
-  const html = tags.map(t => {
+  const html = tags.filter(t => {
+    const isProject = t.startsWith('project:');
+    const hasPending = isProject
+      ? todos.some(td => !td.done && td.project && td.project.toLowerCase() === t.slice(8))
+      : todos.some(td => !td.done && (td.tags || []).some(tag => tag.toLowerCase() === t));
+    return hasPending || t === tagFilter;
+  }).map(t => {
     const isProject = t.startsWith('project:');
     const count = isProject
       ? todos.filter(td => td.project && td.project.toLowerCase() === t.slice(8)).length
