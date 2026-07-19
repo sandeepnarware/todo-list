@@ -361,13 +361,16 @@ section[data-tab].tab-hidden { display: none !important; }
 /* ===== SORT CONTROLS ===== */
 .sort-btn {
   background: transparent;
-  border: 1px solid var(--outline-variant);
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--on-surface-variant);
   cursor: pointer;
   font-family: 'JetBrains Mono', monospace;
+  padding-bottom: 6px;
+  transition: color 0.2s, border-color 0.2s;
 }
-.sort-btn:hover { border-color: var(--primary); color: var(--primary); }
-.sort-btn.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.sort-btn:hover { color: var(--primary); }
+.sort-btn.active { color: var(--primary); font-weight: 700; border-bottom-color: var(--primary); }
 
 /* ===== DUE SECTION HEADERS ===== */
 .due-section-header {
@@ -451,7 +454,7 @@ section[data-tab].tab-hidden { display: none !important; }
   font-family: 'JetBrains Mono', monospace;
   transition: all 0.2s;
 }
-.view-tabs button.active { background: var(--primary); color: var(--on-primary); }
+.view-tabs button.active { color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--primary); }
 .view-tabs button:hover:not(.active) { color: var(--on-surface); }
 
 /* ===== CALENDAR ===== */
@@ -521,7 +524,7 @@ section[data-tab].tab-hidden { display: none !important; }
 .hours-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .hours-row .hour-label { width: 40px; text-align: right; color: var(--on-surface-variant); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
 .hours-row .hour-bar-bg { flex: 1; height: 18px; background: var(--surface-container); border-radius: 999px; overflow: hidden; }
-.hours-row .hour-bar { height: 100%; border-radius: 999px; transition: width 0.3s ease; min-width: 2px; }
+.hours-row .hour-bar { height: 100%; border-radius: 999px; transition: width 0.3s ease; min-width: 2px; background: var(--primary); }
 .dark .hours-row .hour-bar { background: var(--primary-container); }
 .hours-row .hour-val { width: 28px; text-align: left; color: var(--on-surface-variant); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
 

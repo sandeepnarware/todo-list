@@ -1578,9 +1578,9 @@ function renderStats() {
     const doneToday = todos.filter(t => t.done && t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length;
     completedSubEl.textContent = doneToday > 0 ? `${doneToday} today` : 'Tasks finished';
   }
+  let streak = 0;
   if (streakEl) {
     const dates = [...new Set(history.map(s => s.date))].sort().reverse();
-    let streak = 0;
     const today = new Date().toISOString().slice(0, 10);
     let check = today;
     for (const d of dates) {
@@ -1868,9 +1868,10 @@ function renderQuarterlyGoals() {
   const now = new Date();
   const currentKey = getMonthKey(now);
 
+  const quarterStart = Math.floor(now.getMonth() / 3) * 3;
   const upcoming = [];
   for (let i = 0; i < 3; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const d = new Date(now.getFullYear(), quarterStart + i, 1);
     upcoming.push(getMonthKey(d));
   }
 
@@ -1945,26 +1946,11 @@ function renderQuarterlyGoals() {
 
   // Active Quarterly Roadmap
   html += '<section class="mb-10">';
-  html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">';
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
 
   upcoming.forEach((k, idx) => {
     html += monthCardHTML(k, idx);
   });
-
-  // Visual accent card (4th slot)
-  const visualLabels = ['Prepare', 'Vision', 'Focus', 'Thrive'];
-  const visualMsgs = ['Plan next quarter early for a smooth transition.', 'Set your intentions for the months ahead.', 'Stay consistent — small steps build big results.', 'Every goal starts with a single decision.'];
-  const randomIdx = Math.floor(Math.random() * visualLabels.length);
-  html += `
-    <div class="relative rounded-xl overflow-hidden group min-h-[200px]">
-      <div class="absolute inset-0 bg-gradient-to-br from-primary/20 via-secondary/10 to-tertiary/20 z-0"></div>
-      <div class="absolute inset-0 bg-gradient-to-t from-on-surface/70 to-transparent z-10"></div>
-      <div class="relative z-20 h-full p-5 flex flex-col justify-end text-white">
-        <span class="material-symbols-outlined text-2xl mb-2">auto_awesome</span>
-        <h4 class="font-display font-semibold text-lg">${visualLabels[randomIdx]}</h4>
-        <p class="text-sm opacity-80">${visualMsgs[randomIdx]}</p>
-      </div>
-    </div>`;
 
   html += '</div>';
   html += '</section>';
