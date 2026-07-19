@@ -14,7 +14,6 @@ let pomState = {
 /* ===== Pomodoro DOM ===== */
 const timerEl = document.getElementById('timer');
 const phaseEl = document.getElementById('phase');
-const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const sessionCountEl = document.getElementById('sessionCount');
@@ -127,22 +126,12 @@ function updatePhaseLabel() {
 }
 
 function setTimerButton(phase) {
-  const icon = startBtn.querySelector('.material-symbols-outlined');
-  const label = startBtn.querySelector('span:last-child');
   if (phase === 'running') {
-    if (icon) icon.textContent = 'pause';
-    if (label) label.textContent = 'Pause';
-    startBtn.classList.remove('bg-primary', 'hover:bg-primary/90');
-    startBtn.classList.add('bg-secondary', 'hover:bg-secondary/90');
     pauseBtn.classList.remove('hidden');
     pauseBtn.disabled = false;
     resetBtn.classList.remove('hidden');
     resetBtn.disabled = false;
   } else {
-    if (icon) icon.textContent = 'play_arrow';
-    if (label) label.textContent = 'Start';
-    startBtn.classList.remove('bg-secondary', 'hover:bg-secondary/90');
-    startBtn.classList.add('bg-primary', 'hover:bg-primary/90');
     pauseBtn.classList.add('hidden');
     pauseBtn.disabled = true;
     resetBtn.classList.add('hidden');
@@ -152,6 +141,10 @@ function setTimerButton(phase) {
   if (dashPlayBtn) {
     const dashIcon = dashPlayBtn.querySelector('.material-symbols-outlined');
     if (dashIcon) dashIcon.textContent = pomState.running ? 'pause' : 'play_arrow';
+  }
+  if (secStartBtn) {
+    const icon = secStartBtn.querySelector('.material-symbols-outlined');
+    if (icon) icon.textContent = pomState.running ? 'pause' : 'play_arrow';
   }
   updateDashPhaseTabs();
 }
@@ -231,7 +224,6 @@ function tick() {
   if (pomState.timeLeft <= 0) {
     pomState.running = false;
     clearInterval(pomState.timerId);
-    startBtn.disabled = false;
     pauseBtn.disabled = true;
     resetBtn.disabled = false;
     playTripleBeep();
@@ -241,10 +233,16 @@ function tick() {
   }
 }
 
-startBtn.addEventListener('click', startTimer);
 compactStartBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
 resetBtn.addEventListener('click', resetTimer);
+
+const secStartBtn = document.getElementById('secStartBtn');
+if (secStartBtn) {
+  secStartBtn.addEventListener('click', () => {
+    if (pomState.running) { pauseTimer(); } else { startTimer(); }
+  });
+}
 
 /* Dashboard timer widget */
 const dashPlayBtn = document.getElementById('dashPlayBtn');
@@ -2246,7 +2244,6 @@ function setupDashDragDrop(container, todayTasks) {
 const savedTab = localStorage.getItem('activeTab') || 'dashboard';
 switchTab(savedTab);
 
-startBtn.disabled = false;
 pauseBtn.disabled = true;
 resetBtn.disabled = false;
 updateDisplay();
