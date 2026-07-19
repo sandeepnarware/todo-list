@@ -1864,63 +1864,12 @@ function formatMonthLabel(key) {
   return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
 }
 
-function renderQGCard(key, isPast) {
-  const goals = loadQuarterlyGoals();
-  const items = goals[key] || [];
-  let label = formatMonthLabel(key);
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const currentKey = getMonthKey(now);
-  if (key === currentKey) {
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const remaining = lastDay - today.getDate();
-    label += ` (${remaining}d left)`;
-  }
-
-  const doneCount = items.filter(i => i.done).length;
-  const totalCount = items.length;
-  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-
-  let progressHtml = '';
-  if (totalCount > 0) {
-    progressHtml = `
-      <div class="qg-progress">
-        <div class="qg-progress-text">${doneCount}/${totalCount} completed</div>
-        <div class="qg-progress-bar"><div class="qg-progress-fill" style="width:${pct}%"></div></div>
-      </div>
-    `;
-  }
-
-  let itemsHtml = items.length === 0
-    ? '<div class="qg-empty">No goals set</div>'
-    : items.map((item, i) => `
-      <div class="qg-item${item.done ? ' done' : ''}">
-        <input type="checkbox" ${item.done ? 'checked' : ''} data-key="${key}" data-idx="${i}">
-        <span class="qg-item-text">${item.text}</span>
-        <button class="qg-item-del" data-key="${key}" data-idx="${i}">✕</button>
-      </div>
-    `).join('');
-
-  return `
-    <div class="qg-card${isPast ? ' past' : ''}" data-month="${key}">
-      <div class="qg-month">${label}</div>
-      ${progressHtml}
-      <div class="qg-items">${itemsHtml}</div>
-      <div class="qg-add-row">
-        <input type="text" placeholder="Add goal..." data-key="${key}">
-        <button class="qg-add-btn" data-key="${key}">+</button>
-      </div>
-    </div>
-  `;
-}
-
 function renderQuarterlyGoals() {
   const now = new Date();
   const currentKey = getMonthKey(now);
 
   const upcoming = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     upcoming.push(getMonthKey(d));
   }
@@ -1929,32 +1878,142 @@ function renderQuarterlyGoals() {
   const pastKeys = Object.keys(allGoals).filter(k => k < currentKey && allGoals[k].length > 0);
   pastKeys.sort().reverse();
 
-  let html = '<div class="qg-grid">';
-  html += upcoming.map(k => renderQGCard(k, false)).join('');
-  html += '</div>';
+  const borderColors = ['border-primary', 'border-secondary', 'border-tertiary'];
+  const badgeColors = ['bg-primary-fixed text-primary', 'bg-secondary-fixed text-secondary', 'bg-tertiary-fixed text-tertiary'];
+  const progressColors = ['bg-secondary-container', 'bg-primary-container', 'bg-tertiary-container'];
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  if (pastKeys.length > 0) {
-    html += '<div class="qg-past-header">Past Months</div>';
-    html += '<div class="qg-grid">';
-    html += pastKeys.map(k => renderQGCard(k, true)).join('');
-    html += '</div>';
+  function monthCardHTML(key, idx) {
+    const items = allGoals[key] || [];
+    const doneCount = items.filter(i => i.done).length;
+    const totalCount = items.length;
+    const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+    const barPct = pct > 0 ? pct : (totalCount > 0 ? 2 : 2);
+    const [y, m] = key.split('-');
+    const monthLabel = monthNames[parseInt(m) - 1];
+    const isCurrent = key === currentKey;
+
+    const lastDay = new Date(+y, parseInt(m), 0).getDate();
+    const todayNum = now.getDate();
+    const dayInMonth = parseInt(key.split('-')[1]) === now.getMonth() + 1 ? todayNum : 0;
+    const daysLeft = lastDay - (isCurrent ? todayNum : 0);
+    const showDaysLeft = parseInt(key.split('-')[1]) >= now.getMonth() + 1;
+
+    const itemsHtml = items.length === 0
+      ? '<p class="text-xs text-on-surface-variant opacity-50 text-center py-3">No goals set for this month</p>'
+      : items.map((item, i) => `
+        <li class="flex items-start gap-3">
+          <input type="checkbox" class="stitch-checkbox mt-0.5" ${item.done ? 'checked' : ''} data-key="${key}" data-idx="${i}">
+          <span class="flex-1 text-sm font-body ${item.done ? 'line-through opacity-60 text-on-surface-variant' : 'text-on-surface'}">${item.text}</span>
+          <button class="qg-item-del text-outline hover:text-primary transition-colors text-sm" data-key="${key}" data-idx="${i}">✕</button>
+        </li>
+      `).join('');
+
+    return `
+      <div class="organic-card bg-surface-container-lowest p-5 rounded-xl shadow-sm relative overflow-hidden border-l-4 ${borderColors[idx]}">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            ${isCurrent ? `<span class="font-mono text-[10px] font-bold tracking-widest text-primary bg-primary-fixed px-3 py-1 rounded-full">CURRENT</span>` : ''}
+            <h4 class="font-display font-semibold mt-1" style="font-size:18px;line-height:28px">${monthLabel}</h4>
+          </div>
+          ${showDaysLeft ? `
+          <div class="text-right ${isCurrent ? '' : 'opacity-50'}">
+            <span class="block text-2xl font-bold text-on-surface">${daysLeft}</span>
+            <span class="text-[10px] text-on-surface-variant uppercase tracking-wider font-mono">Days Left</span>
+          </div>` : ''}
+        </div>
+        <div class="mb-4">
+          <div class="flex justify-between text-xs font-mono mb-1.5">
+            <span class="font-bold text-secondary">${pct}% Focus Achieved</span>
+            <span class="text-on-surface-variant">${totalCount > 0 ? doneCount+'/'+totalCount : 'No'} Goals</span>
+          </div>
+          <div class="h-2.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+            <div class="h-full rounded-full progress-glow ${progressColors[idx]}" style="width:${barPct}%"></div>
+          </div>
+        </div>
+        <ul class="space-y-3">${itemsHtml}</ul>
+        <div class="flex items-center gap-2 mt-4 pt-3 border-t border-outline-variant/20">
+          <input type="text" data-key="${key}" class="flex-1 bg-surface-container-low rounded-lg px-3 py-2 text-xs font-body outline-none focus:ring-1 focus:ring-primary" placeholder="Add goal...">
+          <button class="qg-add-btn bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-all active:scale-95 squishy-button" data-key="${key}">+</button>
+        </div>
+      </div>
+    `;
   }
 
-  const allMonthKeys = [...upcoming, ...pastKeys];
-  let totalDone = 0;
-  let totalItems = 0;
-  allMonthKeys.forEach(k => {
+  // === Build HTML ===
+  let html = '';
+
+  // Active Quarterly Roadmap
+  html += '<section class="mb-10">';
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">';
+
+  upcoming.forEach((k, idx) => {
+    html += monthCardHTML(k, idx);
+  });
+
+  // Visual accent card (4th slot)
+  const visualLabels = ['Prepare', 'Vision', 'Focus', 'Thrive'];
+  const visualMsgs = ['Plan next quarter early for a smooth transition.', 'Set your intentions for the months ahead.', 'Stay consistent — small steps build big results.', 'Every goal starts with a single decision.'];
+  const randomIdx = Math.floor(Math.random() * visualLabels.length);
+  html += `
+    <div class="relative rounded-xl overflow-hidden group min-h-[200px]">
+      <div class="absolute inset-0 bg-gradient-to-br from-primary/20 via-secondary/10 to-tertiary/20 z-0"></div>
+      <div class="absolute inset-0 bg-gradient-to-t from-on-surface/70 to-transparent z-10"></div>
+      <div class="relative z-20 h-full p-5 flex flex-col justify-end text-white">
+        <span class="material-symbols-outlined text-2xl mb-2">auto_awesome</span>
+        <h4 class="font-display font-semibold text-lg">${visualLabels[randomIdx]}</h4>
+        <p class="text-sm opacity-80">${visualMsgs[randomIdx]}</p>
+      </div>
+    </div>`;
+
+  html += '</div>';
+  html += '</section>';
+
+  // Summary
+  const allSummaryKeys = [...upcoming, ...pastKeys];
+  let totalDone = 0, totalItems = 0;
+  allSummaryKeys.forEach(k => {
     const items = allGoals[k] || [];
     items.forEach(i => { totalItems++; if (i.done) totalDone++; });
   });
   if (totalItems > 0) {
-    html += `<div class="qg-summary">${totalDone}/${totalItems} goals completed across all months</div>`;
+    html += '<div class="text-center text-sm font-mono text-on-surface-variant opacity-70 mb-5">' + totalDone + '/' + totalItems + ' goals completed this quarter</div>';
   }
+
+  // Past Months
+  html += '<section class="mb-6">';
+  html += '<div class="flex items-center gap-4 mb-5">';
+  html += '<h3 class="font-display font-semibold text-on-surface-variant" style="font-size:16px;line-height:24px">Past Months</h3>';
+  html += '<div class="h-px flex-1 bg-outline-variant opacity-30"></div>';
+  html += '</div>';
+  html += '<div class="flex flex-wrap gap-3">';
+  if (pastKeys.length > 0) {
+    pastKeys.forEach(k => {
+      const items = allGoals[k] || [];
+      const doneCount = items.filter(i => i.done).length;
+      const totalCount = items.length;
+      const [y, m] = k.split('-');
+      const monthLabel = monthNames[parseInt(m) - 1];
+      const allDone = totalCount > 0 && doneCount === totalCount;
+      html += `
+        <div class="px-5 py-3 bg-surface-container-low rounded-xl border-2 border-dashed border-outline-variant flex items-center gap-3 opacity-70 hover:opacity-100 hover:grayscale-0 transition-all cursor-pointer">
+          <span class="material-symbols-outlined ${allDone ? 'text-secondary' : 'text-outline'}">${allDone ? 'verified' : 'radio_button_unchecked'}</span>
+          <div>
+            <p class="font-bold text-sm">${monthLabel}</p>
+            <p class="text-[11px] font-mono text-on-surface-variant">${doneCount}/${totalCount} Goals Completed</p>
+          </div>
+        </div>`;
+    });
+  } else {
+    html += '<p class="text-xs text-on-surface-variant opacity-50">No past months recorded yet. Start adding goals to see your history.</p>';
+  }
+  html += '</div>';
+  html += '</section>';
 
   document.getElementById('quarterlyGoalsContent').innerHTML = html;
 
-  // checkbox toggle
-  document.querySelectorAll('.qg-item input[type="checkbox"]').forEach(cb => {
+  // Event handlers
+  document.querySelectorAll('#quarterlyGoalsContent .stitch-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const key = cb.dataset.key;
       const idx = parseInt(cb.dataset.idx);
@@ -1967,8 +2026,7 @@ function renderQuarterlyGoals() {
     });
   });
 
-  // delete item
-  document.querySelectorAll('.qg-item-del').forEach(btn => {
+  document.querySelectorAll('#quarterlyGoalsContent .qg-item-del').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.key;
       const idx = parseInt(btn.dataset.idx);
@@ -1982,8 +2040,7 @@ function renderQuarterlyGoals() {
     });
   });
 
-  // add item - button click
-  document.querySelectorAll('.qg-add-btn').forEach(btn => {
+  document.querySelectorAll('#quarterlyGoalsContent .qg-add-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.key;
       const input = btn.parentElement.querySelector('input');
@@ -1997,8 +2054,7 @@ function renderQuarterlyGoals() {
     });
   });
 
-  // add item - enter key
-  document.querySelectorAll('.qg-add-row input').forEach(input => {
+  document.querySelectorAll('#quarterlyGoalsContent .qg-add-row input, #quarterlyGoalsContent input[data-key]').forEach(input => {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();

@@ -960,6 +960,43 @@ section[data-tab].tab-hidden { display: none !important; }
 .dark .sort-btn:not(.active) { border-color: var(--outline-variant); }
 .dark .progress-ring .text-surface-container-high { color: var(--surface-container-high); }
 
+/* ===== GOALS ===== */
+.stitch-checkbox {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px dashed var(--outline);
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+.stitch-checkbox:checked {
+  background-color: var(--secondary);
+  border: 2px solid var(--secondary);
+  transform: scale(1.1);
+}
+.stitch-checkbox:checked::after {
+  content: 'check';
+  font-family: 'Material Symbols Outlined';
+  font-size: 14px;
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.progress-glow {
+  box-shadow: 0 0 10px rgba(0, 106, 101, 0.2);
+}
+.organic-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.organic-card:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+
 /* ===== QUICK ADD ===== */
 #quickAddInput::placeholder { color: var(--outline); opacity: 0.5; }
 
