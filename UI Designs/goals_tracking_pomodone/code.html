@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PomoDone | Quarterly Goals</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Design System Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error-container": "#ffdad6",
+                    "outline": "#8c706f",
+                    "secondary-fixed-dim": "#5dd9d0",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-primary-container": "#6d0010",
+                    "on-tertiary-fixed": "#221b00",
+                    "primary-fixed": "#ffdad8",
+                    "surface-container-highest": "#e7e1de",
+                    "surface-container-high": "#ede7e3",
+                    "background": "#fef8f4",
+                    "surface-bright": "#fef8f4",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#f3ede9",
+                    "on-primary-fixed": "#410006",
+                    "primary": "#ae2f34",
+                    "tertiary-fixed": "#ffe173",
+                    "surface-container-low": "#f8f2ef",
+                    "surface-dim": "#ded9d5",
+                    "on-secondary-fixed-variant": "#00504c",
+                    "on-secondary-container": "#006f69",
+                    "on-background": "#1d1b19",
+                    "tertiary": "#705d00",
+                    "secondary-container": "#79f3ea",
+                    "secondary": "#006a65",
+                    "on-error": "#ffffff",
+                    "surface-tint": "#ae2f34",
+                    "inverse-primary": "#ffb3b0",
+                    "primary-container": "#ff6b6b",
+                    "on-secondary-fixed": "#00201e",
+                    "outline-variant": "#e0bfbd",
+                    "tertiary-container": "#caa800",
+                    "on-tertiary": "#ffffff",
+                    "surface-variant": "#e7e1de",
+                    "inverse-on-surface": "#f5f0ec",
+                    "secondary-fixed": "#7cf6ec",
+                    "on-secondary": "#ffffff",
+                    "on-surface-variant": "#584140",
+                    "tertiary-fixed-dim": "#e8c426",
+                    "on-primary-fixed-variant": "#8c1520",
+                    "primary-fixed-dim": "#ffb3b0",
+                    "surface": "#fef8f4",
+                    "on-surface": "#1d1b19",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-container": "#4c3e00",
+                    "inverse-surface": "#32302e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-padding": "24px",
+                    "gutter": "16px",
+                    "unit": "8px",
+                    "radius-organic": "24px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "label-caps": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "headline-lg-mobile": ["Plus Jakarta Sans"],
+                    "display-timer": ["Plus Jakarta Sans"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "display-timer": ["80px", {"lineHeight": "80px", "letterSpacing": "-0.04em", "fontWeight": "800"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fef8f4;
+            color: #1d1b19;
+            overflow-x: hidden;
+        }
+        .organic-card {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .organic-card:hover {
+            transform: translateY(-4px) scale(1.01);
+        }
+        .stitch-checkbox {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border: 2px dashed #8c706f;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .stitch-checkbox:checked {
+            background-color: #006a65;
+            border: 2px solid #006a65;
+            transform: scale(1.1);
+        }
+        .stitch-checkbox:checked::after {
+            content: 'check';
+            font-family: 'Material Symbols Outlined';
+            font-size: 16px;
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .squishy-button {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .squishy-button:active {
+            transform: scale(0.95);
+        }
+        .progress-glow {
+            box-shadow: 0 0 12px rgba(0, 106, 101, 0.2);
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md flex min-h-screen">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex flex-col h-screen py-8 px-4 gap-4 bg-surface-container-low dark:bg-surface-container-lowest w-64 fixed left-0 shadow-sm z-40">
+<div class="mb-8 px-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">PomoDone</h1>
+<p class="font-body-md text-on-surface-variant opacity-70">Stay Focused</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all rounded-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">timer</span>
+<span class="font-body-md">Pomodoro</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all rounded-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">format_list_bulleted</span>
+<span class="font-body-md">Tasks</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all rounded-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">leaderboard</span>
+<span class="font-body-md">Stats</span>
+</a>
+<!-- Active State: Goals -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container rounded-full font-bold shadow-sm transition-all active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+<span class="font-body-md">Goals</span>
+</a>
+</nav>
+<div class="mt-auto p-4 bg-surface-container-highest rounded-lg flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold">JD</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold">John Doe</span>
+<span class="text-xs opacity-60">Level 12 Focus Master</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 pb-32">
+<!-- Top App Bar -->
+<header class="flex justify-between items-center px-container-padding py-4 w-full bg-background sticky top-0 z-30">
+<div class="md:hidden">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">PomoDone</h1>
+</div>
+<div class="hidden md:block">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Quarterly Focus</h2>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined p-2 hover:bg-surface-container-low transition-all rounded-full text-on-surface-variant">dark_mode</button>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-6 py-2 rounded-full font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined">add</span>
+<span>New Goal</span>
+</button>
+</div>
+</header>
+<div class="px-container-padding pt-6 space-y-12">
+<!-- Bento-ish Grid for Quarterly Goals -->
+<section>
+<div class="flex items-end justify-between mb-8">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Active Quarterly Roadmap</h3>
+<p class="text-on-surface-variant">Stay on track with your long-term vision.</p>
+</div>
+<div class="hidden lg:flex items-center gap-2 text-primary font-bold">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-label-caps">Next Milestone in 3 Days</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- Current Month Card -->
+<div class="organic-card bg-surface-container-lowest p-6 rounded-lg shadow-[0_8px_20px_rgba(174,47,52,0.04)] relative overflow-hidden border-l-4 border-primary">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="font-label-caps text-primary bg-primary-fixed px-3 py-1 rounded-full text-[10px]">CURRENT</span>
+<h4 class="font-headline-md text-headline-md mt-2">October</h4>
+</div>
+<div class="text-right">
+<span class="block text-2xl font-bold text-on-surface">12</span>
+<span class="text-xs text-on-surface-variant uppercase tracking-wider">Days Left</span>
+</div>
+</div>
+<div class="mb-6">
+<div class="flex justify-between text-xs mb-2">
+<span class="font-bold text-secondary">65% Focus Achieved</span>
+<span class="text-on-surface-variant">3/5 Goals</span>
+</div>
+<div class="h-3 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-[65%] rounded-full progress-glow"></div>
+</div>
+</div>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<input checked="" class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface-variant line-through opacity-60">Complete UX Case Study</span>
+</li>
+<li class="flex items-start gap-3">
+<input checked="" class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface-variant line-through opacity-60">Read 2 books on ADHD</span>
+</li>
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Launch Beta V2 Project</span>
+</li>
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Meditation: 20 sessions</span>
+</li>
+</ul>
+</div>
+<!-- Next Month Card -->
+<div class="organic-card bg-surface-container-low p-6 rounded-lg shadow-sm border-l-4 border-secondary-fixed">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline-md text-headline-md">November</h4>
+</div>
+<div class="text-right">
+<span class="block text-2xl font-bold text-on-surface-variant">42</span>
+<span class="text-xs text-on-surface-variant uppercase tracking-wider">Days Left</span>
+</div>
+</div>
+<div class="mb-6 opacity-40">
+<div class="h-3 w-full bg-surface-container-high rounded-full"></div>
+</div>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Deep Work: 40 hours</span>
+</li>
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Master Tailwind Grid</span>
+</li>
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Community Showcase</span>
+</li>
+</ul>
+</div>
+<!-- Following Month Card -->
+<div class="organic-card bg-surface-container-low p-6 rounded-lg shadow-sm border-l-4 border-tertiary-fixed">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline-md text-headline-md">December</h4>
+</div>
+<div class="text-right">
+<span class="block text-2xl font-bold text-on-surface-variant">72</span>
+<span class="text-xs text-on-surface-variant uppercase tracking-wider">Days Left</span>
+</div>
+</div>
+<div class="mb-6 opacity-40">
+<div class="h-3 w-full bg-surface-container-high rounded-full"></div>
+</div>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Q4 Reflection Session</span>
+</li>
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Design 2025 Planner</span>
+</li>
+<li class="flex items-start gap-3">
+<input class="stitch-checkbox mt-0.5" type="checkbox"/>
+<span class="text-on-surface">Holiday Rest Period</span>
+</li>
+</ul>
+</div>
+<!-- Visual Accent Card -->
+<div class="relative rounded-lg overflow-hidden h-full group">
+<div class="absolute inset-0 z-0 scale-105 group-hover:scale-110 transition-transform duration-700 bg-cover bg-center" data-alt="A serene, soft-focus workspace with warm sunset lighting, a minimalist wooden desk, a small green succulent plant, and a single journal with a pen. The aesthetic is clean, light-mode, and comforting, featuring a palette of warm beiges, soft teals, and muted corals. High quality digital photography with shallow depth of field." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAjSaAPCGBHQjhlmHpplG29BiraFlLLh9kOcF0qUwfy27D59syO2m3b2khNddOx5_VFVsJ6bWi3hz6jcYUWBa4EAaPCrSQWVtvqqccc119N9AHkB8Y9acCPiFH58CMS4idn726vdA_ZK_FCuXQ3oRCwR16gs_A5_5k5HHkk9UYYc9HBCrav5aWT48YcA-Mu4NYh9UmFm4NsguYmaIM2HJceQEfgeVKdR51I8DgnCReoFzqlT6wp14ZK')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 to-transparent z-10"></div>
+<div class="relative z-20 h-full p-6 flex flex-col justify-end text-white">
+<span class="material-symbols-outlined mb-2">flare</span>
+<h4 class="font-headline-md text-headline-md">January Prep</h4>
+<p class="text-sm opacity-80">Start drafting next year's vision early for a calm transition.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Past Months Section -->
+<section class="mt-16">
+<div class="flex items-center gap-4 mb-8">
+<h3 class="font-headline-md text-headline-md text-on-surface-variant">Past Months</h3>
+<div class="h-px flex-1 bg-outline-variant opacity-30"></div>
+</div>
+<div class="flex flex-wrap gap-4">
+<div class="px-6 py-4 bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex items-center gap-4 opacity-70 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-secondary">verified</span>
+<div>
+<p class="font-bold">September</p>
+<p class="text-xs">8/8 Goals Completed</p>
+</div>
+</div>
+<div class="px-6 py-4 bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex items-center gap-4 opacity-70 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-secondary">verified</span>
+<div>
+<p class="font-bold">August</p>
+<p class="text-xs">5/8 Goals Completed</p>
+</div>
+</div>
+<div class="px-6 py-4 bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex items-center gap-4 opacity-70 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-secondary">verified</span>
+<div>
+<p class="font-bold">July</p>
+<p class="text-xs">7/8 Goals Completed</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Footer Progress Shell -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-container-padding py-3 bg-primary-container text-on-primary-container rounded-t-lg shadow-lg animate-pulse">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="font-label-caps text-label-caps font-bold">15/21 goals completed this quarter</span>
+</div>
+<div class="flex gap-4">
+<button class="font-label-caps text-label-caps hover:bg-primary hover:text-on-primary px-4 py-1 rounded-full transition-all">Pause Track</button>
+<button class="font-label-caps text-label-caps font-bold underline px-4 py-1 rounded-full hover:bg-primary hover:text-on-primary transition-all">Full Report</button>
+</div>
+</footer>
+<!-- Bottom Nav for Mobile -->
+<nav class="md:hidden fixed bottom-12 left-0 w-full bg-background flex justify-around items-center py-3 px-4 z-40 border-t border-surface-container-high">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">timer</span>
+<span class="text-[10px] font-label-caps">Focus</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">format_list_bulleted</span>
+<span class="text-[10px] font-label-caps">Tasks</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+<span class="text-[10px] font-label-caps">Goals</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-label-caps">Profile</span>
+</button>
+</nav>
+<script>
+        // Simple micro-interaction for checkboxes
+        document.querySelectorAll('.stitch-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const text = this.nextElementSibling;
+                if(this.checked) {
+                    text.classList.add('line-through', 'opacity-60');
+                    text.classList.remove('text-on-surface');
+                    text.classList.add('text-on-surface-variant');
+                } else {
+                    text.classList.remove('line-through', 'opacity-60');
+                    text.classList.add('text-on-surface');
+                    text.classList.remove('text-on-surface-variant');
+                }
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PomoDone - Today's Overview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error-container": "#ffdad6",
+                    "outline": "#8c706f",
+                    "secondary-fixed-dim": "#5dd9d0",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-primary-container": "#6d0010",
+                    "on-tertiary-fixed": "#221b00",
+                    "primary-fixed": "#ffdad8",
+                    "surface-container-highest": "#e7e1de",
+                    "surface-container-high": "#ede7e3",
+                    "background": "#fef8f4",
+                    "surface-bright": "#fef8f4",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#f3ede9",
+                    "on-primary-fixed": "#410006",
+                    "primary": "#ae2f34",
+                    "tertiary-fixed": "#ffe173",
+                    "surface-container-low": "#f8f2ef",
+                    "surface-dim": "#ded9d5",
+                    "on-secondary-fixed-variant": "#00504c",
+                    "on-secondary-container": "#006f69",
+                    "on-background": "#1d1b19",
+                    "tertiary": "#705d00",
+                    "secondary-container": "#79f3ea",
+                    "secondary": "#006a65",
+                    "on-error": "#ffffff",
+                    "surface-tint": "#ae2f34",
+                    "inverse-primary": "#ffb3b0",
+                    "primary-container": "#ff6b6b",
+                    "on-secondary-fixed": "#00201e",
+                    "outline-variant": "#e0bfbd",
+                    "tertiary-container": "#caa800",
+                    "on-tertiary": "#ffffff",
+                    "surface-variant": "#e7e1de",
+                    "inverse-on-surface": "#f5f0ec",
+                    "secondary-fixed": "#7cf6ec",
+                    "on-secondary": "#ffffff",
+                    "on-surface-variant": "#584140",
+                    "tertiary-fixed-dim": "#e8c426",
+                    "on-primary-fixed-variant": "#8c1520",
+                    "primary-fixed-dim": "#ffb3b0",
+                    "surface": "#fef8f4",
+                    "on-surface": "#1d1b19",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-container": "#4c3e00",
+                    "inverse-surface": "#32302e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-padding": "24px",
+                    "gutter": "16px",
+                    "unit": "8px",
+                    "radius-organic": "24px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "label-caps": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "headline-lg-mobile": ["Plus Jakarta Sans"],
+                    "display-timer": ["Plus Jakarta Sans"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "display-timer": ["80px", {"lineHeight": "80px", "letterSpacing": "-0.04em", "fontWeight": "800"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .stitch-border {
+            border: 2px dashed #e0bfbd;
+        }
+        .golden-glow {
+            box-shadow: 0 0 25px rgba(232, 196, 38, 0.3);
+        }
+        .organic-card {
+            border-radius: 24px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .organic-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -10px rgba(174, 47, 52, 0.15);
+        }
+        .timer-pulse {
+            animation: soft-pulse 3s infinite ease-in-out;
+        }
+        @keyframes soft-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.02); opacity: 0.95; }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col md:flex-row">
+<!-- SideNavBar (Shared Component) -->
+<aside class="hidden md:flex flex-col h-screen py-8 px-4 gap-4 bg-surface-container-low dark:bg-surface-container-lowest w-64 left-0 shadow-sm shrink-0">
+<div class="mb-8 px-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">PomoDone</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Stay Focused</p>
+</div>
+<nav class="flex flex-col gap-2">
+<!-- Active Tab: Pomodoro (Today's Overview) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container dark:bg-primary-fixed dark:text-on-primary-fixed rounded-full font-bold active:scale-[0.98] transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="timer">timer</span>
+<span class="font-body-md text-body-md">Pomodoro</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant dark:text-on-surface-variant hover:text-primary hover:bg-surface-container-high dark:hover:bg-surface-container transition-all active:scale-[0.98] transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="format_list_bulleted">format_list_bulleted</span>
+<span class="font-body-md text-body-md">Tasks</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant dark:text-on-surface-variant hover:text-primary hover:bg-surface-container-high dark:hover:bg-surface-container transition-all active:scale-[0.98] transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-body-md text-body-md">Stats</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant dark:text-on-surface-variant hover:text-primary hover:bg-surface-container-high dark:hover:bg-surface-container transition-all active:scale-[0.98] transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="emoji_events">emoji_events</span>
+<span class="font-body-md text-body-md">Goals</span>
+</a>
+</nav>
+<div class="mt-auto flex items-center gap-3 px-4 py-4 bg-surface-container rounded-organic">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-primary-fixed flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A friendly, soft-lit portrait of a young student with glasses, smiling gently against a warm cream background, studio lighting, highly detailed digital illustration in a modern warm aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx8T8wl17uQDXtVhFCwDa0DCeiyfCo0FHrZw2Km8D8KVLndUpDypm2ruqyXMKGThgjOWNh6ARA-GNrXKkUnT7ThBcHiQSeCRK1OQeyQumBbNri9i8uEu7RcybH8V7h6mQjTZuas2VTu28Q7_37Glrzk0rAC4hMr1gScf58HMbk4o-tf43Shg3e8M5dGmh_0xvvoRG37j459_LrqLstOrS50wZNLHZnrnyPbB_VfbYsniIZhbITF-lr"/>
+</div>
+<div>
+<p class="font-body-md text-body-md font-bold">Alex Chen</p>
+<p class="font-label-caps text-label-caps text-tertiary">Pro Focus</p>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar (Shared Component) -->
+<header class="flex justify-between items-center px-container-padding py-4 w-full top-0 bg-background dark:bg-background">
+<div class="md:hidden">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">PomoDone</h1>
+</div>
+<div class="hidden md:block">
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">Today's Overview</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 focus:ring-2 focus:ring-primary w-64 text-body-md" placeholder="Search tasks..." type="text"/>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-full flex items-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span class="font-body-md">New Task</span>
+</button>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto px-container-padding pb-24 md:pb-8">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter max-w-[1200px] mx-auto mt-6">
+<!-- Left Column: Stats & Golden Task -->
+<div class="lg:col-span-5 flex flex-col gap-gutter">
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-gutter">
+<div class="organic-card bg-surface-container p-6 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-primary text-4xl mb-2" data-icon="timer">timer</span>
+<span class="font-headline-lg text-headline-lg text-on-surface">8</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">POMODOROS</span>
+</div>
+<div class="organic-card bg-surface-container p-6 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-secondary text-4xl mb-2" data-icon="check_circle">check_circle</span>
+<span class="font-headline-lg text-headline-lg text-on-surface">12</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TASKS DONE</span>
+</div>
+</div>
+<!-- Golden Task Highlight -->
+<div class="organic-card bg-tertiary-fixed text-on-tertiary-fixed p-8 relative overflow-hidden golden-glow group">
+<div class="absolute -right-4 -top-4 opacity-10 group-hover:rotate-12 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]" data-icon="grade" style="font-variation-settings: 'FILL' 1;">grade</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-tertiary" data-icon="stars" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="font-label-caps text-label-caps">THE GOLDEN TASK</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg mb-2">Finalize UI Brand Anchors</h3>
+<p class="font-body-md text-body-md opacity-80 mb-6">This task represents your most impactful work today. Focus here to make real progress.</p>
+<div class="flex items-center gap-4">
+<button class="bg-on-tertiary-fixed text-tertiary-fixed px-6 py-2 rounded-full font-bold active:scale-95 transition-transform">
+                                Focus Now
+                            </button>
+<span class="font-label-caps text-label-caps opacity-60">EST. 4 POMOS</span>
+</div>
+</div>
+<!-- Small Daily Quote Card -->
+<div class="organic-card stitch-border p-6 bg-surface-container-low flex items-start gap-4">
+<span class="material-symbols-outlined text-outline-variant" data-icon="format_quote">format_quote</span>
+<p class="font-body-md italic text-on-surface-variant">"Slow progress is still progress. Every stitch counts towards the final masterpiece."</p>
+</div>
+</div>
+<!-- Right Column: Timer & Up Next -->
+<div class="lg:col-span-7 flex flex-col gap-gutter">
+<!-- Timer Widget -->
+<div class="organic-card bg-surface-container-highest p-10 flex flex-col items-center justify-center relative">
+<div class="absolute inset-0 opacity-5 pointer-events-none">
+<div class="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
+</div>
+<div class="timer-pulse flex flex-col items-center">
+<div class="font-display-timer text-display-timer text-primary tracking-tighter mb-2" id="timer-display">25:00</div>
+<div class="flex gap-2 mb-8">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="w-20 h-20 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg active:scale-90 transition-transform" id="play-btn" onclick="toggleTimer()">
+<span class="material-symbols-outlined text-4xl" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center hover:bg-surface-variant transition-colors active:scale-90">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+</div>
+<div class="mt-8 flex gap-4">
+<button class="font-label-caps text-label-caps text-primary border-b-2 border-primary pb-1">POMODORO</button>
+<button class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors pb-1">SHORT BREAK</button>
+<button class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors pb-1">LONG BREAK</button>
+</div>
+</div>
+<!-- Up Next Section -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between px-2">
+<h4 class="font-headline-md text-headline-md text-on-surface">Up Next</h4>
+<a class="font-label-caps text-label-caps text-primary hover:underline" href="#">VIEW ALL</a>
+</div>
+<div class="space-y-3">
+<!-- Task Item 1 -->
+<div class="organic-card bg-surface-container-low p-4 flex items-center gap-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="w-10 h-10 rounded-full stitch-border flex items-center justify-center group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-outline group-hover:text-on-primary" data-icon="circle">circle</span>
+</div>
+<div class="flex-1">
+<h5 class="font-body-lg text-body-lg text-on-surface font-semibold">Review Design System Docs</h5>
+<p class="font-label-caps text-label-caps text-on-surface-variant opacity-70">DESIGN • 2 POMOS</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="drag_indicator">drag_indicator</span>
+</div>
+<!-- Task Item 2 -->
+<div class="organic-card bg-surface-container-low p-4 flex items-center gap-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="w-10 h-10 rounded-full stitch-border flex items-center justify-center group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-outline group-hover:text-on-primary" data-icon="circle">circle</span>
+</div>
+<div class="flex-1">
+<h5 class="font-body-lg text-body-lg text-on-surface font-semibold">Update Team Dashboard</h5>
+<p class="font-label-caps text-label-caps text-on-surface-variant opacity-70">ADMIN • 1 POMO</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="drag_indicator">drag_indicator</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer / Active Progress Bar (Shared Component) -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-container-padding py-3 bg-primary-container dark:bg-primary-fixed text-on-primary-container dark:text-on-primary-fixed rounded-t-lg shadow-lg">
+<div class="flex items-center gap-4 overflow-hidden">
+<span class="font-label-caps text-label-caps font-bold whitespace-nowrap">ACTIVE TASK:</span>
+<p class="font-label-caps text-label-caps truncate">Finalize UI Brand Anchors (Session 2/4)</p>
+</div>
+<div class="flex items-center gap-6">
+<button class="font-label-caps text-label-caps font-bold hover:bg-primary hover:text-on-primary px-3 py-1 rounded transition-all">Pause</button>
+<button class="font-label-caps text-label-caps font-bold hover:bg-primary hover:text-on-primary px-3 py-1 rounded transition-all">Stop</button>
+</div>
+<!-- Simple Progress Line at top of footer -->
+<div class="absolute top-0 left-0 h-1 bg-on-primary-container/20 w-full">
+<div class="h-full bg-on-primary-container w-[45%]"></div>
+</div>
+</footer>
+</main>
+<!-- Mobile Bottom NavBar (Shared Component Triggered by responsive logic) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-low flex justify-around items-center py-3 z-40 shadow-up pb-20">
+<button class="flex flex-col items-center text-primary">
+<span class="material-symbols-outlined" data-icon="timer" style="font-variation-settings: 'FILL' 1;">timer</span>
+<span class="text-[10px] font-bold">Focus</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="format_list_bulleted">format_list_bulleted</span>
+<span class="text-[10px]">Tasks</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="text-[10px]">Stats</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px]">Profile</span>
+</button>
+</nav>
+<script>
+        let isRunning = false;
+        let timeLeft = 1500; // 25 minutes
+        let timerId = null;
+
+        function toggleTimer() {
+            const playBtn = document.getElementById('play-btn');
+            const timerDisplay = document.getElementById('timer-display');
+            
+            if (isRunning) {
+                clearInterval(timerId);
+                playBtn.innerHTML = '<span class="material-symbols-outlined text-4xl" data-icon="play_arrow" style="font-variation-settings: \'FILL\' 1;">play_arrow</span>';
+                isRunning = false;
+            } else {
+                isRunning = true;
+                playBtn.innerHTML = '<span class="material-symbols-outlined text-4xl" data-icon="pause" style="font-variation-settings: \'FILL\' 1;">pause</span>';
+                timerId = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay();
+                    if (timeLeft <= 0) {
+                        clearInterval(timerId);
+                        isRunning = false;
+                        alert('Pomo Completed! Time for a break.');
+                        timeLeft = 1500;
+                        updateDisplay();
+                    }
+                }, 1000);
+            }
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer-display').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body></html>

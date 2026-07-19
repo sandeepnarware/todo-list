@@ -1,88 +1,461 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PomoDone</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'error-container': '#ffdad6', outline: '#8c706f',
+            'secondary-fixed-dim': '#5dd9d0', 'on-tertiary-fixed-variant': '#554500',
+            'on-primary-container': '#6d0010', 'on-tertiary-fixed': '#221b00',
+            'primary-fixed': '#ffdad8', 'surface-container-highest': '#e7e1de',
+            'surface-container-high': '#ede7e3', 'background': '#fef8f4',
+            'surface-bright': '#fef8f4', error: '#ba1a1a',
+            'surface-container-lowest': '#ffffff', 'surface-container': '#f3ede9',
+            'on-primary-fixed': '#410006', primary: '#ae2f34',
+            'tertiary-fixed': '#ffe173', 'surface-container-low': '#f8f2ef',
+            'surface-dim': '#ded9d5', 'on-secondary-fixed-variant': '#00504c',
+            'on-secondary-container': '#006f69', 'on-background': '#1d1b19',
+            tertiary: '#705d00', 'secondary-container': '#79f3ea',
+            secondary: '#006a65', 'on-error': '#ffffff',
+            'surface-tint': '#ae2f34', 'inverse-primary': '#ffb3b0',
+            'primary-container': '#ff6b6b', 'on-secondary-fixed': '#00201e',
+            'outline-variant': '#e0bfbd', 'tertiary-container': '#caa800',
+            'on-tertiary': '#ffffff', 'surface-variant': '#e7e1de',
+            'inverse-on-surface': '#f5f0ec', 'secondary-fixed': '#7cf6ec',
+            'on-secondary': '#ffffff', 'on-surface-variant': '#584140',
+            'tertiary-fixed-dim': '#e8c426', 'on-primary-fixed-variant': '#8c1520',
+            'primary-fixed-dim': '#ffb3b0', surface: '#fef8f4',
+            'on-surface': '#1d1b19', 'on-primary': '#ffffff',
+            'on-error-container': '#93000a', 'on-tertiary-container': '#4c3e00',
+            'inverse-surface': '#32302e'
+          },
+          fontFamily: {
+            display: ['"Plus Jakarta Sans"', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          borderRadius: {
+            '2xl': '1rem', '3xl': '1.5rem', '4xl': '2rem', '5xl': '3rem'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    body { overflow-x: hidden; }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <header>
-      <h1>PomoDone</h1>
-      <div class="header-actions">
-        <button id="helpBtn" aria-label="Help">?</button>
-        <button id="themeToggle" aria-label="Toggle theme">🌙</button>
+<body class="font-body min-h-screen flex flex-col md:flex-row antialiased">
+
+  <!-- ===== AMBIENT ATMOSPHERE (always on pomodoro) ===== -->
+  <div id="ambientBg" class="fixed inset-0 pointer-events-none overflow-hidden opacity-30">
+    <div class="absolute -top-24 -left-24 w-96 h-96 bg-primary-container rounded-full blur-[120px] pulse-slow"></div>
+    <div class="absolute bottom-48 -right-24 w-80 h-80 bg-secondary-container rounded-full blur-[100px]"></div>
+  </div>
+
+  <!-- ===== SIDEBAR (Desktop) ===== -->
+  <aside class="hidden md:flex flex-col h-screen py-6 px-3 gap-2 bg-surface-container-low dark:bg-[#0f0d0c] w-64 shrink-0 border-r border-outline-variant/20 shadow-sm z-40">
+    <div class="mb-6 px-4">
+      <h1 class="text-headline-md font-display font-bold" style="color:#ae2f34">PomoDone</h1>
+      <p class="text-body-md opacity-60 font-body">Stay Focused</p>
+    </div>
+    <nav class="flex flex-col gap-1 flex-1">
+      <button class="tab flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 active:scale-[0.98] font-body" data-tab="dashboard">
+        <span class="material-symbols-outlined">space_dashboard</span>
+        <span class="text-body-md">Dashboard</span>
+      </button>
+      <button class="tab flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 active:scale-[0.98] font-body" data-tab="pomodoro">
+        <span class="material-symbols-outlined">timer</span>
+        <span class="text-body-md">Pomodoro</span>
+      </button>
+      <button class="tab flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 active:scale-[0.98] font-body" data-tab="tasks">
+        <span class="material-symbols-outlined">format_list_bulleted</span>
+        <span class="text-body-md">Tasks</span>
+      </button>
+      <button class="tab flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 active:scale-[0.98] font-body" data-tab="stats">
+        <span class="material-symbols-outlined">leaderboard</span>
+        <span class="text-body-md">Stats</span>
+      </button>
+      <button class="tab flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 active:scale-[0.98] font-body" data-tab="goals">
+        <span class="material-symbols-outlined">emoji_events</span>
+        <span class="text-body-md">Goals</span>
+      </button>
+    </nav>
+    <!-- Profile Card -->
+    <div class="mt-auto px-4 py-4 flex items-center gap-3 bg-surface-container rounded-organic">
+      <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm overflow-hidden flex-shrink-0" id="sidebarAvatar">PD</div>
+      <div class="min-w-0">
+        <p class="text-sm font-bold truncate" style="color:var(--on-surface)">PomoDone</p>
+        <p class="text-xs opacity-50 font-mono">v2.0</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="flex-1 flex flex-col min-h-screen overflow-hidden">
+
+    <!-- Top Bar -->
+    <header class="flex justify-between items-center px-container-padding py-3 w-full bg-background dark:bg-[#0f0d0c] sticky top-0 z-30 border-b border-outline-variant/10">
+      <div class="flex items-center gap-3">
+        <button class="md:hidden p-2 hover:bg-surface-container-low rounded-full transition-all">
+          <span class="material-symbols-outlined text-on-surface-variant">menu</span>
+        </button>
+        <h2 id="pageTitle" class="font-display font-bold" style="font-size:24px;line-height:32px;font-weight:600">Dashboard</h2>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="hidden sm:flex bg-surface-container-low px-4 py-2 rounded-full items-center gap-2 border border-outline-variant/50">
+          <span class="material-symbols-outlined text-sm opacity-50">search</span>
+          <input id="headerSearch" class="bg-transparent border-none focus:ring-0 text-sm w-36 md:w-48 outline-none" style="color:var(--on-surface)" placeholder="Search tasks..." type="text">
+        </div>
+        <button id="headerAddBtn" class="hidden sm:flex bg-primary text-on-primary px-4 py-2 rounded-full items-center gap-2 active:scale-95 transition-transform font-mono text-xs font-bold tracking-wide hover:bg-primary/90">
+          <span class="material-symbols-outlined text-sm">add</span>
+          <span class="hidden md:inline">New Task</span>
+        </button>
+        <button id="helpBtn" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Help">
+          <span class="material-symbols-outlined text-lg">help</span>
+        </button>
+        <button id="themeToggle" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Toggle theme">
+          <span class="material-symbols-outlined text-lg">dark_mode</span>
+        </button>
       </div>
     </header>
 
-    <nav class="tab-bar">
-      <button class="tab active" data-tab="pomodoro">Pomodoro</button>
-      <button class="tab" data-tab="tasks">Tasks</button>
-      <button class="tab" data-tab="stats">Stats</button>
-      <button class="tab" data-tab="goals">Goals</button>
-    </nav>
+    <!-- Content Area (scrollable) -->
+    <div class="flex-1 overflow-y-auto custom-scrollbar pb-36">
 
-    <section class="pomodoro" id="pomodoroSection" data-tab="pomodoro">
-      <div class="pomodoro-compact-bar">
-        <span class="compact-time" id="compactTimer">25:00</span>
-        <span class="compact-phase" id="compactPhase">Focus</span>
-        <span class="compact-sessions" id="compactSessions">0 sessions</span>
-        <button id="compactStartBtn" class="compact-start-btn">▶ Start</button>
-      </div>
-      <div class="timer-display">
-        <div class="progress-ring">
-          <svg width="200" height="200">
-            <circle class="bg" cx="100" cy="100" r="88" />
-            <circle class="fg" cx="100" cy="100" r="88" />
+      <!-- ===== DASHBOARD TAB ===== -->
+      <section id="dashboardSection" class="px-4 pt-6 md:pt-8" data-tab="dashboard">
+        <div class="max-w-[1200px] mx-auto">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4" style="gap:16px">
+            <!-- Left: Stats + Golden -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+              <!-- Stats cards -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="organic-card bg-surface-container p-5 flex flex-col items-center justify-center text-center">
+                  <span class="material-symbols-outlined text-primary text-3xl mb-2 fill">timer</span>
+                  <span class="font-display font-bold" style="font-size:32px;line-height:40px" id="dashPomos">0</span>
+                  <span class="font-mono text-xs font-semibold tracking-wider text-on-surface-variant">POMODOROS</span>
+                </div>
+                <div class="organic-card bg-surface-container p-5 flex flex-col items-center justify-center text-center">
+                  <span class="material-symbols-outlined text-secondary text-3xl mb-2 fill">check_circle</span>
+                  <span class="font-display font-bold" style="font-size:32px;line-height:40px" id="dashTasks">0</span>
+                  <span class="font-mono text-xs font-semibold tracking-wider text-on-surface-variant">TASKS DONE</span>
+                </div>
+              </div>
+              <!-- Golden Task -->
+              <div id="dashGolden" class="organic-card bg-tertiary-fixed text-on-tertiary-fixed p-6 relative overflow-hidden golden-glow group">
+                <div class="absolute -right-4 -top-4 opacity-10 group-hover:rotate-12 transition-transform duration-500">
+                  <span class="material-symbols-outlined fill" style="font-size:120px;color:var(--tertiary)">grade</span>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="material-symbols-outlined fill text-tertiary">stars</span>
+                  <span class="font-mono text-xs font-bold tracking-wider">THE GOLDEN TASK</span>
+                </div>
+                <h3 id="dashGoldenTitle" class="font-display font-bold" style="font-size:24px;line-height:32px;margin-bottom:8px">No golden task set</h3>
+                <p class="golden-sub font-body text-sm opacity-80 mb-4">Mark a task as golden ⭐ to see it here.</p>
+                <div class="flex items-center gap-4">
+                  <button id="dashFocusBtn" class="bg-on-tertiary-fixed text-tertiary-fixed px-5 py-2 rounded-full font-bold text-sm active:scale-95 transition-transform font-mono tracking-wide hidden">Focus Now</button>
+                  <span id="dashGoldenPomos" class="font-mono text-xs font-bold tracking-wider opacity-60 hidden">EST. 0 POMOS</span>
+                </div>
+              </div>
+              <!-- Quotes -->
+              <div id="dashQuotes" class="flex flex-col gap-2"></div>
+            </div>
+            <!-- Right: Timer + Up Next -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
+              <!-- Timer Widget -->
+              <div class="organic-card bg-surface-container-highest p-8 flex flex-col items-center justify-center relative">
+                <div class="absolute inset-0 opacity-5 pointer-events-none" style="background:radial-gradient(circle at center, var(--primary-container), transparent 70%)"></div>
+                <div class="flex flex-col items-center timer-pulse">
+                  <div class="font-display font-extrabold tracking-tighter tabular-nums mb-2" id="dashTimer" style="font-size:clamp(48px,8vw,72px);color:var(--primary)">25:00</div>
+                  <div class="flex gap-2 mb-6">
+                    <span class="w-2 h-2 rounded-full bg-primary"></span>
+                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-6">
+                  <button id="dashPlayBtn" class="w-16 h-16 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg active:scale-90 transition-transform press-effect">
+                    <span class="material-symbols-outlined fill" style="font-size:32px">play_arrow</span>
+                  </button>
+                  <button id="dashResetBtn" class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors active:scale-90">
+                    <span class="material-symbols-outlined" style="font-size:20px">refresh</span>
+                  </button>
+                </div>
+                <div id="dashPhaseTabs" class="mt-8 flex gap-4">
+                  <button class="font-mono text-xs font-bold tracking-wider dash-phase-tab active" data-phase="focus" style="color:var(--primary);border-bottom:2px solid var(--primary);padding-bottom:4px">POMODORO</button>
+                  <button class="font-mono text-xs font-semibold tracking-wider dash-phase-tab text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity pb-1" data-phase="break">SHORT BREAK</button>
+                  <button class="font-mono text-xs font-semibold tracking-wider dash-phase-tab text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity pb-1" data-phase="longbreak">LONG BREAK</button>
+                </div>
+                <div id="dashActiveTask" class="mt-4 w-full bg-surface-container rounded-xl p-4 text-left relative overflow-hidden">
+                  <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary" style="border-radius:0 2px 2px 0"></div>
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-mono text-[10px] font-semibold tracking-widest text-primary">ACTIVE TASK</h4>
+                    <span class="ml-auto font-mono text-[10px] text-outline" id="dashActivePomo"></span>
+                  </div>
+                  <p class="font-display text-sm font-semibold truncate mt-1" id="dashActiveTitle">No active task</p>
+                </div>
+              </div>
+              <!-- Up Next -->
+              <div id="dashUpNext" class="flex flex-col gap-3">
+                <div class="flex items-center justify-between px-1">
+                  <h4 class="font-display font-semibold" style="font-size:18px;line-height:28px">Up Next</h4>
+                  <button id="dashViewAll" class="font-mono text-xs font-bold tracking-wider text-primary hover:underline" data-tab="tasks">VIEW ALL</button>
+                </div>
+                <div id="dashTaskList" class="space-y-2 max-h-[340px] overflow-y-auto overflow-x-hidden">
+                  <div class="text-center py-8 text-sm text-on-surface-variant opacity-60">No pending tasks. Add a task to get started!</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== POMODORO TAB ===== -->
+      <section id="pomodoroSection" class="relative flex flex-col items-center px-4 pt-6 md:pt-8" data-tab="pomodoro">
+        <div class="mb-8 text-center">
+          <div class="inline-flex items-center gap-2 px-4 py-1 bg-primary-container/10 text-primary rounded-full mb-2">
+            <span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+            <span class="font-mono tracking-widest uppercase text-xs font-semibold" id="phase">Focus Time</span>
+          </div>
+          <h1 class="font-display font-bold" style="font-size:24px;line-height:32px;font-weight:600">Stay Present</h1>
+          <p id="pomodoroTaskName" class="font-mono text-xs font-semibold tracking-wider text-primary mt-2">No active task</p>
+        </div>
+        <div class="relative w-[320px] h-[320px] md:w-[420px] md:h-[420px] flex items-center justify-center">
+          <div class="absolute inset-0 organic-patch bg-primary/5 pulse-slow"></div>
+          <svg class="w-full h-full timer-ring" viewBox="0 0 120 120">
+            <circle class="text-surface-container-high" cx="60" cy="60" fill="none" r="50" stroke="currentColor" stroke-width="6"></circle>
+            <circle class="fg text-primary soft-glow" cx="60" cy="60" fill="none" r="50" stroke="currentColor" stroke-dasharray="314" stroke-dashoffset="0" stroke-linecap="round" stroke-width="10"></circle>
           </svg>
-          <div class="time-text" id="timer">25:00</div>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <div class="font-display font-extrabold tracking-tighter tabular-nums mb-4" style="font-size:clamp(48px,10vw,72px);color:var(--primary)" id="timer">25:00</div>
+            <button id="startBtn" class="bg-primary hover:bg-primary/90 text-on-primary px-10 py-4 rounded-full font-display font-semibold shadow-lg active:scale-95 transition-all duration-300 flex items-center gap-3 squishy-button" style="font-size:18px;line-height:28px">
+              <span class="material-symbols-outlined fill" style="font-variation-settings:'FILL' 1">play_arrow</span>
+              <span>Start</span>
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="phase-label" id="phase">Focus</div>
-      <div id="currentTaskDisplay" class="current-task"></div>
-      <div class="timer-controls">
-        <button id="startBtn">Start</button>
-        <button id="pauseBtn" disabled>Pause</button>
-        <button id="resetBtn">Reset</button>
-        <button id="pipBtn" title="Pin timer on top">Pin</button>
-      </div>
-      <div class="session-count">
-        Sessions completed: <span id="sessionCount">0</span>
-      </div>
-    </section>
-
-    <section class="todo" data-tab="tasks">
-      <div class="quick-add-row">
-        <input type="text" id="quickAddInput" placeholder="Add a task…">
-        <button id="quickAddBtn" class="quick-add-btn">+</button>
-        <button id="addTaskBtn" class="quick-add-details-btn" title="Add with details">⋯</button>
-      </div>
-      <div class="task-search-row">
-        <input type="text" id="taskSearch" placeholder="Search tasks…">
-      </div>
-      <div id="tagCloud"></div>
-      <div id="taskStatBar" class="task-stat-bar"></div>
-      <ul id="todoList"></ul>
-      <div class="todo-stats">
-        <span id="taskCount">0</span> tasks remaining
-        <div class="sort-controls">
-          <button class="sort-btn active" data-sort="custom">Custom</button>
-          <button class="sort-btn" data-sort="date">Date</button>
-          <button class="sort-btn" data-sort="priority">Priority</button>
-          <button class="sort-btn" data-sort="title">Title</button>
+        <!-- Active Task Card -->
+        <div id="currentTaskDisplay" class="mt-12 w-full max-w-md bg-surface-container-low rounded-lg p-6 shadow-sm relative overflow-hidden">
+          <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <span class="font-mono text-xs font-semibold tracking-widest text-primary mb-1 block">Active Task</span>
+              <h2 class="font-display font-semibold current-task-text" style="font-size:20px;line-height:28px">No active task</h2>
+            </div>
+            <button class="material-symbols-outlined text-outline hover:text-primary transition-colors" id="activeTaskMenu">more_vert</button>
+          </div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <span class="px-3 py-1 bg-secondary-container/30 text-on-secondary-container rounded-full text-sm font-medium hidden" id="activeProjectTag"></span>
+            <span class="ml-auto text-outline font-mono text-xs flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">history</span>
+              <span id="currentTaskPomo">0</span> pomos
+            </span>
+          </div>
         </div>
-        <button id="completedToggle" class="completed-toggle-btn hidden"></button>
-      </div>
-    </section>
+        <!-- Secondary Controls -->
+        <div class="mt-8 flex items-center gap-6">
+          <button id="pauseBtn" class="w-12 h-12 hidden flex items-center justify-center rounded-full stitch-border text-secondary hover:bg-secondary/5 transition-all active:scale-90" title="Pause">
+            <span class="material-symbols-outlined">pause</span>
+          </button>
+          <button id="resetBtn" class="w-12 h-12 hidden flex items-center justify-center rounded-full stitch-border text-primary hover:bg-primary/5 transition-all active:scale-90" title="Reset">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+          <button id="pipBtn" class="w-12 h-12 flex items-center justify-center rounded-full stitch-border text-primary hover:bg-primary/5 transition-all active:scale-90" title="Picture in Picture">
+            <span class="material-symbols-outlined">picture_in_picture_alt</span>
+          </button>
+          <div class="font-mono text-xs text-on-surface-variant font-semibold tracking-wider">
+            Sessions: <span id="sessionCount">0</span>
+          </div>
+        </div>
+      </section>
 
+      <!-- ===== TASKS TAB ===== -->
+      <section class="px-4 pt-6 md:pt-8" data-tab="tasks">
+        <div class="flex flex-col lg:flex-row gap-4" style="max-width:1000px;margin:0 auto">
+          <!-- Task List -->
+          <div class="flex-1 min-w-0">
+            <!-- Quick Add -->
+            <div class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container p-5 mb-4 organic-card">
+              <div class="flex flex-col gap-3">
+                <input type="text" id="quickAddInput" class="w-full font-body text-lg border-none bg-surface-container-low rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-primary transition-all outline-none" placeholder="What are we working on?" style="color:var(--on-surface)">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex gap-2">
+                    <button id="addTaskBtn" class="flex items-center gap-1 px-3 py-1.5 rounded-full stitch-border text-xs font-mono font-semibold text-outline hover:bg-surface-container-low transition-all press-effect">
+                      <span class="material-symbols-outlined text-sm">priority_high</span> Details
+                    </button>
+                  </div>
+                  <button id="quickAddBtn" class="bg-primary-container text-on-primary-container px-5 py-2 rounded-full font-bold text-sm press-effect transition-all flex items-center gap-1 squishy-button">
+                    <span class="material-symbols-outlined text-sm">add</span> Add
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Sort/Filter Bar -->
+            <div class="flex items-center justify-between py-2 border-b border-surface-container mb-3">
+              <div class="flex gap-4 text-sm font-mono overflow-x-auto">
+                <button class="sort-btn text-primary border-b-2 border-primary pb-1 font-bold" data-sort="custom">Custom</button>
+                <button class="sort-btn text-on-surface-variant opacity-60 pb-1" data-sort="date">Date</button>
+                <button class="sort-btn text-on-surface-variant opacity-60 pb-1" data-sort="priority">Priority</button>
+                <button class="sort-btn text-on-surface-variant opacity-60 pb-1" data-sort="title">Title</button>
+              </div>
+            </div>
+            <div id="taskScrollArea" class="overflow-y-auto" style="max-height:calc(100vh - 260px)">
+              <ul id="todoList" class="space-y-2"></ul>
+              <div class="flex items-center justify-between mt-4 pt-3 border-t border-surface-container text-sm font-mono text-on-surface-variant flex-wrap gap-2">
+                <span><span id="taskCount">0</span> tasks</span>
+                <button id="completedToggle" class="hidden px-3 py-1 rounded-full border border-outline-variant text-xs font-semibold hover:bg-surface-container-low transition-all"></button>
+              </div>
+            </div>
+          </div>
+          <!-- Tag Cloud Sidebar (Desktop) -->
+          <aside class="hidden lg:block w-64 flex-shrink-0">
+            <div class="bg-surface-container-lowest p-5 rounded-2xl organic-shadow border border-surface-container sticky top-4">
+              <h3 class="font-display font-bold text-sm mb-4">Project Focus</h3>
+              <div id="tagCloudSidebar" class="flex flex-wrap gap-2 mb-6"></div>
+              <h3 class="font-display font-bold text-sm mb-4">Active Tags</h3>
+              <div id="tagCloudTags" class="flex flex-wrap gap-2"></div>
+              <!-- Focus Score -->
+              <div class="mt-6 pt-5 border-t border-surface-container">
+                <div class="flex items-center justify-between text-xs font-mono font-bold mb-2">
+                  <span>Focus Score</span>
+                  <span id="focusScorePct" class="text-primary">0%</span>
+                </div>
+                <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+                  <div id="focusScoreBar" class="bg-primary h-full rounded-full" style="width:0%"></div>
+                </div>
+                <p id="focusScoreText" class="text-[10px] mt-2 opacity-50 text-center font-mono">Complete tasks to boost your score!</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===== STATS TAB ===== -->
+      <section class="px-4 pt-6 md:pt-8" data-tab="stats">
+        <div class="max-w-[1000px] mx-auto">
+          <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div>
+              <h2 class="font-display font-bold" style="font-size:32px;line-height:40px">Analytics Journey</h2>
+              <p class="text-sm opacity-60 font-body">Review your focus patterns and productivity rhythms.</p>
+            </div>
+            <button id="exportBtn" class="bg-surface-container-high text-on-surface-variant px-5 py-2 rounded-full flex items-center gap-2 font-mono text-xs font-bold hover:bg-secondary-container hover:text-on-secondary-container transition-all active:scale-95 press-effect">
+              <span class="material-symbols-outlined text-sm">download</span>
+              EXPORT JSON
+            </button>
+          </div>
+          <!-- Bento Summary -->
+          <div id="statsBento" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bento-card p-6 bg-primary-container/20 rounded-xl shadow-sm border border-primary-container/30 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-xs font-bold tracking-wider text-primary">FOCUS TIME</span>
+                <span class="material-symbols-outlined text-primary">schedule</span>
+              </div>
+              <div>
+                <p class="font-display font-bold text-primary" id="statsFocusTime" style="font-size:48px;line-height:1">0h</p>
+                <p class="text-xs mt-1 opacity-60 font-body" id="statsFocusSub">No sessions yet</p>
+              </div>
+            </div>
+            <div class="bento-card p-6 bg-secondary-container/20 rounded-xl shadow-sm border border-secondary-container/30 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-xs font-bold tracking-wider text-secondary">COMPLETED</span>
+                <span class="material-symbols-outlined text-secondary">check_circle</span>
+              </div>
+              <div>
+                <p class="font-display font-bold text-secondary" id="statsCompleted" style="font-size:48px;line-height:1">0</p>
+                <p class="text-xs mt-1 opacity-60 font-body" id="statsCompletedSub">Tasks finished</p>
+              </div>
+            </div>
+            <div class="bento-card p-6 bg-tertiary-fixed/30 rounded-xl shadow-sm border border-tertiary-fixed/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-xs font-bold tracking-wider text-tertiary">STREAK</span>
+                <span class="material-symbols-outlined text-tertiary">local_fire_department</span>
+              </div>
+              <div>
+                <p class="font-display font-bold text-tertiary" id="statsStreak" style="font-size:48px;line-height:1">0</p>
+                <p class="text-xs mt-1 opacity-60 font-body" id="statsStreakSub">Days of focus</p>
+              </div>
+            </div>
+          </div>
+          <!-- Weekly Stats -->
+          <div id="weeklyStats" class="text-center text-sm font-mono text-on-surface-variant mb-4"></div>
+          <!-- Stats Tabs -->
+          <div id="viewTabs" class="flex gap-6 mb-5 border-b border-outline-variant/30 px-1 overflow-x-auto whitespace-nowrap view-tabs">
+            <button class="pb-3 font-bold text-sm font-mono transition-all active" data-view="calendar">Heatmap</button>
+            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="hours">Productivity Peaks</button>
+            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="projects">Projects Breakdown</button>
+          </div>
+          <div id="statsViews"></div>
+        </div>
+      </section>
+
+      <!-- ===== GOALS TAB ===== -->
+      <section class="px-4 pt-6 md:pt-8" data-tab="goals">
+        <div class="max-w-[1000px] mx-auto">
+          <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div>
+              <h2 class="font-display font-bold" style="font-size:32px;line-height:40px">Quarterly Focus</h2>
+              <p class="text-sm opacity-60 font-body">Stay on track with your long-term vision.</p>
+            </div>
+            <div class="hidden lg:flex items-center gap-2 text-primary font-bold">
+              <span class="material-symbols-outlined">auto_awesome</span>
+              <span class="font-mono text-xs font-bold tracking-wider">Next Milestone</span>
+            </div>
+          </div>
+          <div id="quarterlyGoalsContent"></div>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+
+  </main>
+
+  <!-- ===== MOBILE BOTTOM NAV ===== -->
+  <nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-low dark:bg-[#0f0d0c] flex justify-around items-center py-2 z-50 border-t border-outline-variant/10" style="padding-bottom:max(8px,env(safe-area-inset-bottom))">
+    <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="dashboard">
+      <span class="material-symbols-outlined text-xl">space_dashboard</span>
+      <span class="text-[10px] font-mono font-bold">Home</span>
+    </button>
+    <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="pomodoro">
+      <span class="material-symbols-outlined text-xl">timer</span>
+      <span class="text-[10px] font-mono font-bold">Focus</span>
+    </button>
+    <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="tasks">
+      <span class="material-symbols-outlined text-xl">format_list_bulleted</span>
+      <span class="text-[10px] font-mono font-bold">Tasks</span>
+    </button>
+    <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="stats">
+      <span class="material-symbols-outlined text-xl">leaderboard</span>
+      <span class="text-[10px] font-mono font-bold">Stats</span>
+    </button>
+    <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="goals">
+      <span class="material-symbols-outlined text-xl">emoji_events</span>
+      <span class="text-[10px] font-mono font-bold">Goals</span>
+    </button>
+  </nav>
+
+  <!-- ===== TASK MODAL ===== -->
   <div id="taskModal" class="modal-overlay hidden">
-    <div class="modal">
+    <div class="modal max-w-lg w-full mx-4">
       <div class="modal-header">
-        <h2 id="modalTitle">Add Task</h2>
-        <button id="modalClose" class="modal-close">✕</button>
+        <h2 id="modalTitle" class="font-display font-bold text-lg">Add Task</h2>
+        <button id="modalClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all">
+          <span class="material-symbols-outlined text-sm">close</span>
+        </button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="editId" value="">
@@ -145,37 +518,20 @@
     </div>
   </div>
 
-    <section class="stats" data-tab="stats">
-      <div class="section-title-bar">
-        <span class="section-label">Statistics</span>
-        <div class="view-tabs" id="viewTabs">
-          <button class="active" data-view="calendar">Calendar</button>
-          <button data-view="hours">Hours</button>
-          <button data-view="slots">Slots</button>
-        </div>
-        <button id="exportBtn" class="export-btn" title="Export all data">📥</button>
-      </div>
-      <div id="weeklyStats" class="weekly-stats"></div>
-      <div id="statsViews"></div>
-    </section>
-
-    <section class="quarterly-goals" data-tab="goals">
-      <div id="quarterlyGoalsContent"></div>
-    </section>
-  </div>
-
+  <!-- ===== TOAST ===== -->
   <div id="toast" class="toast hidden">
     <span id="toastMsg"></span>
     <button id="toastUndo" class="toast-undo">Undo</button>
   </div>
 
+  <!-- ===== CONFIRM MODAL ===== -->
   <div id="confirmModal" class="modal-overlay hidden">
-    <div class="modal confirm-modal">
+    <div class="modal confirm-modal max-w-sm w-full mx-4">
       <div class="modal-header">
-        <h2 id="confirmTitle">Confirm</h2>
+        <h2 id="confirmTitle" class="font-display font-bold text-lg">Confirm</h2>
       </div>
       <div class="modal-body">
-        <p id="confirmMessage"></p>
+        <p id="confirmMessage" class="text-sm leading-relaxed"></p>
         <div class="modal-actions">
           <button id="confirmCancel" class="btn-secondary">Cancel</button>
           <button id="confirmOk" class="btn-primary">Confirm</button>
@@ -184,36 +540,47 @@
     </div>
   </div>
 
+  <!-- ===== HELP OVERLAY ===== -->
   <div id="helpOverlay" class="help-overlay hidden">
-    <div class="help-modal">
+    <div class="help-modal max-w-md w-full mx-4">
       <div class="help-header">
-        <h2>How to use</h2>
-        <button id="helpClose">✕</button>
+        <h2 class="font-display font-bold text-lg">How to use</h2>
+        <button id="helpClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all">
+          <span class="material-symbols-outlined text-sm">close</span>
+        </button>
       </div>
       <div class="help-body">
-        <h3>📝 Tasks</h3>
+        <h3>Tasks</h3>
         <ul>
-          <li><strong>Add</strong> — Click <kbd>+ Add Task</kbd> to open the task form. Fill in title, description, due date, priority, project, repeat frequency, and tags.</li>
-          <li><strong>Complete</strong> — Check the checkbox</li>
-          <li><strong>Edit</strong> — Click ✏ to open the task form and edit all fields</li>
-          <li><strong>Delete</strong> — Click ✕</li>
-          <li><strong>Reorder</strong> — Drag and drop tasks</li>
+          <li><strong>Add</strong> — Type in quick-add and press Enter, or click "Details" for the full form.</li>
+          <li><strong>Complete</strong> — Check the checkbox.</li>
+          <li><strong>Edit</strong> — Click ✏ to edit all fields.</li>
+          <li><strong>Delete</strong> — Click ✕ (undo available via toast).</li>
+          <li><strong>Reorder</strong> — Drag tasks when sorted by Custom.</li>
         </ul>
-        <h3>🏷️ Tags</h3>
-        <p>Add tags in the task form (no <code>#</code> needed). Each tag gets its own color automatically. Click a tag pill to filter tasks by that tag.</p>
-        <h3>📅 Due Dates &amp; Repeat</h3>
-        <p>Set a due date and optional repeat frequency (Daily, Weekly, Monthly, Yearly). Repeating tasks are automatically recreated on their next due date when completed.</p>
-        <h3>🎨 Themes</h3>
-        <p>Click 🌙/☀️ to toggle between dark and light mode.</p>
-        <h3>⏱️ Pomodoro Timer</h3>
-        <p>Use the timer for focus sessions (25 min focus / 5 min break). Click <strong>Pin</strong> to open a small always-on-top window that stays visible even when you switch tabs.</p>
+        <h3>Tags &amp; Filter</h3>
+        <p>Add tags in the task form. Click a tag pill to filter. Projects appear as <code>project:NAME</code> in the tag cloud.</p>
+        <h3>Due Dates &amp; Repeat</h3>
+        <p>Set a due date and optional repeat frequency. Recurring tasks auto-recreate on completion.</p>
+        <h3>Golden Task</h3>
+        <p>Click ⭐ to mark a task as golden — it pins to the top with a special glow.</p>
+        <h3>Themes</h3>
+        <p>Toggle dark/light mode with the theme button.</p>
+        <h3>Pomodoro Timer</h3>
+        <p>25 min focus / 5 min break cycles. Click the Pin button for Picture-in-Picture mode.</p>
+        <h3>Keyboard Shortcuts</h3>
+        <p><kbd>n</kbd> — Focus quick-add · <kbd>Esc</kbd> — Close modals</p>
       </div>
     </div>
   </div>
 
+  <!-- Hidden compact timer elements for JS compat -->
+  <span id="compactTimer" style="display:none"></span>
+  <span id="compactPhase" style="display:none"></span>
+  <span id="compactSessions" style="display:none"></span>
+  <button id="compactStartBtn" style="display:none"></button>
+
   <script src="app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-  </script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>
 </html>

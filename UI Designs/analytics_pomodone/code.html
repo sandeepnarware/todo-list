@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PomoDone | Stats &amp; Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#ffdad6",
+                        "outline": "#8c706f",
+                        "secondary-fixed-dim": "#5dd9d0",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-primary-container": "#6d0010",
+                        "on-tertiary-fixed": "#221b00",
+                        "primary-fixed": "#ffdad8",
+                        "surface-container-highest": "#e7e1de",
+                        "surface-container-high": "#ede7e3",
+                        "background": "#fef8f4",
+                        "surface-bright": "#fef8f4",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#f3ede9",
+                        "on-primary-fixed": "#410006",
+                        "primary": "#ae2f34",
+                        "tertiary-fixed": "#ffe173",
+                        "surface-container-low": "#f8f2ef",
+                        "surface-dim": "#ded9d5",
+                        "on-secondary-fixed-variant": "#00504c",
+                        "on-secondary-container": "#006f69",
+                        "on-background": "#1d1b19",
+                        "tertiary": "#705d00",
+                        "secondary-container": "#79f3ea",
+                        "secondary": "#006a65",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#ae2f34",
+                        "inverse-primary": "#ffb3b0",
+                        "primary-fixed-dim": "#ffb3b0",
+                        "primary-container": "#ff6b6b",
+                        "on-secondary-fixed": "#00201e",
+                        "outline-variant": "#e0bfbd",
+                        "tertiary-container": "#caa800",
+                        "on-tertiary": "#ffffff",
+                        "surface-variant": "#e7e1de",
+                        "inverse-on-surface": "#f5f0ec",
+                        "secondary-fixed": "#7cf6ec",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#584140",
+                        "tertiary-fixed-dim": "#e8c426",
+                        "on-primary-fixed-variant": "#8c1520",
+                        "surface": "#fef8f4",
+                        "on-surface": "#1d1b19",
+                        "on-primary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-container": "#4c3e00",
+                        "inverse-surface": "#32302e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-padding": "24px",
+                        "gutter": "16px",
+                        "unit": "8px",
+                        "radius-organic": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-caps": ["JetBrains Mono"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "display-timer": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "display-timer": ["80px", {"lineHeight": "80px", "letterSpacing": "-0.04em", "fontWeight": "800"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .stats-tab-active {
+            position: relative;
+        }
+        .stats-tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: var(--tw-color-primary);
+            border-radius: 99px;
+        }
+        .bento-card {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .bento-card:hover {
+            transform: translateY(-4px);
+        }
+        .heatmap-square {
+            transition: all 0.2s ease;
+        }
+        .heatmap-square:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden">
+<!-- Top Navigation Shell -->
+<header class="bg-background dark:bg-background w-full top-0 z-40 fixed">
+<div class="flex justify-between items-center px-container-padding py-4 w-full">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">PomoDone</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<input class="bg-surface-container-low border-none rounded-full px-6 py-2 w-64 focus:ring-2 focus:ring-primary focus:bg-surface-container transition-all" placeholder="Search tasks..." type="text"/>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">dark_mode</span>
+</button>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-full flex items-center gap-2 font-bold hover:bg-primary-container hover:text-on-primary-container transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="hidden sm:inline">New Pomo</span>
+</button>
+</div>
+</div>
+</header>
+<div class="flex pt-20">
+<!-- Sidebar Shell -->
+<aside class="hidden md:flex flex-col h-screen py-8 px-4 gap-4 bg-surface-container-low dark:bg-surface-container-lowest w-64 fixed left-0 border-r border-outline-variant/20 shadow-sm">
+<div class="px-4 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A stylized, warm portrait of a young professional in a light-filled home office, presented as a circular profile avatar. The lighting is soft and golden, matching a productive morning vibe. The overall aesthetic is clean, modern, and focuses on a calm, studious expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbwHFysCSFO3lEwApO57K17LZGpWHA3kRyOPB_8gX09u8NjQx7-p2IvJLE7lQcC3wMLO2meBemng6mPli5z7LkSapMqaTyts8bsefICG44LoYlwoTLtfON48Op88-7OENuxC88zNeqi6M0-eRZINCWTtfanyRW_Ss3AyGgi9C1nnDrF2YwohJnCcv6YS9sOdij9roLKobMGSfxAlRX8DuDA2279vKjQZgCOJeIrj0_1UCCXNIX-ZSQ"/>
+</div>
+<div>
+<p class="font-body-md font-bold text-on-surface">Alex Rivera</p>
+<p class="text-[12px] text-on-surface-variant">Stay Focused</p>
+</div>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all duration-200 active:scale-[0.98] rounded-full" href="#">
+<span class="material-symbols-outlined">timer</span>
+<span class="font-body-md">Pomodoro</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all duration-200 active:scale-[0.98] rounded-full" href="#">
+<span class="material-symbols-outlined">format_list_bulleted</span>
+<span class="font-body-md">Tasks</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-full transition-all duration-200 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="font-body-md">Stats</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all duration-200 active:scale-[0.98] rounded-full" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="font-body-md">Goals</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 px-container-padding pb-32">
+<!-- Header Section -->
+<div class="max-w-[1000px] mx-auto pt-8">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Analytics Journey</h1>
+<p class="text-on-surface-variant mt-1">Review your focus patterns and productivity rhythms.</p>
+</div>
+<button class="bg-surface-container-high text-on-surface-variant px-6 py-2 rounded-full flex items-center gap-2 font-label-caps text-label-caps hover:bg-secondary-container hover:text-on-secondary-container transition-all active:scale-95 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        EXPORT JSON
+                    </button>
+</div>
+<!-- Summary Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-8">
+<div class="bento-card p-6 bg-primary-container/20 rounded-lg shadow-sm border border-primary-container/30 flex flex-col justify-between">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-caps text-label-caps text-primary">FOCUS TIME</span>
+<span class="material-symbols-outlined text-primary">schedule</span>
+</div>
+<div>
+<p class="font-display-timer text-[48px] text-primary">32h</p>
+<p class="text-on-surface-variant text-sm">+4.5h from last week</p>
+</div>
+</div>
+<div class="bento-card p-6 bg-secondary-container/20 rounded-lg shadow-sm border border-secondary-container/30 flex flex-col justify-between">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-caps text-label-caps text-secondary">COMPLETED</span>
+<span class="material-symbols-outlined text-secondary">check_circle</span>
+</div>
+<div>
+<p class="font-display-timer text-[48px] text-secondary">124</p>
+<p class="text-on-surface-variant text-sm">Tasks finished this week</p>
+</div>
+</div>
+<div class="bento-card p-6 bg-tertiary-fixed/30 rounded-lg shadow-sm border border-tertiary-fixed/40 flex flex-col justify-between">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-caps text-label-caps text-tertiary">STREAK</span>
+<span class="material-symbols-outlined text-tertiary">local_fire_department</span>
+</div>
+<div>
+<p class="font-display-timer text-[48px] text-tertiary">14</p>
+<p class="text-on-surface-variant text-sm">Days of consistent focus</p>
+</div>
+</div>
+</div>
+<!-- Tabs Navigation -->
+<div class="flex gap-8 mb-8 border-b border-outline-variant/30 px-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
+<button class="pb-3 font-bold text-primary stats-tab-active transition-all" id="tab-heatmap" onclick="switchTab('heatmap')">Heatmap</button>
+<button class="pb-3 text-on-surface-variant hover:text-on-surface transition-all" id="tab-productivity" onclick="switchTab('productivity')">Productivity Peaks</button>
+<button class="pb-3 text-on-surface-variant hover:text-on-surface transition-all" id="tab-projects" onclick="switchTab('projects')">Projects Breakdown</button>
+</div>
+<!-- Tab Content: Calendar Heatmap -->
+<div class="tab-content" id="content-heatmap">
+<div class="bg-surface-container-low p-8 rounded-lg shadow-sm border border-outline-variant/10">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md text-on-surface">Focus Consistency</h3>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1">
+<div class="w-3 h-3 rounded-sm bg-surface-container-high"></div>
+<span class="text-[10px] text-on-surface-variant">Low</span>
+</div>
+<div class="flex items-center gap-1">
+<div class="w-3 h-3 rounded-sm bg-primary/80"></div>
+<span class="text-[10px] text-on-surface-variant">High</span>
+</div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<div class="flex gap-1 mb-1">
+<div class="w-4"></div>
+<div class="flex-1 flex justify-between px-2 text-[10px] text-on-surface-variant">
+<span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
+</div>
+</div>
+<div class="flex gap-1">
+<div class="flex flex-col justify-between text-[10px] text-on-surface-variant py-1 pr-2">
+<span>Mon</span><span>Wed</span><span>Fri</span>
+</div>
+<div class="grid grid-rows-7 grid-flow-col gap-1.5 flex-1" id="heatmap-grid">
+<!-- Populated by JS -->
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Tab Content: Productivity Peaks -->
+<div class="tab-content hidden" id="content-productivity">
+<div class="bg-surface-container-low p-8 rounded-lg shadow-sm border border-outline-variant/10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-8">Daily Flow (24h)</h3>
+<div class="h-64 flex items-end gap-2 px-4" id="bar-chart">
+<!-- Populated by JS -->
+</div>
+<div class="flex justify-between mt-4 px-4 text-label-caps text-on-surface-variant text-[10px]">
+<span>12 AM</span><span>4 AM</span><span>8 AM</span><span>12 PM</span><span>4 PM</span><span>8 PM</span><span>12 AM</span>
+</div>
+</div>
+</div>
+<!-- Tab Content: Projects Breakdown -->
+<div class="tab-content hidden" id="content-projects">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="bg-surface-container-low p-8 rounded-lg shadow-sm border border-outline-variant/10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6">Allocation</h3>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between mb-2 text-sm font-bold">
+<span>UI Design System</span>
+<span class="text-primary">45%</span>
+</div>
+<div class="w-full h-4 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-1000 ease-out" id="progress-1" style="width: 0%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between mb-2 text-sm font-bold">
+<span>Study: Quantum Physics</span>
+<span class="text-secondary">30%</span>
+</div>
+<div class="w-full h-4 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full transition-all duration-1000 ease-out" id="progress-2" style="width: 0%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between mb-2 text-sm font-bold">
+<span>Creative Writing</span>
+<span class="text-tertiary">15%</span>
+</div>
+<div class="w-full h-4 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-tertiary rounded-full transition-all duration-1000 ease-out" id="progress-3" style="width: 0%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between mb-2 text-sm font-bold">
+<span>Personal Tasks</span>
+<span class="text-on-surface-variant">10%</span>
+</div>
+<div class="w-full h-4 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-on-surface-variant rounded-full transition-all duration-1000 ease-out" id="progress-4" style="width: 0%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-primary/5 p-8 rounded-lg border-2 border-dashed border-primary/20 flex flex-col items-center justify-center text-center">
+<div class="w-20 h-20 bg-primary-container rounded-full flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-[40px] text-on-primary-container">insights</span>
+</div>
+<h4 class="font-headline-md text-headline-md text-on-surface">Insight</h4>
+<p class="text-on-surface-variant mt-2 max-w-xs mx-auto">You're 25% more productive on Tuesday mornings after a short meditation session.</p>
+<button class="mt-6 text-primary font-bold flex items-center gap-1 hover:underline">
+                                See all AI insights
+                                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Mobile Bottom NavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-low z-50 flex justify-around items-center px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-lg">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">timer</span>
+<span class="text-[10px] font-bold">Pomo</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">format_list_bulleted</span>
+<span class="text-[10px] font-bold">Tasks</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="text-[10px] font-bold">Stats</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="text-[10px] font-bold">Goals</span>
+</button>
+</nav>
+<!-- Global Progress Footer (Status Bar) -->
+<footer class="fixed bottom-0 left-0 w-full z-40 flex justify-between items-center px-container-padding py-3 bg-primary-container dark:bg-primary-fixed text-on-primary-container hidden md:flex rounded-t-lg shadow-lg">
+<div class="flex items-center gap-4">
+<span class="font-label-caps text-label-caps font-bold">PomoDone - Active Task Progress</span>
+<div class="flex items-center gap-2 text-sm opacity-90">
+<span class="material-symbols-outlined text-[18px] animate-pulse">adjust</span>
+<span>"Refining UI Dashboard" - 12:44 remaining</span>
+</div>
+</div>
+<div class="flex gap-6">
+<button class="font-label-caps text-label-caps text-on-primary-container/80 hover:text-on-primary-container underline transition-all">Pause</button>
+<button class="font-label-caps text-label-caps text-on-primary-container/80 hover:text-on-primary-container underline transition-all">Stop</button>
+</div>
+</footer>
+<script>
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            // Update Tab Styling
+            document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+                btn.classList.remove('stats-tab-active', 'text-primary', 'font-bold');
+                btn.classList.add('text-on-surface-variant');
+            });
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.add('stats-tab-active', 'text-primary', 'font-bold');
+            activeBtn.classList.remove('text-on-surface-variant');
+
+            // Show Content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`content-${tabId}`).classList.remove('hidden');
+
+            // Trigger animations if needed
+            if(tabId === 'projects') {
+                setTimeout(() => {
+                    document.getElementById('progress-1').style.width = '45%';
+                    document.getElementById('progress-2').style.width = '30%';
+                    document.getElementById('progress-3').style.width = '15%';
+                    document.getElementById('progress-4').style.width = '10%';
+                }, 100);
+            }
+        }
+
+        // Initialize Heatmap
+        const heatmapGrid = document.getElementById('heatmap-grid');
+        const heatLevels = ['bg-surface-container-high', 'bg-secondary-container', 'bg-primary-container', 'bg-primary'];
+        for(let i=0; i < 364; i++) {
+            const square = document.createElement('div');
+            const level = Math.floor(Math.random() * 4);
+            square.className = `w-3 h-3 rounded-sm heatmap-square ${heatLevels[level]} opacity-${Math.max(30, Math.floor(Math.random() * 100))}`;
+            heatmapGrid.appendChild(square);
+        }
+
+        // Initialize Bar Chart
+        const barChart = document.getElementById('bar-chart');
+        for(let i=0; i < 24; i++) {
+            const container = document.createElement('div');
+            container.className = "flex-1 flex flex-col justify-end group cursor-pointer h-full relative";
+            
+            const height = i > 8 && i < 18 ? Math.floor(Math.random() * 60) + 40 : Math.floor(Math.random() * 30) + 5;
+            const bar = document.createElement('div');
+            bar.className = `w-full rounded-t-full transition-all duration-500 hover:brightness-110 ${i % 2 === 0 ? 'bg-primary/80' : 'bg-secondary/60'}`;
+            bar.style.height = '0%';
+            
+            container.appendChild(bar);
+            barChart.appendChild(container);
+
+            setTimeout(() => {
+                bar.style.height = `${height}%`;
+            }, 100 + (i * 20));
+        }
+    </script>
+</body></html>

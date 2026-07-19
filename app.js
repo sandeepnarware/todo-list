@@ -1,6 +1,7 @@
 /* ===== Pomodoro State ===== */
 const FOCUS_TIME = 25 * 60;
 const BREAK_TIME = 5 * 60;
+const LONG_BREAK_TIME = 15 * 60;
 
 let pomState = {
   timeLeft: FOCUS_TIME,
@@ -18,7 +19,7 @@ const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const sessionCountEl = document.getElementById('sessionCount');
 const progressFg = document.querySelector('.progress-ring .fg');
-const circumference = 553;
+const circumference = 314;
 
 const pomSection = document.getElementById('pomodoroSection');
 const compactTimer = document.getElementById('compactTimer');
@@ -79,32 +80,86 @@ function setCompact(compact) {
   // compact mode disabled — full view always shown
 }
 
+function getPhaseTime(phase) {
+  if (phase === 'focus') return FOCUS_TIME;
+  if (phase === 'longbreak') return LONG_BREAK_TIME;
+  return BREAK_TIME;
+}
+
+function updateDashDots() {
+  const dots = document.querySelectorAll('#dashTimer ~ .flex.gap-2 .w-2');
+  if (!dots.length) return;
+  const phaseOrder = ['focus', 'break', 'focus', 'longbreak'];
+  const cycleStep = pomState.sessionCount % 4;
+  dots.forEach((dot, i) => {
+    const isActive = pomState.phase === 'focus' && i <= cycleStep;
+    const isBreak = pomState.phase !== 'focus' && i < cycleStep;
+    if (isActive || isBreak) {
+      dot.style.background = 'var(--primary)';
+    } else {
+      dot.style.background = 'var(--outline-variant)';
+    }
+  });
+}
+
 function updateDisplay() {
   timerEl.textContent = formatTime(pomState.timeLeft);
+  const dashTimer = document.getElementById('dashTimer');
+  if (dashTimer) dashTimer.textContent = formatTime(pomState.timeLeft);
   updateCompactDisplay();
+  updateDashDots();
   if (pomState.running) {
-    const label = pomState.phase === 'focus' ? 'F' : 'B';
+    const labels = { focus: 'F', break: 'B', longbreak: 'LB' };
+    const label = labels[pomState.phase] || 'B';
     document.title = `${formatTime(pomState.timeLeft)} [${label}] - PomoDone`;
   } else {
     document.title = BASE_TITLE;
   }
-  const total = pomState.phase === 'focus' ? FOCUS_TIME : BREAK_TIME;
+  const total = getPhaseTime(pomState.phase);
   const offset = circumference * (1 - pomState.timeLeft / total);
   progressFg.style.strokeDashoffset = offset;
 }
 
 function updatePhaseLabel() {
-  const labels = { focus: 'Focus', break: 'Break' };
-  phaseEl.textContent = labels[pomState.phase];
+  const labels = { focus: 'Focus', break: 'Short Break', longbreak: 'Long Break' };
+  phaseEl.textContent = labels[pomState.phase] || 'Focus';
   progressFg.style.stroke = pomState.phase === 'focus' ? '#ff6b6b' : '#4ecdc4';
+}
+
+function setTimerButton(phase) {
+  const icon = startBtn.querySelector('.material-symbols-outlined');
+  const label = startBtn.querySelector('span:last-child');
+  if (phase === 'running') {
+    if (icon) icon.textContent = 'pause';
+    if (label) label.textContent = 'Pause';
+    startBtn.classList.remove('bg-primary', 'hover:bg-primary/90');
+    startBtn.classList.add('bg-secondary', 'hover:bg-secondary/90');
+    pauseBtn.classList.remove('hidden');
+    pauseBtn.disabled = false;
+    resetBtn.classList.remove('hidden');
+    resetBtn.disabled = false;
+  } else {
+    if (icon) icon.textContent = 'play_arrow';
+    if (label) label.textContent = 'Start';
+    startBtn.classList.remove('bg-secondary', 'hover:bg-secondary/90');
+    startBtn.classList.add('bg-primary', 'hover:bg-primary/90');
+    pauseBtn.classList.add('hidden');
+    pauseBtn.disabled = true;
+    resetBtn.classList.add('hidden');
+    resetBtn.disabled = true;
+  }
+  const dashPlayBtn = document.getElementById('dashPlayBtn');
+  if (dashPlayBtn) {
+    const dashIcon = dashPlayBtn.querySelector('.material-symbols-outlined');
+    if (dashIcon) dashIcon.textContent = pomState.running ? 'pause' : 'play_arrow';
+  }
+  updateDashPhaseTabs();
 }
 
 function startTimer() {
   if (pomState.running) return;
   pomState.running = true;
-  startBtn.disabled = true;
-  pauseBtn.disabled = false;
-  resetBtn.disabled = false;
+  setTimerButton('running');
   pomState.timerId = setInterval(tick, 1000);
   setCompact(false);
   updatePipControls();
@@ -112,9 +167,7 @@ function startTimer() {
 
 function pauseTimer() {
   pomState.running = false;
-  startBtn.disabled = false;
-  pauseBtn.disabled = true;
-  resetBtn.disabled = false;
+  setTimerButton('paused');
   clearInterval(pomState.timerId);
   updateDisplay();
   setCompact(true);
@@ -124,15 +177,14 @@ function pauseTimer() {
 function resetTimer() {
   pomState.running = false;
   clearInterval(pomState.timerId);
-  startBtn.disabled = false;
-  pauseBtn.disabled = true;
-  resetBtn.disabled = false;
+  setTimerButton('paused');
   pomState.phase = 'focus';
   pomState.timeLeft = FOCUS_TIME;
   updatePhaseLabel();
   updateDisplay();
   setCompact(true);
   updatePipControls();
+  updateDashPhaseTabs();
 }
 
 function recordSession() {
@@ -155,15 +207,22 @@ function switchPhase() {
       task.pomodoros = (task.pomodoros || 0) + 1;
       saveTodos();
       renderTodos();
+      updateCurrentTaskDisplay();
     }
-    pomState.phase = 'break';
-    pomState.timeLeft = BREAK_TIME;
+    if (pomState.sessionCount % 4 === 0) {
+      pomState.phase = 'longbreak';
+      pomState.timeLeft = LONG_BREAK_TIME;
+    } else {
+      pomState.phase = 'break';
+      pomState.timeLeft = BREAK_TIME;
+    }
   } else {
     pomState.phase = 'focus';
     pomState.timeLeft = FOCUS_TIME;
   }
   updatePhaseLabel();
   updateDisplay();
+  updateDashPhaseTabs();
 }
 
 function tick() {
@@ -186,6 +245,45 @@ startBtn.addEventListener('click', startTimer);
 compactStartBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
 resetBtn.addEventListener('click', resetTimer);
+
+/* Dashboard timer widget */
+const dashPlayBtn = document.getElementById('dashPlayBtn');
+if (dashPlayBtn) {
+  dashPlayBtn.addEventListener('click', () => {
+    if (pomState.running) { pauseTimer(); } else { startTimer(); }
+  });
+}
+
+const dashResetBtn = document.getElementById('dashResetBtn');
+if (dashResetBtn) {
+  dashResetBtn.addEventListener('click', resetTimer);
+}
+
+function updateDashPhaseTabs() {
+  document.querySelectorAll('.dash-phase-tab').forEach(tab => {
+    const isActive = tab.dataset.phase === pomState.phase;
+    tab.classList.toggle('active', isActive);
+    if (isActive) {
+      tab.style.cssText = 'color:var(--primary);border-bottom:2px solid var(--primary);padding-bottom:4px';
+    } else {
+      tab.style.cssText = '';
+    }
+  });
+}
+
+document.getElementById('dashPhaseTabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('.dash-phase-tab');
+  if (!tab) return;
+  const phase = tab.dataset.phase;
+  if (phase === pomState.phase) return;
+  if (pomState.running) pauseTimer();
+  pomState.phase = phase;
+  pomState.timeLeft = getPhaseTime(phase);
+  updatePhaseLabel();
+  updateDisplay();
+  setTimerButton('paused');
+  updateDashPhaseTabs();
+});
 
 /* ===== Picture-in-Picture ===== */
 const pipBtn = document.getElementById('pipBtn');
@@ -243,22 +341,23 @@ async function togglePip() {
           <button id="pipResetBtn" class="pip-btn pip-reset">Reset</button>
         </div>
       </div>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
       <style>
         *{margin:0;padding:0;box-sizing:border-box}
         html,body{height:100%}
-        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f23;color:#e0e0e0;display:flex;align-items:center;justify-content:center}
+        body{font-family:'Inter',system-ui,sans-serif;background:#1a1716;color:#e7e1de;display:flex;align-items:center;justify-content:center}
         .pip-timer{text-align:center}
-        .pip-time{font-size:3rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
-        .pip-phase{font-size:0.8rem;text-transform:uppercase;letter-spacing:3px;color:#888;margin-top:0.25rem}
-        .pip-current-task{font-size:0.75rem;color:#ff6b6b;margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:inline-block}
+        .pip-time{font-size:3rem;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;line-height:1.1;color:#ae2f34}
+        .pip-phase{font-size:0.7rem;text-transform:uppercase;letter-spacing:3px;color:#cbc1bf;margin-top:0.25rem;font-family:'JetBrains Mono',monospace;font-weight:600}
+        .pip-current-task{font-size:0.7rem;color:#ff6b6b;margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:inline-block;font-weight:600}
         .pip-controls{display:flex;gap:0.4rem;justify-content:center;margin-top:0.6rem}
-        .pip-btn{padding:0.3rem 0.6rem;border:none;border-radius:5px;font-size:0.7rem;font-weight:600;cursor:pointer;transition:background 0.2s;text-transform:uppercase;letter-spacing:0.5px}
-        .pip-start{background:#ff6b6b;color:#fff}
-        .pip-start:hover:not(:disabled){background:#e55a5a}
-        .pip-pause{background:#4ecdc4;color:#fff}
-        .pip-pause:hover:not(:disabled){background:#3dbdb5}
-        .pip-reset{background:#2d2d44;color:#e0e0e0}
-        .pip-reset:hover:not(:disabled){background:#3d3d55}
+        .pip-btn{padding:0.3rem 0.8rem;border:none;border-radius:999px;font-size:0.65rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-transform:uppercase;letter-spacing:0.5px;font-family:'JetBrains Mono',monospace}
+        .pip-start{background:#ae2f34;color:#fff;box-shadow:0 4px 12px rgba(174,47,52,0.3)}
+        .pip-start:hover:not(:disabled){background:#8c1520}
+        .pip-pause{background:#006a65;color:#fff}
+        .pip-pause:hover:not(:disabled){background:#00504c}
+        .pip-reset{background:#2b2927;color:#e7e1de;border:1px solid #524342}
+        .pip-reset:hover:not(:disabled){background:#363432}
         .pip-btn:disabled{opacity:0.35;cursor:default}
       </style>
     `;
@@ -277,6 +376,7 @@ async function togglePip() {
 
 pipBtn.addEventListener('click', togglePip);
 
+/* ===== Footer Controls ===== */
 /* ===== Todo State ===== */
 const addTaskBtn = document.getElementById('addTaskBtn');
 const todoList = document.getElementById('todoList');
@@ -297,7 +397,7 @@ const modalSave = document.getElementById('modalSave');
 const modalCancel = document.getElementById('modalCancel');
 const modalClose = document.getElementById('modalClose');
 
-const taskSearch = document.getElementById('taskSearch');
+const taskSearch = document.getElementById('headerSearch');
 const taskStatBar = document.getElementById('taskStatBar');
 const toast = document.getElementById('toast');
 const toastMsg = document.getElementById('toastMsg');
@@ -355,10 +455,101 @@ function setActiveTask(id) {
 
 function updateCurrentTaskDisplay() {
   const task = getActiveTask();
-  currentTaskDisplay.textContent = task ? '▶ ' + task.title : '';
+  const fallback = !task ? todos.find(t => !t.done) : null;
+  const displayTask = task || fallback;
+  // Pomodoro tab title area
+  const pomTaskName = document.getElementById('pomodoroTaskName');
+  if (pomTaskName) {
+    pomTaskName.textContent = displayTask ? displayTask.title : 'No active task';
+    pomTaskName.className = 'font-mono text-xs font-semibold tracking-wider mt-2 ' + (displayTask ? 'text-primary' : 'text-outline');
+  }
+  // Pomodoro tab card
+  const titleEl = document.querySelector('#currentTaskDisplay .current-task-text');
+  const pomoEl = document.getElementById('currentTaskPomo');
+  const projectTag = document.getElementById('activeProjectTag');
+  if (titleEl) {
+    if (displayTask) {
+      titleEl.textContent = displayTask.title;
+      titleEl.style.opacity = '1';
+      if (projectTag) {
+        if (displayTask.project) {
+          projectTag.classList.remove('hidden');
+          projectTag.textContent = '#' + displayTask.project;
+        } else {
+          projectTag.classList.add('hidden');
+        }
+      }
+      if (pomoEl) {
+        const done = displayTask.pomodoros || 0;
+        const est = displayTask.estPomodoros || 0;
+        pomoEl.textContent = est > 0 ? done + '/' + est : String(done);
+      }
+    } else {
+      titleEl.textContent = 'No tasks yet — add one to get started';
+      titleEl.style.opacity = '0.6';
+      if (projectTag) projectTag.classList.add('hidden');
+      if (pomoEl) pomoEl.textContent = '0';
+    }
+  }
+  // Dashboard timer widget card
+  const dashTitle = document.getElementById('dashActiveTitle');
+  const dashPomo = document.getElementById('dashActivePomo');
+  if (dashTitle) {
+    if (displayTask) {
+      dashTitle.textContent = displayTask.title;
+      dashTitle.style.opacity = '1';
+      if (dashPomo) {
+        const done = displayTask.pomodoros || 0;
+        const est = displayTask.estPomodoros || 0;
+        dashPomo.textContent = est > 0 ? done + '/' + est + ' pomos' : done + ' pomos';
+      }
+    } else {
+      dashTitle.textContent = 'No tasks yet';
+      dashTitle.style.opacity = '0.6';
+      if (dashPomo) dashPomo.textContent = '';
+    }
+  }
   if (pipWindow && !pipWindow.closed) {
     const el = pipWindow.document.getElementById('pipCurrentTask');
-    if (el) el.textContent = task ? '▶ ' + task.title : '';
+    if (el) el.textContent = displayTask ? '▶ ' + displayTask.title : '';
+  }
+}
+
+/* ===== Dashboard Stats ===== */
+function updateDashboardStats() {
+  const dashPomos = document.getElementById('dashPomos');
+  const dashTasks = document.getElementById('dashTasks');
+  const dashGolden = document.getElementById('dashGolden');
+  const dashGoldenTitle = document.getElementById('dashGoldenTitle');
+  const dashFocusBtn = document.getElementById('dashFocusBtn');
+  const dashGoldenPomos = document.getElementById('dashGoldenPomos');
+
+  if (dashPomos) {
+    const history = loadHistory();
+    dashPomos.textContent = history.length;
+  }
+  if (dashTasks) {
+    const done = todos.filter(t => t.done).length;
+    dashTasks.textContent = done;
+  }
+  if (dashGolden) {
+    const golden = todos.find(t => t.id === goldenTaskId && !t.done);
+    const dashGoldenSub = dashGolden.querySelector('.golden-sub');
+    if (golden) {
+      if (dashGoldenTitle) dashGoldenTitle.textContent = golden.title;
+      if (dashGoldenSub) dashGoldenSub.textContent = golden.description || 'Focus on your golden task!';
+      if (dashFocusBtn) dashFocusBtn.classList.remove('hidden');
+      if (dashGoldenPomos) {
+        const est = golden.estPomodoros || 0;
+        dashGoldenPomos.textContent = `EST. ${est} POMOS`;
+        dashGoldenPomos.classList.toggle('hidden', est === 0);
+      }
+    } else {
+      if (dashGoldenTitle) dashGoldenTitle.textContent = 'No golden task set';
+      if (dashGoldenSub) dashGoldenSub.textContent = 'Mark a task as golden ⭐ to see it here.';
+      if (dashFocusBtn) dashFocusBtn.classList.add('hidden');
+      if (dashGoldenPomos) dashGoldenPomos.classList.add('hidden');
+    }
   }
 }
 
@@ -511,7 +702,7 @@ function extractTags() {
 function renderTagCloud() {
   const tags = extractTags();
   const colorMap = getTagColorMap();
-  const html = tags.filter(t => {
+  const pillHtml = tags.filter(t => {
     const isProject = t.startsWith('project:');
     const hasPending = isProject
       ? todos.some(td => !td.done && td.project && td.project.toLowerCase() === t.slice(8))
@@ -527,7 +718,38 @@ function renderTagCloud() {
     const style = c ? `style="background:${c}22;color:${c};border-color:${c}44"` : '';
     return `<span class="tag-pill ${active}" data-tag="${t}" ${style}>${t} <span class="count">${count}</span></span>`;
   }).join('');
-  document.getElementById('tagCloud').innerHTML = html;
+  const tagCloudEl = document.getElementById('tagCloud');
+  if (tagCloudEl) tagCloudEl.innerHTML = pillHtml;
+
+  // Sidebar tag clouds
+  const sidebarCloud = document.getElementById('tagCloudSidebar');
+  const sidebarTags = document.getElementById('tagCloudTags');
+  if (sidebarCloud || sidebarTags) {
+    const projectTags = tags.filter(t => t.startsWith('project:'));
+    const regularTags = tags.filter(t => !t.startsWith('project:'));
+    const renderSidebarPills = (tagArray) => tagArray.map(t => {
+      const c = colorMap[t];
+      const count = t.startsWith('project:')
+        ? todos.filter(td => td.project && td.project.toLowerCase() === t.slice(8)).length
+        : todos.filter(td => (td.tags || []).some(tag => tag.toLowerCase() === t)).length;
+      const active = tagFilter === t ? 'active' : '';
+      const style = c ? `style="background:${c}22;color:${c};border-color:${c}44"` : '';
+      return `<span class="tag-pill ${active}" data-tag="${t}" ${style}>${t}</span>`;
+    }).join('');
+    if (sidebarCloud) sidebarCloud.innerHTML = renderSidebarPills(projectTags) || '<span class="text-[11px] opacity-50">No projects yet</span>';
+    if (sidebarTags) sidebarTags.innerHTML = renderSidebarPills(regularTags) || '<span class="text-[11px] opacity-50">No tags yet</span>';
+  }
+
+  // Focus Score
+  const total = todos.filter(t => !t.done).length;
+  const done = todos.filter(t => t.done).length;
+  const score = total + done > 0 ? Math.round((done / (total + done)) * 100) : 0;
+  const focusPct = document.getElementById('focusScorePct');
+  const focusBar = document.getElementById('focusScoreBar');
+  const focusText = document.getElementById('focusScoreText');
+  if (focusPct) focusPct.textContent = score + '%';
+  if (focusBar) focusBar.style.width = score + '%';
+  if (focusText) focusText.textContent = score >= 80 ? 'Crushing it! Keep the momentum!' : 'Complete tasks to boost your score!';
 }
 
 function clearFilter() {
@@ -832,26 +1054,28 @@ function renderTodos() {
   if (overdueCount > 0) statHtml.push(`<span class="task-stat overdue" data-filter="overdue">⚠ ${overdueCount} overdue</span>`);
   if (todayCount > 0) statHtml.push(`<span class="task-stat" data-filter="today">📅 ${todayCount} today</span>`);
   statHtml.push(`<span class="task-stat" data-filter="all">${pending.length} total</span>`);
-  taskStatBar.innerHTML = statHtml.join('');
-  taskStatBar.querySelectorAll('.task-stat').forEach(el => {
-    el.addEventListener('click', () => {
-      const f = el.dataset.filter;
-      if (f === 'overdue') {
-        const now2 = new Date(); now2.setHours(0,0,0,0);
-        const ov = pending.filter(t => {
-          if (!t.dueDate) return false;
-          const p2 = t.dueDate.split('-');
-          const d2 = new Date(+p2[0], +p2[1]-1, +p2[2]);
-          d2.setHours(0,0,0,0);
-          return d2 < now2;
-        });
-        todoList.innerHTML = '';
-        ov.forEach(t => renderTodoItem(t, tagColors, false));
-        return;
-      }
-      renderTodos();
+  if (taskStatBar) {
+    taskStatBar.innerHTML = statHtml.join('');
+    taskStatBar.querySelectorAll('.task-stat').forEach(el => {
+      el.addEventListener('click', () => {
+        const f = el.dataset.filter;
+        if (f === 'overdue') {
+          const now2 = new Date(); now2.setHours(0,0,0,0);
+          const ov = pending.filter(t => {
+            if (!t.dueDate) return false;
+            const p2 = t.dueDate.split('-');
+            const d2 = new Date(+p2[0], +p2[1]-1, +p2[2]);
+            d2.setHours(0,0,0,0);
+            return d2 < now2;
+          });
+          todoList.innerHTML = '';
+          ov.forEach(t => renderTodoItem(t, tagColors, false));
+          return;
+        }
+        renderTodos();
+      });
     });
-  });
+  }
 
   const remaining = pending.length;
   taskCount.textContent = remaining;
@@ -947,6 +1171,8 @@ function renderTodos() {
   } else {
     toggleBtn.classList.add('hidden');
   }
+  updateDashboardStats();
+  renderDashboardUpNext();
 }
 
 /* ===== Modal ===== */
@@ -1085,6 +1311,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 addTaskBtn.addEventListener('click', openAddModal);
+const headerAddBtn = document.getElementById('headerAddBtn');
+if (headerAddBtn) headerAddBtn.addEventListener('click', openAddModal);
 
 function quickAddTask() {
   const input = document.getElementById('quickAddInput');
@@ -1166,11 +1394,32 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
   document.querySelectorAll('section[data-tab]').forEach(s => s.classList.toggle('tab-hidden', s.dataset.tab !== tabId));
   localStorage.setItem('activeTab', tabId);
+  const titles = { dashboard: "Today's Overview", pomodoro: 'Pomodoro', tasks: 'Tasks', stats: 'Statistics', goals: 'Goals' };
+  const pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) pageTitle.textContent = titles[tabId] || 'Pomodoro';
+  const ambient = document.getElementById('ambientBg');
+  if (ambient) ambient.classList.toggle('hidden', tabId !== 'pomodoro');
+  if (tabId === 'dashboard') { updateDashboardStats(); renderDashboardUpNext(); fetchQuotes(); updateCurrentTaskDisplay(); }
+  if (tabId === 'pomodoro') updateCurrentTaskDisplay();
+  if (tabId === 'tasks') renderTodos();
+  if (tabId === 'stats') renderStats();
+  if (tabId === 'goals') renderQuarterlyGoals();
 }
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => switchTab(tab.dataset.tab));
 });
+
+/* Dashboard view-all and focus button */
+const dashViewAll = document.getElementById('dashViewAll');
+if (dashViewAll) dashViewAll.addEventListener('click', () => switchTab('tasks'));
+const dashFocusBtn = document.getElementById('dashFocusBtn');
+if (dashFocusBtn) {
+  dashFocusBtn.addEventListener('click', () => {
+    if (goldenTaskId) setActiveTask(goldenTaskId);
+    switchTab('pomodoro');
+  });
+}
 
 /* ===== Toast/Undo ===== */
 function showToast(msg, onUndo) {
@@ -1310,9 +1559,41 @@ viewTabs.addEventListener('click', (e) => {
 
 function renderStats() {
   renderWeeklyStats();
+  // Update bento summary cards
+  const history = loadHistory();
+  const focusTimeEl = document.getElementById('statsFocusTime');
+  const focusSubEl = document.getElementById('statsFocusSub');
+  const completedEl = document.getElementById('statsCompleted');
+  const completedSubEl = document.getElementById('statsCompletedSub');
+  const streakEl = document.getElementById('statsStreak');
+  const streakSubEl = document.getElementById('statsStreakSub');
+  if (focusTimeEl) {
+    const totalMin = history.length * 25;
+    if (totalMin >= 60) focusTimeEl.textContent = Math.round(totalMin / 60) + 'h';
+    else focusTimeEl.textContent = totalMin + 'm';
+  }
+  if (focusSubEl) focusSubEl.textContent = history.length > 0 ? `${history.length} sessions completed` : 'No sessions yet';
+  if (completedEl) completedEl.textContent = todos.filter(t => t.done).length;
+  if (completedSubEl) {
+    const doneToday = todos.filter(t => t.done && t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length;
+    completedSubEl.textContent = doneToday > 0 ? `${doneToday} today` : 'Tasks finished';
+  }
+  if (streakEl) {
+    const dates = [...new Set(history.map(s => s.date))].sort().reverse();
+    let streak = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    let check = today;
+    for (const d of dates) {
+      if (d === check) { streak++; check = new Date(new Date(check).setDate(new Date(check).getDate() - 1)).toISOString().slice(0, 10); }
+      else break;
+    }
+    streakEl.textContent = streak;
+  }
+  if (streakSubEl) streakSubEl.textContent = streak === 1 ? 'Day of focus' : `${streak} day streak`;
+  // Stats views
   if (currentView === 'calendar') statsViews.innerHTML = renderCalendarHTML();
   else if (currentView === 'hours') statsViews.innerHTML = renderHoursHTML();
-  else if (currentView === 'slots') statsViews.innerHTML = renderSlotsHTML();
+  else if (currentView === 'projects') statsViews.innerHTML = renderProjectsHTML();
   statsViews.querySelectorAll('[data-cal-nav]').forEach(btn => {
     btn.addEventListener('click', () => {
       calendarDate.setMonth(calendarDate.getMonth() + (btn.dataset.calNav === 'next' ? 1 : -1));
@@ -1416,64 +1697,126 @@ function renderHoursHTML() {
   return html;
 }
 
-/* ===== Time Slots ===== */
-function renderSlotsHTML() {
+/* ===== Projects Breakdown ===== */
+function renderProjectsHTML() {
   const history = loadHistory();
-  if (history.length === 0) {
-    return '<div class="no-data">No sessions yet. Complete a pomodoro to see stats.</div>';
+  const pending = todos.filter(t => !t.done);
+  const projects = {};
+  todos.forEach(t => {
+    const p = t.project || 'General';
+    if (!projects[p]) projects[p] = { name: p, pomos: 0, total: 0, done: 0 };
+    projects[p].total++;
+    if (t.done) projects[p].done++;
+    projects[p].pomos += t.pomodoros || 0;
+  });
+  const projectList = Object.values(projects).sort((a, b) => b.pomos - a.pomos);
+  const totalPomos = projectList.reduce((s, p) => s + p.pomos, 0) || 1;
+  const colors = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-on-surface-variant'];
+  const projectColors = ['#ae2f34', '#006a65', '#705d00', '#584140'];
+
+  let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+  // Left: Project allocation
+  html += '<div class="bg-surface-container-low p-6 rounded-xl shadow-sm border border-outline-variant/10">';
+  html += '<h3 class="font-display font-semibold mb-5" style="font-size:18px;line-height:28px">Allocation</h3>';
+  html += '<div class="space-y-5">';
+  projectList.slice(0, 6).forEach((p, i) => {
+    const pct = Math.round((p.pomos / totalPomos) * 100);
+    const color = projectColors[i % projectColors.length];
+    html += `
+      <div>
+        <div class="flex justify-between mb-2 text-sm font-bold font-body">
+          <span>${p.name}</span>
+          <span class="font-mono" style="color:${color}">${pct}%</span>
+        </div>
+        <div class="w-full h-3 bg-surface-container-high rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-1000 ease-out" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="flex justify-between mt-1 text-[10px] font-mono text-on-surface-variant">
+          <span>${p.done}/${p.total} tasks</span>
+          <span>${p.pomos} pomos</span>
+        </div>
+      </div>`;
+  });
+  if (projectList.length === 0) {
+    html += '<p class="text-sm text-on-surface-variant opacity-60 text-center py-4">No projects yet. Add tasks with projects to see allocation.</p>';
+  }
+  html += '</div></div>';
+
+  // Right: Insight section
+  const bestHour = (() => {
+    if (history.length === 0) return null;
+    const hourCounts = Array(24).fill(0);
+    history.forEach(s => {
+      const h = parseInt(s.time.split(':')[0], 10);
+      if (h >= 0 && h < 24) hourCounts[h]++;
+    });
+    let maxH = 0, best = -1;
+    hourCounts.forEach((c, h) => { if (c > maxH) { maxH = c; best = h; } });
+    return best;
+  })();
+  const totalSessions = history.length;
+  const todaySessions = history.filter(s => s.date === new Date().toISOString().slice(0, 10)).length;
+  let insightMsg = 'Complete your first pomodoro session to unlock insights.';
+  if (totalSessions > 0) {
+    if (bestHour !== null) {
+      const period = bestHour < 12 ? 'morning' : bestHour < 17 ? 'afternoon' : 'evening';
+      insightMsg = `You're most productive in the ${period} (around ${bestHour}:00). Your peak focus window is ${bestHour}:00–${Math.min(bestHour + 2, 24)}:00.`;
+      if (todaySessions > 0) {
+        insightMsg += ` Great start — you've logged ${todaySessions} session${todaySessions > 1 ? 's' : ''} today!`;
+      }
+    }
+    const projectCount = projectList.filter(p => p.pomos > 0).length;
+    if (projectCount > 2 && totalSessions > 10) {
+      insightMsg += ` You're juggling ${projectCount} projects — consider focusing on one per day.`;
+    }
   }
 
-  const slots = [
-    { id: 'morning', label: 'Morning (6-12)', hours: [6,7,8,9,10,11], count: 0 },
-    { id: 'afternoon', label: 'Afternoon (12-18)', hours: [12,13,14,15,16,17], count: 0 },
-    { id: 'evening', label: 'Evening (18-24)', hours: [18,19,20,21,22,23], count: 0 },
-    { id: 'night', label: 'Night (0-6)', hours: [0,1,2,3,4,5], count: 0 },
-  ];
-
-  history.forEach(s => {
-    const h = parseInt(s.time.split(':')[0], 10);
-    const slot = slots.find(sl => sl.hours.includes(h));
-    if (slot) slot.count++;
-  });
-
-  const maxSlot = Math.max(...slots.map(s => s.count), 1);
-  let html = '<div class="slots-container">';
-
-  slots.forEach(slot => {
-    const pct = (slot.count / maxSlot) * 100;
-    html += `
-      <div class="slot-card ${slot.id}">
-        <div class="slot-name">${slot.label}</div>
-        <div class="slot-count">${slot.count}</div>
-        <div class="slot-bar-bg"><div class="slot-bar" style="width:${pct}%"></div></div>
-        <div class="slot-pct">${slot.count > 0 ? Math.round((slot.count / history.length) * 100) : 0}%</div>
+  html += `
+    <div class="bg-primary/5 p-8 rounded-xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center text-center">
+      <div class="w-20 h-20 bg-primary-container rounded-full flex items-center justify-center mb-4">
+        <span class="material-symbols-outlined text-[40px] text-on-primary-container">insights</span>
       </div>
-    `;
-  });
+      <h4 class="font-display font-semibold" style="font-size:18px;line-height:28px">Insight</h4>
+      <p class="text-sm text-on-surface-variant mt-2 max-w-xs mx-auto leading-relaxed">${insightMsg}</p>
+    </div>`;
 
   html += '</div>';
   return html;
 }
 
-document.getElementById('tagCloud').addEventListener('click', (e) => {
+const tagCloudEl = document.getElementById('tagCloud');
+if (tagCloudEl) tagCloudEl.addEventListener('click', (e) => {
   const pill = e.target.closest('.tag-pill');
   if (pill) filterByTag(pill.dataset.tag);
+});
+['tagCloudSidebar', 'tagCloudTags'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', (e) => {
+    const pill = e.target.closest('.tag-pill');
+    if (pill) filterByTag(pill.dataset.tag);
+  });
 });
 
 /* ===== Theme Toggle ===== */
 const themeToggle = document.getElementById('themeToggle');
 
 function setTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
   localStorage.setItem('theme', theme);
-  themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+  themeToggle.innerHTML = theme === 'dark'
+    ? '<span class="material-symbols-outlined">dark_mode</span>'
+    : '<span class="material-symbols-outlined">light_mode</span>';
 }
 
 const savedTheme = localStorage.getItem('theme') || 'dark';
 setTheme(savedTheme);
 
 themeToggle.addEventListener('click', () => {
-  const current = document.documentElement.getAttribute('data-theme');
+  const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   setTheme(current === 'dark' ? 'light' : 'dark');
 });
 
@@ -1672,8 +2015,193 @@ function renderQuarterlyGoals() {
   });
 }
 
+/* ===== Dashboard Quotes ===== */
+const fallbackQuotes = [
+  { q: 'Slow progress is still progress. Every stitch counts towards the final masterpiece.', a: 'Unknown' },
+  { q: 'Success is the sum of small efforts, repeated day in and day out.', a: 'Robert Collier' },
+  { q: 'Hard work beats talent when talent doesn\'t work hard.', a: 'Tim Notke' },
+  { q: 'Success is not final, failure is not fatal: it is the courage to continue that counts.', a: 'Winston Churchill' },
+  { q: 'The only way to do great work is to love what you do.', a: 'Steve Jobs' },
+  { q: 'Don\'t watch the clock; do what it does. Keep going.', a: 'Sam Levenson' },
+  { q: 'Strive not to be a success, but rather to be of value.', a: 'Albert Einstein' },
+  { q: 'The difference between ordinary and extraordinary is that little extra.', a: 'Jimmy Johnson' },
+  { q: 'It does not matter how slowly you go as long as you do not stop.', a: 'Confucius' },
+  { q: 'Success usually comes to those who are too busy to be looking for it.', a: 'Henry David Thoreau' },
+  { q: 'The future depends on what you do today.', a: 'Mahatma Gandhi' },
+  { q: 'There are no shortcuts to any place worth going.', a: 'Beverly Sills' },
+  { q: 'The only limit to our realization of tomorrow is our doubts of today.', a: 'Franklin D. Roosevelt' },
+  { q: 'Hard things are worth doing well.', a: 'Unknown' },
+  { q: 'Dream big. Work hard. Stay focused.', a: 'Unknown' },
+];
+
+function pickShuffled(arr, n) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
+function fetchQuotes() {
+  const container = document.getElementById('dashQuotes');
+  if (!container) return;
+
+  function renderQuoteCards(quotes) {
+    container.innerHTML = quotes.map(q => `
+      <div class="organic-card stitch-border p-4 bg-surface-container-low flex items-start gap-3">
+        <span class="material-symbols-outlined text-outline-variant shrink-0" style="font-size:20px">format_quote</span>
+        <p class="font-body text-sm italic text-on-surface-variant leading-relaxed">"${q.q}"${q.a ? `<br><span class="not-italic font-semibold text-xs opacity-60">&mdash; ${q.a}</span>` : ''}</p>
+      </div>
+    `).join('');
+  }
+
+  function normalizeQuotes(data) {
+    if (Array.isArray(data)) return data.map(q => ({ q: q.content || q.quote || q.q, a: q.author || q.a }));
+    if (data.quotes) return data.quotes.map(q => ({ q: q.quote || q.q, a: q.author || q.a }));
+    return null;
+  }
+  Promise.any([
+    fetch('https://api.quotable.io/quotes/random?tags=work|success|perseverance|motivation&limit=3').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    fetch('https://dummyjson.com/quotes/random/3').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+  ]).then(data => {
+    const quotes = normalizeQuotes(data);
+    if (quotes && quotes.length >= 3) {
+      renderQuoteCards(quotes);
+      return;
+    }
+    throw new Error('not enough quotes');
+  })
+    .catch(() => {
+      renderQuoteCards(pickShuffled(fallbackQuotes, 3));
+    });
+}
+
+/* ===== Dashboard Up Next ===== */
+function renderDashboardUpNext() {
+  const container = document.getElementById('dashTaskList');
+  if (!container) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const pending = todos.filter(t => !t.done);
+  if (pending.length === 0) {
+    container.innerHTML = '<div class="text-center py-8 text-sm text-on-surface-variant opacity-60">No pending tasks. Add a task to get started!</div>';
+    return;
+  }
+  const todayTasks = pending.filter(t => t.dueDate === today);
+  const otherTasks = pending.filter(t => t.dueDate !== today);
+  let ordered = [];
+  if (goldenTaskId) {
+    const golden = pending.find(t => t.id === goldenTaskId);
+    if (golden) ordered.push(golden);
+  }
+  if (activeTaskId) {
+    const active = pending.find(t => t.id === activeTaskId);
+    if (active && !ordered.some(t => t.id === active.id)) ordered.push(active);
+  }
+  todayTasks.forEach(t => { if (!ordered.some(o => o.id === t.id)) ordered.push(t); });
+  otherTasks.forEach(t => { if (!ordered.some(o => o.id === t.id)) ordered.push(t); });
+  const maxShow = 8;
+  const shown = ordered.slice(0, maxShow);
+  container.innerHTML = shown.map((t, idx) => {
+    const isGolden = t.id === goldenTaskId;
+    const isActive = t.id === activeTaskId;
+    const starIcon = isGolden ? '<span class="material-symbols-outlined fill text-tertiary text-sm">stars</span>' : '';
+    const goldenCls = isGolden ? 'golden-item' : '';
+    const isDueToday = t.dueDate === today;
+    const meta = isDueToday ? 'Today' : t.dueDate ? t.dueDate : `${t.pomodoros || 0} POMOS`;
+    const playIcon = isActive ? 'pause_circle' : 'play_circle';
+    return `<div class="dash-task-item flex items-center gap-2 p-3 rounded-xl border-l-4 bg-surface-container-low border-l-surface-container transition-all hover:translate-x-1 ${goldenCls}" draggable="true" data-idx="${idx}" data-task-id="${t.id}">
+      <span class="material-symbols-outlined text-outline-variant text-lg drag-handle-dash" style="cursor:grab">drag_indicator</span>
+      <button class="dash-task-play material-symbols-outlined text-lg ${isActive ? 'text-secondary' : 'text-primary'} hover:scale-110 transition-transform shrink-0" data-task-id="${t.id}" aria-label="${isActive ? 'Pause' : 'Focus on this task'}">${playIcon}</button>
+      <span class="material-symbols-outlined text-sm ${t.done ? 'text-secondary' : 'text-outline-variant'}">${t.done ? 'check_circle' : 'radio_button_unchecked'}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold truncate">${t.title}</p>
+        <p class="text-[10px] font-mono opacity-50">${t.project ? t.project.toUpperCase() + ' • ' : ''}${meta}</p>
+      </div>
+      ${starIcon}
+    </div>`;
+  }).join('');
+  container._shownTasks = shown;
+  setupDashDragDrop(container, shown);
+}
+
+document.addEventListener('click', async function _dashPlayHandler(e) {
+  const btn = e.target.closest('.dash-task-play');
+  if (!btn) return;
+  const taskId = btn.dataset.taskId;
+  if (!taskId) return;
+  const todo = todos.find(t => t.id === taskId);
+  if (!todo) return;
+  e.stopPropagation();
+  if (activeTaskId && activeTaskId !== taskId) {
+    const current = getActiveTask();
+    if (!await showConfirmModal(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
+  }
+  setActiveTask(taskId);
+  if (pomState.phase !== 'focus') {
+    pomState.phase = 'focus';
+    pomState.timeLeft = FOCUS_TIME;
+    updatePhaseLabel();
+    updateDisplay();
+    updateDashPhaseTabs();
+    updateDashDots();
+    updateCurrentTaskDisplay();
+  }
+  startTimer();
+});
+
+function setupDashDragDrop(container, todayTasks) {
+  let dragSrcIdx = null;
+  const onDragStart = (e) => {
+    const item = e.target.closest('.dash-task-item');
+    if (!item) return;
+    dragSrcIdx = parseInt(item.dataset.idx);
+    item.classList.add('opacity-30');
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const onDragEnd = () => {
+    container.querySelectorAll('.dash-task-item').forEach(el => el.classList.remove('opacity-30', 'border-t-2', 'border-primary'));
+    dragSrcIdx = null;
+  };
+  const onDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const item = e.target.closest('.dash-task-item');
+    if (!item) return;
+    container.querySelectorAll('.dash-task-item').forEach(el => el.classList.remove('border-t-2', 'border-primary'));
+    item.classList.add('border-t-2', 'border-primary');
+  };
+  const onDrop = (e) => {
+    e.preventDefault();
+    if (dragSrcIdx === null) return;
+    const target = e.target.closest('.dash-task-item');
+    if (!target) return;
+    const targetIdx = parseInt(target.dataset.idx);
+    if (dragSrcIdx === targetIdx) return;
+    const srcTask = todayTasks[dragSrcIdx];
+    const targetTask = todayTasks[targetIdx];
+    const srcTodosIdx = todos.indexOf(srcTask);
+    const targetTodosIdx = todos.indexOf(targetTask);
+    if (srcTodosIdx === -1 || targetTodosIdx === -1) return;
+    todos.splice(srcTodosIdx, 1);
+    const newTargetIdx = todos.indexOf(targetTask);
+    todos.splice(newTargetIdx + (dragSrcIdx < targetIdx ? 0 : 1), 0, srcTask);
+    saveTodos();
+    renderDashboardUpNext();
+    renderTodos();
+  };
+  container.removeEventListener('dragstart', onDragStart);
+  container.removeEventListener('dragend', onDragEnd);
+  container.removeEventListener('dragover', onDragOver);
+  container.removeEventListener('drop', onDrop);
+  container.addEventListener('dragstart', onDragStart);
+  container.addEventListener('dragend', onDragEnd);
+  container.addEventListener('dragover', onDragOver);
+  container.addEventListener('drop', onDrop);
+}
+
 /* ===== Init ===== */
-const savedTab = localStorage.getItem('activeTab') || 'pomodoro';
+const savedTab = localStorage.getItem('activeTab') || 'dashboard';
 switchTab(savedTab);
 
 startBtn.disabled = false;
@@ -1681,9 +2209,14 @@ pauseBtn.disabled = true;
 resetBtn.disabled = false;
 updateDisplay();
 updatePhaseLabel();
+updateDashPhaseTabs();
+updateDashDots();
 updateCurrentTaskDisplay();
 renderTagCloud();
 renderTodos();
 renderStats();
 renderWeeklyStats();
 renderQuarterlyGoals();
+updateDashboardStats();
+renderDashboardUpNext();
+fetchQuotes();
