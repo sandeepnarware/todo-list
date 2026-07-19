@@ -1589,7 +1589,7 @@ function renderStats() {
     }
     streakEl.textContent = streak;
   }
-  if (streakSubEl) streakSubEl.textContent = streak === 1 ? 'Day of focus' : `${streak} day streak`;
+  if (streakSubEl) streakSubEl.textContent = streak === 0 ? 'No sessions yet' : streak === 1 ? 'Day of focus' : `${streak} day streak`;
   // Stats views
   if (currentView === 'calendar') statsViews.innerHTML = renderCalendarHTML();
   else if (currentView === 'hours') statsViews.innerHTML = renderHoursHTML();
