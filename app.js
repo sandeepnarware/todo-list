@@ -153,6 +153,7 @@ function startTimer() {
   if (pomState.running) return;
   pomState.running = true;
   setTimerButton('running');
+  clearInterval(pomState.timerId); // kill any orphaned interval before starting a new one
   pomState.timerId = setInterval(tick, 1000);
   setCompact(false);
   updatePipControls();
@@ -219,18 +220,27 @@ function switchPhase() {
 }
 
 function tick() {
+  // Bail out if this interval no longer owns the timer (orphaned/stale interval).
+  if (!pomState.running) {
+    clearInterval(pomState.timerId);
+    return;
+  }
   pomState.timeLeft--;
-  updateDisplay();
   if (pomState.timeLeft <= 0) {
+    pomState.timeLeft = 0; // clamp so the countdown never displays a negative value
     pomState.running = false;
     clearInterval(pomState.timerId);
+    pomState.timerId = null;
+    updateDisplay();
     pauseBtn.disabled = true;
     resetBtn.disabled = false;
     playTripleBeep();
     notifyPhaseEnd(pomState.phase);
     switchPhase();
     updatePipControls();
+    return;
   }
+  updateDisplay();
 }
 
 compactStartBtn.addEventListener('click', startTimer);
