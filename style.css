@@ -477,6 +477,8 @@ section[data-tab].tab-hidden { display: none !important; }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
+  max-width: 420px;
+  margin: 0 auto;
 }
 .calendar-grid .day-header {
   text-align: center;
@@ -490,20 +492,43 @@ section[data-tab].tab-hidden { display: none !important; }
 }
 .calendar-grid .day-cell {
   aspect-ratio: 1;
+  max-width: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 12px;
   position: relative;
   transition: transform 0.2s;
 }
 .calendar-grid .day-cell:hover { transform: scale(1.1); z-index: 2; }
 .calendar-grid .day-cell.empty { background: none; }
-.calendar-grid .day-cell .day-num { font-weight: 600; }
+.calendar-grid .day-cell .day-num { font-weight: 600; line-height: 1.1; }
 .calendar-grid .day-cell .day-star { font-size: 9px; line-height: 1; }
-.calendar-grid .day-cell .day-count { font-size: 8px; color: var(--on-surface-variant); margin-top: 1px; font-family: 'JetBrains Mono', monospace; }
+/* Pomodoros completed that day — inherit the cell's text colour so it stays
+   legible on both empty and filled (coloured) cells. */
+.calendar-grid .day-cell .day-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 10px;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.85;
+  margin-top: 1px;
+  line-height: 1;
+  font-family: 'JetBrains Mono', monospace;
+}
+.calendar-grid .day-cell.level-0 .day-count { color: var(--primary); opacity: 1; }
+.calendar-legend {
+  text-align: center;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  opacity: 0.7;
+  margin-top: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
 
 .calendar-grid .day-cell.level-0 { background: var(--surface-container); }
 .calendar-grid .day-cell.level-1 { background: #ffe0e0; color: #410006; }
@@ -962,6 +987,13 @@ section[data-tab].tab-hidden { display: none !important; }
 
 .dark .sort-btn:not(.active) { border-color: var(--outline-variant); }
 .dark .progress-ring .text-surface-container-high { color: var(--surface-container-high); }
+
+/* ===== PICTURE-IN-PICTURE BUTTONS ===== */
+#pipBtn.active, #dashPipBtn.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+#dashPipBtn.active .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
 
 /* ===== GOALS ===== */
 .stitch-checkbox {

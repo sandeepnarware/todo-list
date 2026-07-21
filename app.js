@@ -2,6 +2,7 @@
 const FOCUS_TIME = 25 * 60;
 const BREAK_TIME = 5 * 60;
 const LONG_BREAK_TIME = 15 * 60;
+const POMODOROS_BEFORE_LONG_BREAK = 3; // long break after every 3 completed focus sessions
 
 let pomState = {
   timeLeft: FOCUS_TIME,
@@ -69,9 +70,15 @@ function formatTime(seconds) {
 
 const BASE_TITLE = document.title;
 
+function phaseDisplayName(phase) {
+  if (phase === 'focus') return 'Focus';
+  if (phase === 'longbreak') return 'Long Break';
+  return 'Break';
+}
+
 function updateCompactDisplay() {
   compactTimer.textContent = formatTime(pomState.timeLeft);
-  compactPhase.textContent = pomState.phase === 'focus' ? 'Focus' : 'Break';
+  compactPhase.textContent = phaseDisplayName(pomState.phase);
   compactSessions.textContent = `${pomState.sessionCount} sessions`;
 }
 
@@ -88,16 +95,18 @@ function getPhaseTime(phase) {
 function updateDashDots() {
   const dots = document.querySelectorAll('#dashTimer ~ .flex.gap-2 .w-2');
   if (!dots.length) return;
-  const phaseOrder = ['focus', 'break', 'focus', 'longbreak'];
-  const cycleStep = pomState.sessionCount % 4;
+  // Completed focus sessions within the current cycle (0..POMODOROS_BEFORE_LONG_BREAK-1).
+  const completed = pomState.sessionCount % POMODOROS_BEFORE_LONG_BREAK;
   dots.forEach((dot, i) => {
-    const isActive = pomState.phase === 'focus' && i <= cycleStep;
-    const isBreak = pomState.phase !== 'focus' && i < cycleStep;
-    if (isActive || isBreak) {
-      dot.style.background = 'var(--primary)';
+    let filled;
+    if (pomState.phase === 'longbreak') {
+      filled = true; // all pomodoros of the cycle are done
+    } else if (pomState.phase === 'focus') {
+      filled = i <= completed; // prior sessions + the one in progress
     } else {
-      dot.style.background = 'var(--outline-variant)';
+      filled = i < completed; // short break: only completed sessions
     }
+    dot.style.background = filled ? 'var(--primary)' : 'var(--outline-variant)';
   });
 }
 
@@ -192,18 +201,15 @@ function recordSession() {
 }
 
 function switchPhase() {
-  if (pomState.phase === 'focus') {
+  const finishedFocus = pomState.phase === 'focus';
+
+  // 1) Advance to the next phase and paint the new timer FIRST, so the
+  //    break/focus countdown is shown immediately (never left stuck at 00:00).
+  //    The timer is left paused — the next phase does not auto-start.
+  if (finishedFocus) {
     pomState.sessionCount++;
     sessionCountEl.textContent = pomState.sessionCount;
-    recordSession();
-    const task = getActiveTask();
-    if (task) {
-      task.pomodoros = (task.pomodoros || 0) + 1;
-      saveTodos();
-      renderTodos();
-      updateCurrentTaskDisplay();
-    }
-    if (pomState.sessionCount % 4 === 0) {
+    if (pomState.sessionCount % POMODOROS_BEFORE_LONG_BREAK === 0) {
       pomState.phase = 'longbreak';
       pomState.timeLeft = LONG_BREAK_TIME;
     } else {
@@ -216,7 +222,21 @@ function switchPhase() {
   }
   updatePhaseLabel();
   updateDisplay();
+  setTimerButton('paused');
   updateDashPhaseTabs();
+
+  // 2) Side effects afterwards — if any of these throw, the timer above is
+  //    already showing the correct next-phase countdown.
+  if (finishedFocus) {
+    recordSession();
+    const task = getActiveTask();
+    if (task) {
+      task.pomodoros = (task.pomodoros || 0) + 1;
+      saveTodos();
+      renderTodos();
+      updateCurrentTaskDisplay();
+    }
+  }
 }
 
 function tick() {
@@ -294,15 +314,19 @@ document.getElementById('dashPhaseTabs').addEventListener('click', (e) => {
 });
 
 /* ===== Picture-in-Picture ===== */
-const pipBtn = document.getElementById('pipBtn');
+const pipBtns = [document.getElementById('pipBtn'), document.getElementById('dashPipBtn')].filter(Boolean);
 let pipWindow = null;
 let pipUpdateId = null;
+
+function setPipBtnsActive(active) {
+  pipBtns.forEach(b => b.classList.toggle('active', active));
+}
 
 function updatePipWindow() {
   if (!pipWindow || pipWindow.closed) return;
   try {
     pipWindow.document.getElementById('pipTime').textContent = formatTime(pomState.timeLeft);
-    pipWindow.document.getElementById('pipPhase').textContent = pomState.phase === 'focus' ? 'Focus' : 'Break';
+    pipWindow.document.getElementById('pipPhase').textContent = phaseDisplayName(pomState.phase);
     const task = getActiveTask();
     const pipTask = pipWindow.document.getElementById('pipCurrentTask');
     if (pipTask) pipTask.textContent = task ? '▶ ' + task.title : '';
@@ -326,7 +350,7 @@ function closePip() {
   if (pipUpdateId) { clearInterval(pipUpdateId); pipUpdateId = null; }
   if (pipWindow && !pipWindow.closed) pipWindow.close();
   pipWindow = null;
-  pipBtn.classList.remove('active');
+  setPipBtnsActive(false);
 }
 
 async function togglePip() {
@@ -337,7 +361,7 @@ async function togglePip() {
   }
   try {
     pipWindow = await documentPictureInPicture.requestWindow({ width: 300, height: 240 });
-    pipBtn.classList.add('active');
+    setPipBtnsActive(true);
     pipWindow.document.body.innerHTML = `
       <div class="pip-timer">
         <div class="pip-time" id="pipTime">25:00</div>
@@ -382,7 +406,7 @@ async function togglePip() {
   }
 }
 
-pipBtn.addEventListener('click', togglePip);
+pipBtns.forEach(b => b.addEventListener('click', togglePip));
 
 /* ===== Footer Controls ===== */
 /* ===== Todo State ===== */
@@ -1663,13 +1687,15 @@ function renderCalendarHTML() {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const count = counts[dateStr] || 0;
     const level = count === 0 ? 0 : Math.min(5, Math.ceil((count / maxCount) * 5));
-    html += `<div class="day-cell level-${level}"><div class="day-num">${d}</div>`;
+    const title = count > 0 ? ` title="${count} pomodoro${count === 1 ? '' : 's'} completed"` : '';
+    html += `<div class="day-cell level-${level}"${title}><div class="day-num">${d}</div>`;
     if (goldenDays[dateStr]) html += `<div class="day-star">⭐</div>`;
-    if (count > 0) html += `<div class="day-count">${count}</div>`;
+    if (count > 0) html += `<div class="day-count">🍅${count}</div>`;
     html += '</div>';
   }
 
   html += '</div>';
+  html += `<p class="calendar-legend">🍅 = pomodoros completed that day</p>`;
   return html;
 }
 
