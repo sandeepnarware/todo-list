@@ -1,4 +1,4 @@
-const CACHE = 'pomodone-v2';
+const CACHE = 'pomodone-v3';
 const URLS = ['/', '/todo-list/', '/index.html', '/style.css', '/app.js', '/icon.svg', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -13,8 +13,17 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Network-first: always try the network so code/style updates apply immediately,
+// falling back to the cache only when offline. Successful responses refresh the cache.
 self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+    fetch(e.request)
+      .then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
