@@ -72,6 +72,8 @@
 .dark .bg-surface-container-low { background: var(--surface-container-low) !important; }
 .dark .bg-surface-container-lowest { background: var(--surface-container-lowest) !important; }
 .dark .bg-surface-container-high { background: var(--surface-container-high) !important; }
+.dark .hover\:bg-surface-container-high:hover { background: var(--surface-container-high) !important; }
+.dark .hover\:bg-surface-container-low:hover { background: var(--surface-container-low) !important; }
 .dark .bg-surface-container-highest { background: var(--surface-container-highest) !important; }
 .dark .bg-primary { background: var(--primary) !important; }
 .dark .bg-primary-container { background: var(--primary-container) !important; }
@@ -88,6 +90,8 @@
 .dark .text-on-tertiary-fixed { color: var(--on-tertiary-fixed) !important; }
 .dark .text-surface-container-high { color: var(--surface-container-high) !important; }
 .dark .text-on-surface-variant { color: var(--on-surface-variant) !important; }
+.dark .text-on-surface { color: var(--on-surface) !important; }
+.dark .hover\:text-on-surface:hover { color: var(--on-surface) !important; }
 .dark .text-on-primary { color: var(--on-primary) !important; }
 .dark .text-on-primary-container { color: var(--on-primary-container) !important; }
 .dark .text-on-secondary-container { color: var(--on-secondary-container) !important; }
@@ -476,8 +480,8 @@ section[data-tab].tab-hidden { display: none !important; }
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  max-width: 420px;
+  gap: 6px;
+  max-width: 620px;
   margin: 0 auto;
 }
 .calendar-grid .day-header {
@@ -492,31 +496,31 @@ section[data-tab].tab-hidden { display: none !important; }
 }
 .calendar-grid .day-cell {
   aspect-ratio: 1;
-  max-width: 56px;
+  max-width: 84px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  font-size: 12px;
+  border-radius: 12px;
+  font-size: 15px;
   position: relative;
   transition: transform 0.2s;
 }
 .calendar-grid .day-cell:hover { transform: scale(1.1); z-index: 2; }
 .calendar-grid .day-cell.empty { background: none; }
 .calendar-grid .day-cell .day-num { font-weight: 600; line-height: 1.1; }
-.calendar-grid .day-cell .day-star { font-size: 9px; line-height: 1; }
+.calendar-grid .day-cell .day-star { font-size: 11px; line-height: 1; }
 /* Pomodoros completed that day — inherit the cell's text colour so it stays
    legible on both empty and filled (coloured) cells. */
 .calendar-grid .day-cell .day-count {
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: inherit;
-  opacity: 0.85;
-  margin-top: 1px;
+  opacity: 0.9;
+  margin-top: 2px;
   line-height: 1;
   font-family: 'JetBrains Mono', monospace;
 }
