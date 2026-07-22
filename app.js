@@ -18,7 +18,7 @@ const phaseEl = document.getElementById('phase');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const sessionCountEl = document.getElementById('sessionCount');
-const progressFg = document.querySelector('.progress-ring .fg');
+const progressFg = document.querySelector('.timer-ring .fg');
 const circumference = 314;
 
 const pomSection = document.getElementById('pomodoroSection');
@@ -125,13 +125,13 @@ function updateDisplay() {
   }
   const total = getPhaseTime(pomState.phase);
   const offset = circumference * (1 - pomState.timeLeft / total);
-  progressFg.style.strokeDashoffset = offset;
+  if (progressFg) progressFg.style.strokeDashoffset = offset;
 }
 
 function updatePhaseLabel() {
   const labels = { focus: 'Focus', break: 'Short Break', longbreak: 'Long Break' };
   phaseEl.textContent = labels[pomState.phase] || 'Focus';
-  progressFg.style.stroke = pomState.phase === 'focus' ? '#ff6b6b' : '#4ecdc4';
+  if (progressFg) progressFg.style.stroke = pomState.phase === 'focus' ? '#ff6b6b' : '#4ecdc4';
 }
 
 function setTimerButton(phase) {
