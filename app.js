@@ -2,7 +2,7 @@
 const FOCUS_TIME = 25 * 60;
 const BREAK_TIME = 5 * 60;
 const LONG_BREAK_TIME = 15 * 60;
-const POMODOROS_BEFORE_LONG_BREAK = 3; // long break after every 3 completed focus sessions
+const POMODOROS_BEFORE_LONG_BREAK = 4; // long break after every 4 completed focus sessions
 
 let pomState = {
   timeLeft: FOCUS_TIME,
