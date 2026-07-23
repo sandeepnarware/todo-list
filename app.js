@@ -805,6 +805,45 @@ function matchesTagFilter(todo, tagFilter) {
   return (todo.tags || []).some(t => t.toLowerCase() === tagFilter);
 }
 
+/* Toggle a task's done state, handling golden-task clearing and recurrence.
+   Shared by the task list checkbox and the dashboard quick-complete button. */
+function toggleTodoDone(todo, done) {
+  if (!todo) return;
+  todo.done = done;
+  todo.completedAt = done ? Date.now() : null;
+  if (done && todo.id === goldenTaskId) {
+    todo.wasGolden = true;
+    saveGoldenTask(null);
+  }
+  if (done && todo.frequency && todo.frequency !== 'none') {
+    const nextDue = calcNextDue(todo.dueDate, todo.frequency);
+    if (nextDue) {
+      todos.push({
+        id: crypto.randomUUID(),
+        title: todo.title,
+        description: todo.description,
+        dueDate: nextDue,
+        priority: todo.priority,
+        project: todo.project,
+        frequency: todo.frequency,
+        tags: [...todo.tags],
+        done: false,
+        completedAt: null,
+        createdAt: Date.now(),
+        pomodoros: 0,
+        estPomodoros: todo.estPomodoros || 0,
+        wasGolden: false
+      });
+    }
+  }
+  saveTodos();
+  renderTagCloud();
+  renderTodos();
+  renderDashboardUpNext();
+  updateDashboardStats();
+  renderStats();
+}
+
 function renderTodoItem(todo, tagColors, showCompleted) {
   const origIndex = todos.indexOf(todo);
   const li = document.createElement('li');
@@ -815,37 +854,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   cb.type = 'checkbox';
   cb.checked = todo.done;
   cb.addEventListener('change', () => {
-    const t = todos[origIndex];
-    t.done = cb.checked;
-    t.completedAt = cb.checked ? Date.now() : null;
-    if (t.done && t.id === goldenTaskId) {
-      t.wasGolden = true;
-      saveGoldenTask(null);
-    }
-    if (t.done && t.frequency && t.frequency !== 'none') {
-      const nextDue = calcNextDue(t.dueDate, t.frequency);
-      if (nextDue) {
-        todos.push({
-          id: crypto.randomUUID(),
-          title: t.title,
-          description: t.description,
-          dueDate: nextDue,
-          priority: t.priority,
-          project: t.project,
-          frequency: t.frequency,
-          tags: [...t.tags],
-          done: false,
-          completedAt: null,
-          createdAt: Date.now(),
-          pomodoros: 0,
-          estPomodoros: t.estPomodoros || 0,
-          wasGolden: false
-        });
-      }
-    }
-    saveTodos();
-    renderTagCloud();
-    renderTodos();
+    toggleTodoDone(todos[origIndex], cb.checked);
   });
 
   const content = document.createElement('div');
@@ -1579,6 +1588,8 @@ const viewTabs = document.getElementById('viewTabs');
 let currentView = 'calendar';
 let calendarDate = new Date();
 calendarDate.setDate(1);
+let trendsRange = 30;
+let _trendsMeta = null;
 
 viewTabs.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -1626,12 +1637,20 @@ function renderStats() {
   if (currentView === 'calendar') statsViews.innerHTML = renderCalendarHTML();
   else if (currentView === 'hours') statsViews.innerHTML = renderHoursHTML();
   else if (currentView === 'projects') statsViews.innerHTML = renderProjectsHTML();
+  else if (currentView === 'trends') statsViews.innerHTML = renderTrendsHTML();
   statsViews.querySelectorAll('[data-cal-nav]').forEach(btn => {
     btn.addEventListener('click', () => {
       calendarDate.setMonth(calendarDate.getMonth() + (btn.dataset.calNav === 'next' ? 1 : -1));
       renderStats();
     });
   });
+  statsViews.querySelectorAll('[data-trend-range]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      trendsRange = parseInt(btn.dataset.trendRange, 10);
+      renderStats();
+    });
+  });
+  if (currentView === 'trends') setupTrendsInteraction();
 }
 
 /* ===== Calendar ===== */
@@ -1816,6 +1835,216 @@ function renderProjectsHTML() {
 
   html += '</div>';
   return html;
+}
+
+/* ===== Trends (multi-series line chart) ===== */
+function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function renderTrendsHTML() {
+  const days = trendsRange;
+  const history = loadHistory();
+
+  // Build an ordered list of the last `days` day-buckets ending today.
+  const today = new Date();
+  const keys = [];
+  const dates = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    keys.push(localDateKey(d));
+    dates.push(d);
+  }
+  const idx = {};
+  keys.forEach((k, i) => { idx[k] = i; });
+
+  const pomos = Array(days).fill(0);
+  const tasksDone = Array(days).fill(0);
+  const startedDone = Array(days).fill(0);
+
+  history.forEach(s => { if (idx[s.date] !== undefined) pomos[idx[s.date]]++; });
+  todos.forEach(t => {
+    if (t.done && t.completedAt) {
+      const key = localDateKey(new Date(t.completedAt));
+      if (idx[key] !== undefined) {
+        tasksDone[idx[key]]++;
+        if ((t.pomodoros || 0) > 0) startedDone[idx[key]]++;
+      }
+    }
+  });
+
+  const series = [
+    { key: 'pomos', name: 'Pomodoros completed', short: 'Pomodoros', data: pomos, color: 'var(--trend-1)' },
+    { key: 'tasks', name: 'Tasks completed', short: 'Tasks', data: tasksDone, color: 'var(--trend-2)' },
+    { key: 'started', name: 'Started tasks completed', short: 'Started', data: startedDone, color: 'var(--trend-3)' }
+  ];
+
+  const ranges = [7, 30, 90];
+  const rangeBtns = ranges.map(r =>
+    `<button data-trend-range="${r}" class="trend-range-btn${r === days ? ' active' : ''}">${r}D</button>`
+  ).join('');
+  const legend = series.map(s =>
+    `<span class="trend-legend-item"><span class="trend-legend-dot" style="background:${s.color}"></span>${s.name}</span>`
+  ).join('');
+
+  const controls = `
+    <div class="trends-controls">
+      <div class="trend-ranges">${rangeBtns}</div>
+      <div class="trends-legend">${legend}</div>
+    </div>`;
+
+  const grandTotal = pomos.reduce((a, b) => a + b, 0) + tasksDone.reduce((a, b) => a + b, 0) + startedDone.reduce((a, b) => a + b, 0);
+  if (grandTotal === 0) {
+    _trendsMeta = null;
+    return controls + '<div class="no-data">No activity in this period yet. Complete a pomodoro or a task to see trends.</div>';
+  }
+
+  // Geometry (SVG user units; scales responsively via viewBox)
+  const W = 760, H = 320;
+  const padL = 34, padR = 96, padT = 16, padB = 34;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const maxVal = Math.max(1, ...pomos, ...tasksDone, ...startedDone);
+  // Nice y ticks (~4 steps)
+  const tickCount = 4;
+  const rawStep = maxVal / tickCount;
+  const niceStep = Math.max(1, Math.ceil(rawStep));
+  const yTop = niceStep * tickCount >= maxVal ? niceStep * tickCount : Math.ceil(maxVal / niceStep) * niceStep;
+
+  const stepX = days > 1 ? plotW / (days - 1) : 0;
+  const xAt = i => days > 1 ? padL + i * stepX : padL + plotW / 2;
+  const yAt = v => padT + plotH - (v / yTop) * plotH;
+
+  // Gridlines + y labels
+  let grid = '';
+  for (let t = 0; t <= tickCount; t++) {
+    const val = (yTop / tickCount) * t;
+    const y = yAt(val);
+    grid += `<line class="trend-grid" x1="${padL}" y1="${y}" x2="${padL + plotW}" y2="${y}"></line>`;
+    grid += `<text class="trend-axis-label" x="${padL - 8}" y="${y + 4}" text-anchor="end">${Math.round(val)}</text>`;
+  }
+
+  // X labels (~6 evenly spaced)
+  let xLabels = '';
+  const xTicks = Math.min(days, 6);
+  for (let t = 0; t < xTicks; t++) {
+    const i = xTicks === 1 ? 0 : Math.round((days - 1) * (t / (xTicks - 1)));
+    const d = dates[i];
+    xLabels += `<text class="trend-axis-label" x="${xAt(i)}" y="${padT + plotH + 20}" text-anchor="middle">${d.getMonth() + 1}/${d.getDate()}</text>`;
+  }
+
+  // Series polylines + optional point markers (markers only when sparse)
+  const showMarkers = days <= 14;
+  let lines = '';
+  series.forEach(s => {
+    const pts = s.data.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ');
+    lines += `<polyline class="trend-line" points="${pts}" style="stroke:${s.color}"></polyline>`;
+    if (showMarkers) {
+      s.data.forEach((v, i) => {
+        lines += `<circle class="trend-dot" cx="${xAt(i)}" cy="${yAt(v)}" r="3" style="fill:${s.color}"></circle>`;
+      });
+    }
+  });
+
+  // Right-edge direct labels with simple de-collision
+  const labelData = series.map(s => ({ short: s.short, color: s.color, val: s.data[days - 1], y: yAt(s.data[days - 1]) }));
+  labelData.sort((a, b) => a.y - b.y);
+  const minGap = 15;
+  for (let i = 1; i < labelData.length; i++) {
+    if (labelData[i].y - labelData[i - 1].y < minGap) labelData[i].y = labelData[i - 1].y + minGap;
+  }
+  let endLabels = '';
+  labelData.forEach(l => {
+    endLabels += `<text class="trend-end-label" x="${padL + plotW + 8}" y="${l.y + 4}" style="fill:${l.color}">${l.short}</text>`;
+  });
+
+  // Hover layer (crosshair + per-series dots, hidden until mousemove)
+  const hoverDots = series.map(s => `<circle class="trends-hover-dot" r="4" style="fill:${s.color};display:none"></circle>`).join('');
+  const hoverLayer = `
+    <line class="trends-crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + plotH}" style="display:none"></line>
+    ${hoverDots}`;
+
+  const svg = `
+    <svg class="trends-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Trends over the last ${days} days">
+      ${grid}
+      ${xLabels}
+      ${lines}
+      ${hoverLayer}
+      ${endLabels}
+    </svg>`;
+
+  // Accessible data table
+  let table = '<details class="trends-table-details"><summary>View data table</summary><div class="trends-table-scroll"><table class="trends-table"><thead><tr><th>Date</th>';
+  series.forEach(s => { table += `<th>${s.short}</th>`; });
+  table += '</tr></thead><tbody>';
+  for (let i = 0; i < days; i++) {
+    const d = dates[i];
+    table += `<tr><td>${d.getMonth() + 1}/${d.getDate()}</td><td>${pomos[i]}</td><td>${tasksDone[i]}</td><td>${startedDone[i]}</td></tr>`;
+  }
+  table += '</tbody></table></div></details>';
+
+  _trendsMeta = { W, padL, plotW, days, stepX, xAt, yAt, dates, series };
+
+  return `${controls}
+    <div class="trends-chart-area">
+      ${svg}
+      <div class="trends-tooltip hidden"></div>
+    </div>
+    ${table}`;
+}
+
+function setupTrendsInteraction() {
+  const meta = _trendsMeta;
+  if (!meta) return;
+  const svg = statsViews.querySelector('.trends-svg');
+  const area = statsViews.querySelector('.trends-chart-area');
+  const tip = statsViews.querySelector('.trends-tooltip');
+  const cross = statsViews.querySelector('.trends-crosshair');
+  const dots = [...statsViews.querySelectorAll('.trends-hover-dot')];
+  if (!svg || !area || !tip) return;
+
+  const onMove = (e) => {
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+    const vbX = ((e.clientX - rect.left) / rect.width) * meta.W;
+    let i = meta.stepX ? Math.round((vbX - meta.padL) / meta.stepX) : 0;
+    i = Math.max(0, Math.min(meta.days - 1, i));
+    const x = meta.xAt(i);
+
+    cross.setAttribute('x1', x);
+    cross.setAttribute('x2', x);
+    cross.style.display = '';
+    dots.forEach((dot, si) => {
+      dot.setAttribute('cx', x);
+      dot.setAttribute('cy', meta.yAt(meta.series[si].data[i]));
+      dot.style.display = '';
+    });
+
+    const d = meta.dates[i];
+    const dateStr = d.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+    let rows = '';
+    meta.series.forEach(s => {
+      rows += `<div class="trend-tip-row"><span class="trend-legend-dot" style="background:${s.color}"></span><span class="trend-tip-name">${s.short}</span><span class="trend-tip-val">${s.data[i]}</span></div>`;
+    });
+    tip.innerHTML = `<div class="trend-tip-date">${dateStr}</div>${rows}`;
+    tip.classList.remove('hidden');
+
+    // Position tooltip horizontally over the hovered point, clamped to the area.
+    const areaRect = area.getBoundingClientRect();
+    const pointClientX = rect.left + (x / meta.W) * rect.width;
+    let left = pointClientX - areaRect.left;
+    const tipW = tip.offsetWidth;
+    left = Math.max(tipW / 2 + 4, Math.min(areaRect.width - tipW / 2 - 4, left));
+    tip.style.left = left + 'px';
+  };
+  const onLeave = () => {
+    tip.classList.add('hidden');
+    cross.style.display = 'none';
+    dots.forEach(dot => { dot.style.display = 'none'; });
+  };
+
+  svg.addEventListener('mousemove', onMove);
+  svg.addEventListener('mouseleave', onLeave);
 }
 
 const tagCloudEl = document.getElementById('tagCloud');
@@ -2189,7 +2418,7 @@ function renderDashboardUpNext() {
     return `<div class="dash-task-item flex items-center gap-2 p-3 rounded-xl border-l-4 bg-surface-container-low border-l-surface-container transition-all hover:translate-x-1 ${goldenCls}" draggable="true" data-idx="${idx}" data-task-id="${t.id}">
       <span class="material-symbols-outlined text-outline-variant text-lg drag-handle-dash" style="cursor:grab">drag_indicator</span>
       <button class="dash-task-play material-symbols-outlined text-lg ${isActive ? 'text-secondary' : 'text-primary'} hover:scale-110 transition-transform shrink-0" data-task-id="${t.id}" aria-label="${isActive ? 'Pause' : 'Focus on this task'}">${playIcon}</button>
-      <span class="material-symbols-outlined text-sm ${t.done ? 'text-secondary' : 'text-outline-variant'}">${t.done ? 'check_circle' : 'radio_button_unchecked'}</span>
+      <button class="dash-task-check material-symbols-outlined text-sm ${t.done ? 'text-secondary' : 'text-outline-variant'} hover:text-secondary hover:scale-110 transition-all shrink-0" data-task-id="${t.id}" aria-label="Mark task complete">${t.done ? 'check_circle' : 'radio_button_unchecked'}</button>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold truncate">${t.title}</p>
         <p class="text-[10px] font-mono opacity-50">${t.project ? t.project.toUpperCase() + ' • ' : ''}${meta}</p>
@@ -2224,6 +2453,17 @@ document.addEventListener('click', async function _dashPlayHandler(e) {
     updateCurrentTaskDisplay();
   }
   startTimer();
+});
+
+document.addEventListener('click', function _dashCheckHandler(e) {
+  const btn = e.target.closest('.dash-task-check');
+  if (!btn) return;
+  e.stopPropagation();
+  const taskId = btn.dataset.taskId;
+  if (!taskId) return;
+  const todo = todos.find(t => t.id === taskId);
+  if (!todo) return;
+  toggleTodoDone(todo, !todo.done);
 });
 
 function setupDashDragDrop(container, todayTasks) {
