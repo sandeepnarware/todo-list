@@ -425,6 +425,9 @@ const taskFrequency = document.getElementById('taskFrequency');
 const taskTags = document.getElementById('taskTags');
 const tagsContainer = document.getElementById('tagsContainer');
 const taskEstPomodoros = document.getElementById('taskEstPomodoros');
+const taskSubtaskInput = document.getElementById('taskSubtaskInput');
+const taskSubtaskAdd = document.getElementById('taskSubtaskAdd');
+const modalSubtaskList = document.getElementById('modalSubtaskList');
 const modalSave = document.getElementById('modalSave');
 const modalCancel = document.getElementById('modalCancel');
 const modalClose = document.getElementById('modalClose');
@@ -441,6 +444,7 @@ validateGoldenTask();
 let tagFilter = null;
 let draggedIndex = null;
 let tagsList = [];
+let subtasksDraft = [];
 let showCompleted = false;
 let completedPage = 0;
 let sortBy = 'custom';
@@ -674,6 +678,7 @@ function migrateTodo(old) {
   if (old.id) {
     if (old.pomodoros === undefined) old.pomodoros = 0;
     if (old.wasGolden === undefined) old.wasGolden = false;
+    if (!Array.isArray(old.subtasks)) old.subtasks = [];
     return old;
   }
   const tags = [];
@@ -711,8 +716,71 @@ function migrateTodo(old) {
     createdAt: Date.now(),
     pomodoros: 0,
     estPomodoros: 0,
-    wasGolden: false
+    wasGolden: false,
+    subtasks: []
   };
+}
+
+/* ===== Subtasks =====
+   Checklist items owned by a task. Pomodoros stay on the parent — subtasks
+   only carry a done flag. */
+const expandedSubtasks = new Set();
+let pendingSubtaskFocus = null;
+
+function getSubtasks(todo) {
+  if (!Array.isArray(todo.subtasks)) todo.subtasks = [];
+  return todo.subtasks;
+}
+
+function subtaskProgress(todo) {
+  const subs = getSubtasks(todo);
+  return { done: subs.filter(s => s.done).length, total: subs.length };
+}
+
+function makeSubtask(title) {
+  return { id: crypto.randomUUID(), title, done: false, createdAt: Date.now() };
+}
+
+function afterSubtaskChange() {
+  saveTodos();
+  renderTodos();
+  renderDashboardUpNext();
+}
+
+function toggleSubtaskPanel(id) {
+  if (expandedSubtasks.has(id)) expandedSubtasks.delete(id);
+  else expandedSubtasks.add(id);
+  renderTodos();
+}
+
+function addSubtask(todo, title) {
+  const t = title.trim();
+  if (!t) return;
+  getSubtasks(todo).push(makeSubtask(t));
+  expandedSubtasks.add(todo.id);
+  pendingSubtaskFocus = todo.id;
+  afterSubtaskChange();
+}
+
+function toggleSubtaskDone(todo, subId, done) {
+  const sub = getSubtasks(todo).find(s => s.id === subId);
+  if (!sub) return;
+  sub.done = done;
+  sub.completedAt = done ? Date.now() : null;
+  delete sub.autoDone; // an explicit tick is no longer a cascade from the parent
+  afterSubtaskChange();
+}
+
+function deleteSubtask(todo, subId) {
+  const subs = getSubtasks(todo);
+  const idx = subs.findIndex(s => s.id === subId);
+  if (idx === -1) return;
+  const [removed] = subs.splice(idx, 1);
+  afterSubtaskChange();
+  showToast(`Deleted "${removed.title}"`, () => {
+    getSubtasks(todo).splice(idx, 0, removed);
+    afterSubtaskChange();
+  });
 }
 
 function renderTagsList(tags, tagColors) {
@@ -811,6 +879,14 @@ function toggleTodoDone(todo, done) {
   if (!todo) return;
   todo.done = done;
   todo.completedAt = done ? Date.now() : null;
+  // Completing a task closes out its checklist. Un-completing reopens only the
+  // subtasks that were auto-closed — never ones the user ticked themselves.
+  const subs = getSubtasks(todo);
+  if (done) {
+    subs.forEach(s => { if (!s.done) { s.done = true; s.autoDone = true; } });
+  } else {
+    subs.forEach(s => { if (s.autoDone) { s.done = false; s.completedAt = null; delete s.autoDone; } });
+  }
   if (done && todo.id === goldenTaskId) {
     todo.wasGolden = true;
     saveGoldenTask(null);
@@ -832,7 +908,8 @@ function toggleTodoDone(todo, done) {
         createdAt: Date.now(),
         pomodoros: 0,
         estPomodoros: todo.estPomodoros || 0,
-        wasGolden: false
+        wasGolden: false,
+        subtasks: getSubtasks(todo).map(s => makeSubtask(s.title))
       });
     }
   }
@@ -892,6 +969,21 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     badges.appendChild(freqBadge);
   }
 
+  const subProgress = subtaskProgress(todo);
+  if (subProgress.total > 0) {
+    const stBadge = document.createElement('button');
+    const allDone = subProgress.done === subProgress.total;
+    stBadge.className = 'subtask-badge' + (allDone ? ' complete' : '');
+    stBadge.textContent = `☑ ${subProgress.done}/${subProgress.total}`;
+    stBadge.setAttribute('aria-label', 'Show subtasks');
+    stBadge.setAttribute('aria-expanded', expandedSubtasks.has(todo.id) ? 'true' : 'false');
+    stBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSubtaskPanel(todo.id);
+    });
+    badges.appendChild(stBadge);
+  }
+
   const dueInfo = parseDueInfo(todo);
   if (dueInfo) {
     const badge = document.createElement('span');
@@ -928,6 +1020,10 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     content.appendChild(desc);
   }
 
+  if (expandedSubtasks.has(todo.id)) {
+    content.appendChild(buildSubtaskPanel(todo));
+  }
+
   const actionsRow = document.createElement('div');
   actionsRow.className = 'task-actions-row';
 
@@ -958,6 +1054,17 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     setActiveTask(todo.id);
   });
   actionsRow.appendChild(playBtn);
+
+  const subBtn = document.createElement('button');
+  subBtn.className = 'subtask-toggle-btn' + (expandedSubtasks.has(todo.id) ? ' active' : '');
+  subBtn.textContent = '☑';
+  subBtn.setAttribute('aria-label', 'Subtasks');
+  subBtn.title = subProgress.total > 0 ? 'Subtasks' : 'Add subtasks';
+  subBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSubtaskPanel(todo.id);
+  });
+  actionsRow.appendChild(subBtn);
 
   const pomoBadge = document.createElement('span');
   pomoBadge.className = 'task-pomo-count';
@@ -1012,10 +1119,92 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   li.appendChild(cb);
   li.appendChild(content);
 
-  li.draggable = !tagFilter && !searchQuery.trim() && sortBy === 'custom' && !todo.done;
+  // Drag is disabled while the subtask panel is open so its inputs stay usable.
+  li.draggable = !tagFilter && !searchQuery.trim() && sortBy === 'custom' && !todo.done && !expandedSubtasks.has(todo.id);
   li.dataset.index = origIndex;
 
   todoList.appendChild(li);
+
+  if (pendingSubtaskFocus === todo.id) {
+    pendingSubtaskFocus = null;
+    const input = li.querySelector('.subtask-input');
+    if (input) input.focus();
+  }
+}
+
+function buildSubtaskPanel(todo) {
+  const subs = getSubtasks(todo);
+  const panel = document.createElement('div');
+  panel.className = 'subtask-panel';
+
+  if (subs.length > 0) {
+    const { done, total } = subtaskProgress(todo);
+    const track = document.createElement('div');
+    track.className = 'subtask-progress';
+    const fill = document.createElement('div');
+    fill.className = 'subtask-progress-fill';
+    fill.style.width = Math.round((done / total) * 100) + '%';
+    track.appendChild(fill);
+    panel.appendChild(track);
+  }
+
+  const ul = document.createElement('ul');
+  ul.className = 'subtask-list';
+  subs.forEach(sub => {
+    const li = document.createElement('li');
+    li.className = 'subtask-item' + (sub.done ? ' done' : '');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!sub.done;
+    cb.setAttribute('aria-label', `Mark subtask "${sub.title}" done`);
+    cb.addEventListener('change', () => toggleSubtaskDone(todo, sub.id, cb.checked));
+
+    const text = document.createElement('span');
+    text.className = 'subtask-text';
+    text.textContent = sub.title;
+
+    const del = document.createElement('button');
+    del.className = 'subtask-del';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', `Delete subtask "${sub.title}"`);
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteSubtask(todo, sub.id);
+    });
+
+    li.append(cb, text, del);
+    ul.appendChild(li);
+  });
+  if (subs.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'subtask-empty';
+    empty.textContent = 'No subtasks yet — break this task down below.';
+    ul.appendChild(empty);
+  }
+  panel.appendChild(ul);
+
+  const addRow = document.createElement('div');
+  addRow.className = 'subtask-add';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'subtask-input';
+  input.placeholder = 'Add a subtask…';
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addSubtask(todo, input.value); }
+    else if (e.key === 'Escape') { e.stopPropagation(); input.value = ''; input.blur(); }
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'subtask-add-btn';
+  addBtn.textContent = 'Add';
+  addBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addSubtask(todo, input.value);
+  });
+  addRow.append(input, addBtn);
+  panel.appendChild(addRow);
+
+  return panel;
 }
 
 function getDueGroup(todo) {
@@ -1035,7 +1224,10 @@ function getDueGroup(todo) {
 function renderTodos() {
   const q = searchQuery.trim().toLowerCase();
   let filtered = tagFilter ? todos.filter(t => matchesTagFilter(t, tagFilter)) : todos;
-  if (q) filtered = filtered.filter(t => t.title.toLowerCase().includes(q));
+  if (q) filtered = filtered.filter(t =>
+    t.title.toLowerCase().includes(q) ||
+    getSubtasks(t).some(s => s.title.toLowerCase().includes(q))
+  );
 
   const pending = filtered.filter(t => !t.done);
   const completed = filtered.filter(t => t.done);
@@ -1229,6 +1421,8 @@ function openAddModal() {
   taskEstPomodoros.value = '0';
   tagsList = [];
   renderTagChips();
+  subtasksDraft = [];
+  renderModalSubtasks();
   taskModal.classList.remove('hidden');
   taskTitle.focus();
 }
@@ -1247,6 +1441,8 @@ function openEditModal(index) {
   taskEstPomodoros.value = todo.estPomodoros || 0;
   tagsList = [...(todo.tags || [])];
   renderTagChips();
+  subtasksDraft = getSubtasks(todo).map(s => ({ ...s }));
+  renderModalSubtasks();
   taskModal.classList.remove('hidden');
   taskTitle.focus();
 }
@@ -1269,6 +1465,9 @@ function saveModal() {
     frequency: taskFrequency.value,
     estPomodoros: parseInt(taskEstPomodoros.value) || 0,
     tags: [...tagsList],
+    subtasks: subtasksDraft
+      .map(s => ({ ...s, title: s.title.trim() }))
+      .filter(s => s.title),
   };
 
   const editIdx = editId.value;
@@ -1309,6 +1508,70 @@ function renderTagChips() {
   ).join('');
   tagsContainer.querySelectorAll('.tag-chip-remove').forEach(el => {
     el.addEventListener('click', () => removeTag(el.dataset.tag));
+  });
+}
+
+/* ===== Modal Subtask Editor ===== */
+function renderModalSubtasks() {
+  if (!modalSubtaskList) return;
+  modalSubtaskList.innerHTML = '';
+  if (subtasksDraft.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'subtask-empty';
+    empty.textContent = 'No subtasks yet.';
+    modalSubtaskList.appendChild(empty);
+    return;
+  }
+  subtasksDraft.forEach((sub, i) => {
+    const row = document.createElement('div');
+    row.className = 'modal-subtask-row' + (sub.done ? ' done' : '');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!sub.done;
+    cb.setAttribute('aria-label', 'Mark subtask done');
+    cb.addEventListener('change', () => {
+      subtasksDraft[i].done = cb.checked;
+      delete subtasksDraft[i].autoDone;
+      row.classList.toggle('done', cb.checked);
+    });
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = sub.title;
+    input.className = 'modal-subtask-title';
+    input.setAttribute('aria-label', 'Subtask title');
+    input.addEventListener('input', () => { subtasksDraft[i].title = input.value; });
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'subtask-del';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', 'Remove subtask');
+    del.addEventListener('click', () => {
+      subtasksDraft.splice(i, 1);
+      renderModalSubtasks();
+    });
+
+    row.append(cb, input, del);
+    modalSubtaskList.appendChild(row);
+  });
+}
+
+function addModalSubtask() {
+  if (!taskSubtaskInput) return;
+  const val = taskSubtaskInput.value.trim();
+  if (!val) return;
+  subtasksDraft.push(makeSubtask(val));
+  taskSubtaskInput.value = '';
+  renderModalSubtasks();
+  taskSubtaskInput.focus();
+}
+
+if (taskSubtaskAdd) taskSubtaskAdd.addEventListener('click', addModalSubtask);
+if (taskSubtaskInput) {
+  taskSubtaskInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addModalSubtask(); }
   });
 }
 
@@ -1373,7 +1636,8 @@ function quickAddTask() {
     createdAt: Date.now(),
     pomodoros: 0,
     estPomodoros: 0,
-    wasGolden: false
+    wasGolden: false,
+    subtasks: []
   };
   todos.push(todo);
   saveTodos();
@@ -1837,7 +2101,7 @@ function renderProjectsHTML() {
   return html;
 }
 
-/* ===== Trends (multi-series line chart) ===== */
+/* ===== Trends (stacked bar chart) ===== */
 function localDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -1901,19 +2165,23 @@ function renderTrendsHTML() {
 
   // Geometry (SVG user units; scales responsively via viewBox)
   const W = 760, H = 320;
-  const padL = 34, padR = 96, padT = 16, padB = 34;
+  const padL = 34, padR = 16, padT = 16, padB = 34;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-  const maxVal = Math.max(1, ...pomos, ...tasksDone, ...startedDone);
+  // Bars are stacked, so the y-axis must reach the tallest per-day stack.
+  const stackTotals = dates.map((_, i) => series.reduce((sum, s) => sum + s.data[i], 0));
+  const maxVal = Math.max(1, ...stackTotals);
   // Nice y ticks (~4 steps)
   const tickCount = 4;
   const rawStep = maxVal / tickCount;
   const niceStep = Math.max(1, Math.ceil(rawStep));
   const yTop = niceStep * tickCount >= maxVal ? niceStep * tickCount : Math.ceil(maxVal / niceStep) * niceStep;
 
-  const stepX = days > 1 ? plotW / (days - 1) : 0;
-  const xAt = i => days > 1 ? padL + i * stepX : padL + plotW / 2;
+  const slotW = plotW / days;
+  const barW = Math.max(2, Math.min(slotW * 0.68, 26));
+  const xAt = i => padL + slotW * (i + 0.5);
   const yAt = v => padT + plotH - (v / yTop) * plotH;
+  const r2 = n => Math.round(n * 100) / 100;
 
   // Gridlines + y labels
   let grid = '';
@@ -1924,66 +2192,63 @@ function renderTrendsHTML() {
     grid += `<text class="trend-axis-label" x="${padL - 8}" y="${y + 4}" text-anchor="end">${Math.round(val)}</text>`;
   }
 
-  // X labels (~6 evenly spaced)
+  // X labels — every day when sparse, otherwise ~6 evenly spaced
   let xLabels = '';
-  const xTicks = Math.min(days, 6);
+  const xTicks = days <= 14 ? days : 6;
   for (let t = 0; t < xTicks; t++) {
     const i = xTicks === 1 ? 0 : Math.round((days - 1) * (t / (xTicks - 1)));
     const d = dates[i];
-    xLabels += `<text class="trend-axis-label" x="${xAt(i)}" y="${padT + plotH + 20}" text-anchor="middle">${d.getMonth() + 1}/${d.getDate()}</text>`;
+    xLabels += `<text class="trend-axis-label" x="${r2(xAt(i))}" y="${padT + plotH + 20}" text-anchor="middle">${d.getMonth() + 1}/${d.getDate()}</text>`;
   }
 
-  // Series polylines + optional point markers (markers only when sparse)
-  const showMarkers = days <= 14;
-  let lines = '';
-  series.forEach(s => {
-    const pts = s.data.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ');
-    lines += `<polyline class="trend-line" points="${pts}" style="stroke:${s.color}"></polyline>`;
-    if (showMarkers) {
-      s.data.forEach((v, i) => {
-        lines += `<circle class="trend-dot" cx="${xAt(i)}" cy="${yAt(v)}" r="3" style="fill:${s.color}"></circle>`;
-      });
-    }
-  });
+  // Stacked bars — series stack bottom-up in declaration order, and only the
+  // topmost visible segment gets rounded corners so seams stay flush.
+  const topRoundedPath = (x, y, w, h, radius) => {
+    const rr = Math.max(0, Math.min(radius, w / 2, h));
+    return `M${r2(x)},${r2(y + h)}L${r2(x)},${r2(y + rr)}Q${r2(x)},${r2(y)} ${r2(x + rr)},${r2(y)}`
+      + `L${r2(x + w - rr)},${r2(y)}Q${r2(x + w)},${r2(y)} ${r2(x + w)},${r2(y + rr)}`
+      + `L${r2(x + w)},${r2(y + h)}Z`;
+  };
 
-  // Right-edge direct labels with simple de-collision
-  const labelData = series.map(s => ({ short: s.short, color: s.color, val: s.data[days - 1], y: yAt(s.data[days - 1]) }));
-  labelData.sort((a, b) => a.y - b.y);
-  const minGap = 15;
-  for (let i = 1; i < labelData.length; i++) {
-    if (labelData[i].y - labelData[i - 1].y < minGap) labelData[i].y = labelData[i - 1].y + minGap;
+  let bars = '';
+  for (let i = 0; i < days; i++) {
+    const visible = series.filter(s => s.data[i] > 0);
+    const x = xAt(i) - barW / 2;
+    let acc = 0;
+    visible.forEach((s, si) => {
+      const v = s.data[i];
+      const yTopSeg = yAt(acc + v);
+      const h = yAt(acc) - yTopSeg;
+      const isTop = si === visible.length - 1;
+      bars += isTop
+        ? `<path class="trend-bar" d="${topRoundedPath(x, yTopSeg, barW, h, 3)}" style="fill:${s.color}"></path>`
+        : `<rect class="trend-bar" x="${r2(x)}" y="${r2(yTopSeg)}" width="${r2(barW)}" height="${r2(h)}" style="fill:${s.color}"></rect>`;
+      acc += v;
+    });
   }
-  let endLabels = '';
-  labelData.forEach(l => {
-    endLabels += `<text class="trend-end-label" x="${padL + plotW + 8}" y="${l.y + 4}" style="fill:${l.color}">${l.short}</text>`;
-  });
 
-  // Hover layer (crosshair + per-series dots, hidden until mousemove)
-  const hoverDots = series.map(s => `<circle class="trends-hover-dot" r="4" style="fill:${s.color};display:none"></circle>`).join('');
-  const hoverLayer = `
-    <line class="trends-crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + plotH}" style="display:none"></line>
-    ${hoverDots}`;
+  // Hover layer — a slot-wide band behind the bars, hidden until mousemove
+  const hoverLayer = `<rect class="trends-hover-band" x="0" y="${padT}" width="${r2(slotW)}" height="${plotH}" style="display:none"></rect>`;
 
   const svg = `
-    <svg class="trends-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Trends over the last ${days} days">
+    <svg class="trends-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Stacked daily totals for pomodoros completed, tasks completed and started tasks completed over the last ${days} days">
       ${grid}
       ${xLabels}
-      ${lines}
       ${hoverLayer}
-      ${endLabels}
+      ${bars}
     </svg>`;
 
   // Accessible data table
   let table = '<details class="trends-table-details"><summary>View data table</summary><div class="trends-table-scroll"><table class="trends-table"><thead><tr><th>Date</th>';
   series.forEach(s => { table += `<th>${s.short}</th>`; });
-  table += '</tr></thead><tbody>';
+  table += '<th>Stack</th></tr></thead><tbody>';
   for (let i = 0; i < days; i++) {
     const d = dates[i];
-    table += `<tr><td>${d.getMonth() + 1}/${d.getDate()}</td><td>${pomos[i]}</td><td>${tasksDone[i]}</td><td>${startedDone[i]}</td></tr>`;
+    table += `<tr><td>${d.getMonth() + 1}/${d.getDate()}</td><td>${pomos[i]}</td><td>${tasksDone[i]}</td><td>${startedDone[i]}</td><td>${stackTotals[i]}</td></tr>`;
   }
   table += '</tbody></table></div></details>';
 
-  _trendsMeta = { W, padL, plotW, days, stepX, xAt, yAt, dates, series };
+  _trendsMeta = { W, padL, plotW, days, slotW, xAt, yAt, dates, series, stackTotals };
 
   return `${controls}
     <div class="trends-chart-area">
@@ -1999,33 +2264,28 @@ function setupTrendsInteraction() {
   const svg = statsViews.querySelector('.trends-svg');
   const area = statsViews.querySelector('.trends-chart-area');
   const tip = statsViews.querySelector('.trends-tooltip');
-  const cross = statsViews.querySelector('.trends-crosshair');
-  const dots = [...statsViews.querySelectorAll('.trends-hover-dot')];
-  if (!svg || !area || !tip) return;
+  const band = statsViews.querySelector('.trends-hover-band');
+  if (!svg || !area || !tip || !band) return;
 
   const onMove = (e) => {
     const rect = svg.getBoundingClientRect();
     if (!rect.width) return;
     const vbX = ((e.clientX - rect.left) / rect.width) * meta.W;
-    let i = meta.stepX ? Math.round((vbX - meta.padL) / meta.stepX) : 0;
+    let i = Math.floor((vbX - meta.padL) / meta.slotW);
     i = Math.max(0, Math.min(meta.days - 1, i));
     const x = meta.xAt(i);
 
-    cross.setAttribute('x1', x);
-    cross.setAttribute('x2', x);
-    cross.style.display = '';
-    dots.forEach((dot, si) => {
-      dot.setAttribute('cx', x);
-      dot.setAttribute('cy', meta.yAt(meta.series[si].data[i]));
-      dot.style.display = '';
-    });
+    band.setAttribute('x', meta.padL + i * meta.slotW);
+    band.style.display = '';
 
     const d = meta.dates[i];
     const dateStr = d.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+    // Reverse so tooltip rows read top-down in the same order as the stack.
     let rows = '';
-    meta.series.forEach(s => {
+    [...meta.series].reverse().forEach(s => {
       rows += `<div class="trend-tip-row"><span class="trend-legend-dot" style="background:${s.color}"></span><span class="trend-tip-name">${s.short}</span><span class="trend-tip-val">${s.data[i]}</span></div>`;
     });
+    rows += `<div class="trend-tip-row trend-tip-total"><span class="trend-tip-name">Bar height</span><span class="trend-tip-val">${meta.stackTotals[i]}</span></div>`;
     tip.innerHTML = `<div class="trend-tip-date">${dateStr}</div>${rows}`;
     tip.classList.remove('hidden');
 
@@ -2039,8 +2299,7 @@ function setupTrendsInteraction() {
   };
   const onLeave = () => {
     tip.classList.add('hidden');
-    cross.style.display = 'none';
-    dots.forEach(dot => { dot.style.display = 'none'; });
+    band.style.display = 'none';
   };
 
   svg.addEventListener('mousemove', onMove);
@@ -2413,7 +2672,9 @@ function renderDashboardUpNext() {
     const starIcon = isGolden ? '<span class="material-symbols-outlined fill text-tertiary text-sm">stars</span>' : '';
     const goldenCls = isGolden ? 'golden-item' : '';
     const isDueToday = t.dueDate === today;
-    const meta = isDueToday ? 'Today' : t.dueDate ? t.dueDate : `${t.pomodoros || 0} POMOS`;
+    const sub = subtaskProgress(t);
+    const subMeta = sub.total > 0 ? ` • ☑ ${sub.done}/${sub.total}` : '';
+    const meta = (isDueToday ? 'Today' : t.dueDate ? t.dueDate : `${t.pomodoros || 0} POMOS`) + subMeta;
     const playIcon = isActive ? 'pause_circle' : 'play_circle';
     return `<div class="dash-task-item flex items-center gap-2 p-3 rounded-xl border-l-4 bg-surface-container-low border-l-surface-container transition-all hover:translate-x-1 ${goldenCls}" draggable="true" data-idx="${idx}" data-task-id="${t.id}">
       <span class="material-symbols-outlined text-outline-variant text-lg drag-handle-dash" style="cursor:grab">drag_indicator</span>

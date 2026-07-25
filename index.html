@@ -514,6 +514,15 @@
             <div id="tagsContainer" class="tags-container"></div>
           </div>
         </div>
+        <div class="form-group">
+          <label>Subtasks</label>
+          <div id="modalSubtaskList" class="modal-subtask-list"></div>
+          <div class="subtask-add">
+            <input type="text" id="taskSubtaskInput" class="subtask-input" placeholder="Add a subtask and press Enter">
+            <button type="button" id="taskSubtaskAdd" class="subtask-add-btn">Add</button>
+          </div>
+          <p class="subtask-hint">Pomodoros are tracked on the parent task only.</p>
+        </div>
         <div class="modal-actions">
           <button id="modalCancel" class="btn-secondary">Cancel</button>
           <button id="modalSave" class="btn-primary">Save</button>
@@ -561,6 +570,7 @@
           <li><strong>Edit</strong> — Click ✏ to edit all fields.</li>
           <li><strong>Delete</strong> — Click ✕ (undo available via toast).</li>
           <li><strong>Reorder</strong> — Drag tasks when sorted by Custom.</li>
+          <li><strong>Subtasks</strong> — Click ☑ on a task to open its checklist, then add and tick items. Completing the task closes the whole checklist. Pomodoros stay on the parent task.</li>
         </ul>
         <h3>Tags &amp; Filter</h3>
         <p>Add tags in the task form. Click a tag pill to filter. Projects appear as <code>project:NAME</code> in the tag cloud.</p>

@@ -320,6 +320,172 @@ section[data-tab].tab-hidden { display: none !important; }
 .est-pomo-done { color: var(--secondary); font-weight: 700; }
 .est-pomo-sep { color: var(--outline); }
 
+/* ===== SUBTASKS ===== */
+/* Progress pill in the task title row — click to open/close the checklist */
+.subtask-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.subtask-badge:hover { background: var(--primary-container); color: var(--on-primary-container); }
+.subtask-badge.complete { background: var(--secondary-container); color: var(--on-secondary-container); }
+
+/* Toggle in the actions row */
+.subtask-toggle-btn { font-size: 13px !important; flex-shrink: 0; }
+#todoList > li .task-actions-row button.subtask-toggle-btn.active {
+  opacity: 1;
+  color: var(--primary);
+  background: var(--primary-fixed);
+}
+
+.subtask-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--surface-container);
+  border-radius: 12px;
+}
+
+.subtask-progress {
+  height: 4px;
+  width: 100%;
+  background: var(--surface-container-high);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.subtask-progress-fill {
+  height: 100%;
+  background: var(--secondary);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.subtask-list { list-style: none; display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; }
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+  border-radius: 8px;
+}
+.subtask-item:hover { background: var(--surface-container); }
+.subtask-text { flex: 1; min-width: 0; font-size: 13px; word-break: break-word; }
+.subtask-item.done .subtask-text { text-decoration: line-through; color: var(--on-surface-variant); opacity: 0.6; }
+
+/* Smaller square checkbox — overrides the round 22px task checkbox */
+#todoList > li .subtask-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border-width: 2px;
+  margin-top: 0;
+}
+#todoList > li .subtask-item input[type="checkbox"]:checked::after { font-size: 11px; }
+
+.subtask-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--outline);
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.subtask-item:hover .subtask-del, .modal-subtask-row:hover .subtask-del { opacity: 0.7; }
+.subtask-del:hover { opacity: 1 !important; color: var(--error); background: var(--surface-container-high); }
+
+.subtask-empty {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+  padding: 4px 2px;
+  list-style: none;
+}
+
+.subtask-add { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.subtask-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--on-surface);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.subtask-input:focus { border-color: var(--primary); }
+.subtask-add-btn {
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+.subtask-add-btn:hover { opacity: 0.9; }
+
+/* Subtask editor inside the task modal */
+.modal-subtask-list { display: flex; flex-direction: column; gap: 4px; }
+.modal-subtask-row { display: flex; align-items: center; gap: 8px; }
+.modal-subtask-row input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--outline);
+  border-radius: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s ease;
+}
+.modal-subtask-row input[type="checkbox"]:checked { background: var(--secondary); border-color: var(--secondary); }
+.modal-subtask-row input[type="checkbox"]:checked::after {
+  content: 'check';
+  font-family: 'Material Symbols Outlined';
+  font-size: 11px;
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.modal-subtask-title {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--on-surface);
+  outline: none;
+}
+.modal-subtask-title:focus { border-color: var(--primary); }
+.modal-subtask-row.done .modal-subtask-title { text-decoration: line-through; opacity: 0.6; }
+.subtask-hint { font-size: 11px; color: var(--on-surface-variant); opacity: 0.6; margin-top: 6px; }
+
 /* Golden button */
 .golden-btn { font-size: 15px !important; flex-shrink: 0; filter: grayscale(1); opacity: 0.4 !important; transition: all 0.2s !important; }
 .golden-btn.active { filter: grayscale(0); opacity: 1 !important; transform: scale(1.1); }
@@ -609,11 +775,8 @@ section[data-tab].tab-hidden { display: none !important; }
 .trends-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .trend-grid { stroke: var(--outline-variant); stroke-width: 1; opacity: 0.5; }
 .trend-axis-label { fill: var(--on-surface-variant); font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.8; }
-.trend-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.trend-dot { stroke: var(--surface); stroke-width: 1.5; }
-.trend-end-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
-.trends-crosshair { stroke: var(--on-surface-variant); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; pointer-events: none; }
-.trends-hover-dot { stroke: var(--surface); stroke-width: 2; pointer-events: none; }
+.trend-bar { stroke: none; pointer-events: none; }
+.trends-hover-band { fill: var(--on-surface); opacity: 0.06; pointer-events: none; }
 
 .trends-tooltip {
   position: absolute; top: 4px; transform: translateX(-50%);
@@ -626,6 +789,7 @@ section[data-tab].tab-hidden { display: none !important; }
 .trend-tip-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
 .trend-tip-name { flex: 1; }
 .trend-tip-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.trend-tip-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid currentColor; opacity: 0.75; }
 
 .trends-table-details { margin-top: 16px; font-size: 13px; }
 .trends-table-details summary { cursor: pointer; color: var(--on-surface-variant); font-weight: 600; font-size: 12px; }
