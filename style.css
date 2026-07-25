@@ -36,6 +36,14 @@
   --inverse-on-surface: #f5f0ec;
   --inverse-primary: #ffb3b0;
   --shadow-color: rgba(174, 47, 52, 0.06);
+  /* Primary used as a text/icon colour. Identical to --primary in light mode;
+     re-tinted for dark, where #ae2f34 on a near-black surface only reaches ~2.8:1
+     (below the 3:1 WCAG floor for icons). --primary itself stays the fill colour
+     so bg-primary + on-primary keeps working. */
+  --primary-text: #ae2f34;
+  /* Same idea for the teal accent: #006a65 only manages 2.2-3.0:1 on dark
+     surfaces, so dark mode gets a lighter tint for text/icon use. */
+  --secondary-text: #006a65;
   --color-scheme: light;
   /* Tells the browser which palette to use for the parts of form controls it
      paints itself: select popups, date pickers, carets, scrollbars, autofill. */
@@ -76,6 +84,8 @@
      themes — but this app paints focus rings, hover fills and error badges with
      them, so their light values showed up as near-white blocks on dark
      surfaces. Re-tinted for dark. */
+  --primary-text: #ffb3b0;
+  --secondary-text: #5dd9d0;
   --primary-fixed: #5c1519;
   --primary-fixed-dim: #7a1a20;
   --error: #ffb4ab;
@@ -102,8 +112,8 @@
 .dark .bg-tertiary-fixed { background: var(--tertiary-fixed) !important; }
 .dark .bg-on-tertiary-fixed { background: var(--on-tertiary-fixed) !important; }
 .dark .bg-outline-variant { background: var(--outline-variant) !important; }
-.dark .text-primary { color: var(--primary) !important; }
-.dark .text-secondary { color: var(--secondary) !important; }
+.dark .text-primary { color: var(--primary-text) !important; }
+.dark .text-secondary { color: var(--secondary-text) !important; }
 .dark .text-tertiary { color: var(--tertiary) !important; }
 .dark .text-tertiary-fixed { color: var(--tertiary-fixed) !important; }
 .dark .text-outline { color: var(--outline) !important; }
@@ -153,8 +163,8 @@
   flex-shrink: 0;
   transition: all 0.2s;
 }
-.dash-subtask-toggle:hover { opacity: 1; color: var(--primary); background: var(--surface-container); }
-.dash-subtask-toggle[aria-expanded="true"] { opacity: 1; color: var(--primary); }
+.dash-subtask-toggle:hover { opacity: 1; color: var(--primary-text); background: var(--surface-container); }
+.dash-subtask-toggle[aria-expanded="true"] { opacity: 1; color: var(--primary-text); }
 .dash-subtask-toggle .material-symbols-outlined { font-size: 20px; }
 
 /* Indented under the task title, aligned past the drag/play/check icons */
@@ -187,8 +197,8 @@
   font-size: 17px !important;
   transition: color 0.2s, transform 0.2s;
 }
-.dash-subtask-check:hover { color: var(--secondary); transform: scale(1.15); }
-.dash-subtask-item.done .dash-subtask-check { color: var(--secondary); }
+.dash-subtask-check:hover { color: var(--secondary-text); transform: scale(1.15); }
+.dash-subtask-item.done .dash-subtask-check { color: var(--secondary-text); }
 .dash-subtask-text { font-size: 12px; min-width: 0; word-break: break-word; }
 .dash-subtask-item.done .dash-subtask-text { text-decoration: line-through; opacity: 0.55; }
 
@@ -224,7 +234,7 @@ section[data-tab].tab-hidden { display: none !important; }
   text-align: left;
   width: 100%;
 }
-.tab:hover { background: var(--surface-container-high); color: var(--primary); }
+.tab:hover { background: var(--surface-container-high); color: var(--primary-text); }
 .tab .material-symbols-outlined { color: inherit; }
 .tab.active {
   background: var(--primary-container);
@@ -240,7 +250,7 @@ section[data-tab].tab-hidden { display: none !important; }
   padding: 6px 12px;
 }
 .md\\:hidden .tab.active {
-  color: var(--primary);
+  color: var(--primary-text);
   background: transparent;
 }
 .md\\:hidden .tab.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
@@ -383,7 +393,7 @@ section[data-tab].tab-hidden { display: none !important; }
 /* Est. pomo badge */
 .task-pomo-count { font-size: 11px; color: var(--on-surface-variant); white-space: nowrap; display: flex; align-items: center; gap: 2px; }
 .est-pomo-badge { font-size: 11px; color: var(--outline); white-space: nowrap; }
-.est-pomo-done { color: var(--secondary); font-weight: 700; }
+.est-pomo-done { color: var(--secondary-text); font-weight: 700; }
 .est-pomo-sep { color: var(--outline); }
 
 /* ===== SUBTASKS ===== */
@@ -408,7 +418,7 @@ section[data-tab].tab-hidden { display: none !important; }
 .subtask-toggle-btn { font-size: 13px !important; flex-shrink: 0; }
 #todoList > li .task-actions-row button.subtask-toggle-btn.active {
   opacity: 1;
-  color: var(--primary);
+  color: var(--primary-text);
   background: var(--primary-fixed);
 }
 
@@ -632,8 +642,8 @@ input.subtask-input:focus {
   padding-bottom: 6px;
   transition: color 0.2s, border-color 0.2s;
 }
-.sort-btn:hover { color: var(--primary); }
-.sort-btn.active { color: var(--primary); font-weight: 700; border-bottom-color: var(--primary); }
+.sort-btn:hover { color: var(--primary-text); }
+.sort-btn.active { color: var(--primary-text); font-weight: 700; border-bottom-color: var(--primary); }
 
 /* ===== DUE SECTION HEADERS ===== */
 .due-section-header {
@@ -671,7 +681,7 @@ input.subtask-input:focus {
 }
 .completed-section-header:first-child { border-top: none; margin-top: 0; }
 .completed-section-header span { background: var(--surface-container-lowest); padding-right: 8px; }
-.completed-badge { font-size: 10px; color: var(--secondary); font-weight: 600; }
+.completed-badge { font-size: 10px; color: var(--secondary-text); font-weight: 600; }
 
 .completed-pagination {
   display: flex;
@@ -717,7 +727,7 @@ input.subtask-input:focus {
   font-family: 'JetBrains Mono', monospace;
   transition: all 0.2s;
 }
-.view-tabs button.active { color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--primary); }
+.view-tabs button.active { color: var(--primary-text); font-weight: 700; border-bottom: 2px solid var(--primary); }
 .view-tabs button:hover:not(.active) { color: var(--on-surface); }
 
 /* ===== CALENDAR ===== */
@@ -783,7 +793,7 @@ input.subtask-input:focus {
   line-height: 1;
   font-family: 'JetBrains Mono', monospace;
 }
-.calendar-grid .day-cell.level-0 .day-count { color: var(--primary); opacity: 1; }
+.calendar-grid .day-cell.level-0 .day-count { color: var(--primary-text); opacity: 1; }
 .calendar-legend {
   text-align: center;
   font-size: 11px;
@@ -851,7 +861,7 @@ input.subtask-input:focus {
   color: var(--on-surface-variant); padding: 5px 14px; border-radius: 999px; transition: all 0.15s ease;
 }
 .trend-range-btn:hover:not(.active) { color: var(--on-surface); }
-.trend-range-btn.active { background: var(--surface-container-lowest); color: var(--primary); box-shadow: 0 1px 3px var(--shadow-color); }
+.trend-range-btn.active { background: var(--surface-container-lowest); color: var(--primary-text); box-shadow: 0 1px 3px var(--shadow-color); }
 .trends-legend { display: flex; flex-wrap: wrap; gap: 12px 16px; }
 .trend-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--on-surface-variant); font-weight: 600; }
 .trend-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
@@ -1013,7 +1023,7 @@ input.subtask-input:focus {
 
 /* ===== WEEKLY STATS ===== */
 .weekly-stats { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 20px; text-align: center; font-family: 'JetBrains Mono', monospace; }
-.weekly-stats strong { color: var(--primary); }
+.weekly-stats strong { color: var(--primary-text); }
 
 /* ===== EXPORT BUTTON ===== */
 .export-btn { background: var(--surface-container-high); border: none; border-radius: 999px; color: var(--on-surface-variant); cursor: pointer; font-size: 14px; padding: 8px; transition: all 0.2s; }
@@ -1338,7 +1348,7 @@ select:-webkit-autofill {
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
-.support-fallback-btn:hover { border-color: var(--primary); color: var(--primary); }
+.support-fallback-btn:hover { border-color: var(--primary); color: var(--primary-text); }
 .support-fallback-btn.hidden { display: none; }
 .support-fallback-btn .material-symbols-outlined { font-size: 16px; }
 
@@ -1354,7 +1364,7 @@ select:-webkit-autofill {
   min-width: 0;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   word-break: break-all;
 }

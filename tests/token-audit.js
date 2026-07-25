@@ -69,6 +69,60 @@ problems.forEach(p => {
   console.log(`FAIL ${p.token} = ${p.value} (lum ${p.lum.toFixed(2)}) painted via ${p.paints.join(', ')} — near-white on dark surfaces.`);
 });
 
+/* ---- foreground legibility ----
+   A token used as a text/icon colour has to stay readable on the surfaces it is
+   actually painted on, in BOTH themes. This is what caught the PiP icon being
+   near-invisible in dark mode. */
+console.log('\nForeground tokens vs the surfaces they sit on:');
+const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+function wcagLum(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec((hex || '').trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+}
+function ratio(a, b) {
+  const x = wcagLum(a), y = wcagLum(b);
+  if (x === null || y === null) return null;
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+const tokenIn = (name, mode) => (mode === 'dark' ? (dark[name] || light[name]) : light[name]);
+
+// Surfaces that content is actually drawn on.
+const SURFACES = ['--surface', '--surface-container-lowest', '--surface-container-low',
+  '--surface-container', '--surface-container-high'];
+// Tokens used in a `color:` declaration somewhere in the stylesheet.
+const foregrounds = Object.keys(usage).filter((t) => (usage[t] || new Set()).has('color'));
+// Only audit tokens that genuinely act as text/icon colours on app surfaces:
+//  - "on-*" / "inverse-*" are paired with their own container, not a surface
+//  - "surface-*" are surfaces themselves
+//  - outline-variant and tertiary-fixed are dividers / decorative fills
+//  - trend-* are categorical chart colours, judged as data not as text
+const NOT_A_FOREGROUND = /^--on-|^--inverse-|^--surface|^--outline-variant$|^--tertiary-fixed|^--trend-|^--primary-fixed|^--shadow|^--color-scheme/;
+const generic = foregrounds.filter((t) => !NOT_A_FOREGROUND.test(t));
+
+const MIN_ICON = 3.0; // WCAG non-text / large-text minimum
+const fgProblems = [];
+generic.forEach((tok) => {
+  ['light', 'dark'].forEach((mode) => {
+    const fg = tokenIn(tok, mode);
+    if (!/^#[0-9a-f]{6}$/i.test(fg || '')) return;
+    let worst = null;
+    SURFACES.forEach((surf) => {
+      const bg = tokenIn(surf, mode);
+      const r = ratio(fg, bg);
+      if (r !== null && (worst === null || r < worst.r)) worst = { r, surf, bg };
+    });
+    if (!worst) return;
+    const ok = worst.r >= MIN_ICON;
+    console.log(`  ${mode.padEnd(5)} ${tok.padEnd(22)} ${fg}  worst ${worst.r.toFixed(2)} vs ${worst.surf}${ok ? '' : '   <== TOO LOW'}`);
+    if (!ok) fgProblems.push({ tok, mode, fg, ...worst });
+  });
+});
+fgProblems.forEach((p) => {
+  console.log(`FAIL ${p.tok} = ${p.fg} only reaches ${p.r.toFixed(2)}:1 on ${p.surf} in ${p.mode} mode (need ${MIN_ICON}).`);
+});
+
 console.log('\nDocument color-scheme declared?');
 const hasRootScheme = /(^|\s)color-scheme\s*:/.test(csstree.generate(ast).replace(/--color-scheme\s*:/g, ''));
 const rootHas = Object.entries(blocks).map(([sel, d]) => sel + ': ' + (d['color-scheme'] ? 'yes' : 'no (only the --color-scheme variable)'));
@@ -79,6 +133,6 @@ Object.entries(blocks).forEach(([sel, d]) => {
   if (d['color-scheme'] !== want) { schemeFails++; console.log(`FAIL ${sel} must declare color-scheme: ${want}`); }
 });
 if (!schemeFails) console.log('  both :root and .dark declare color-scheme correctly.');
-const total = problems.length + schemeFails;
+const total = problems.length + schemeFails + fgProblems.length;
 console.log(total === 0 ? '\nALL CHECKS PASSED' : `\n${total} CHECK(S) FAILED`);
 process.exit(total ? 1 : 0);
