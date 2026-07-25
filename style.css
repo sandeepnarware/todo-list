@@ -37,6 +37,9 @@
   --inverse-primary: #ffb3b0;
   --shadow-color: rgba(174, 47, 52, 0.06);
   --color-scheme: light;
+  /* Tells the browser which palette to use for the parts of form controls it
+     paints itself: select popups, date pickers, carets, scrollbars, autofill. */
+  color-scheme: light;
   /* Trends chart series (validated colorblind-safe categorical palette) */
   --trend-1: #2a78d6;
   --trend-2: #eb6834;
@@ -68,6 +71,16 @@
   --on-tertiary-fixed: #ffe173;
   --shadow-color: rgba(0, 0, 0, 0.3);
   --color-scheme: dark;
+  color-scheme: dark;
+  /* These are Material "fixed" roles, which normally stay constant across
+     themes — but this app paints focus rings, hover fills and error badges with
+     them, so their light values showed up as near-white blocks on dark
+     surfaces. Re-tinted for dark. */
+  --primary-fixed: #5c1519;
+  --primary-fixed-dim: #7a1a20;
+  --error: #ffb4ab;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
   /* Trends chart series — steps re-derived for the dark surface */
   --trend-1: #3987e5;
   --trend-2: #d95926;
@@ -1048,9 +1061,10 @@ section[data-tab].tab-hidden { display: none !important; }
   letter-spacing: 0.5px;
   font-family: 'JetBrains Mono', monospace;
 }
-.form-group input[type="text"],
-.form-group input[type="date"],
-.form-group input[type="number"],
+/* Matches every text-like input rather than an allow-list of types, so adding a
+   field of type email/search/tel/url can't silently fall back to the browser's
+   white default. The :focus rule below keeps a higher specificity on purpose. */
+.form-group input:not([type="checkbox"]):not([type="radio"]),
 .form-group textarea,
 .form-group select {
   width: 100%;
@@ -1065,11 +1079,28 @@ section[data-tab].tab-hidden { display: none !important; }
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .form-group input[type="date"] { color-scheme: var(--color-scheme, dark); }
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+.form-group input:not([type="checkbox"]):not([type="radio"])::placeholder,
+.form-group textarea::placeholder { color: var(--outline); opacity: 0.5; }
+.form-group input:not([type="checkbox"]):not([type="radio"]):focus,
+.form-group textarea:focus,
+.form-group select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-fixed);
 }
 .form-group textarea { resize: vertical; min-height: 60px; }
+
+/* Chrome paints autofilled fields with its own near-white fill, overriding the
+   background above. The inset shadow trick is the only way to repaint it. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--on-surface);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-container-low) inset;
+  box-shadow: 0 0 0 1000px var(--surface-container-low) inset;
+  caret-color: var(--on-surface);
+}
 .form-row { display: flex; gap: 12px; }
 .form-row .form-group { flex: 1; }
 
