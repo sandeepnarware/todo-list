@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No lockfile is committed and the deps are dev-only, so a plain install
+      # is enough; `npm ci` would require package-lock.json.
+      - name: Install dev dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run tests and stylesheet audits
+        run: npm test

@@ -2,6 +2,18 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
+  <!-- Restricts which origins may run scripts, be connected to, or be framed.
+       Origins were taken from the actual code, not guessed. Notes:
+       - 'unsafe-inline' in script-src is still required by the two inline
+         <script> blocks below (Tailwind config + SW registration). Moving both
+         to external files would allow dropping it.
+       - 'unsafe-eval' is deliberately NOT granted: the Tailwind CDN bundle was
+         inspected and contains no eval / new Function / WebAssembly.
+       - style-src needs 'unsafe-inline' because Tailwind injects a <style> tag
+         at runtime and the markup uses style="" attributes throughout.
+       - frame-ancestors is omitted on purpose — it is ignored in a meta CSP and
+         only takes effect as a real response header. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://checkout.razorpay.com https://*.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.razorpay.com; connect-src 'self' https://api.web3forms.com https://*.razorpay.com; frame-src https://*.razorpay.com; form-action 'self' https://*.razorpay.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PomoDone</title>
   <link rel="manifest" href="manifest.json">
@@ -194,11 +206,11 @@
                 <div class="absolute inset-0 opacity-5 pointer-events-none" style="background:radial-gradient(circle at center, var(--primary-container), transparent 70%)"></div>
                 <div class="flex flex-col items-center timer-pulse">
                   <div class="font-display font-extrabold tracking-tighter tabular-nums mb-2" id="dashTimer" style="font-size:clamp(48px,8vw,72px);color:var(--primary)">25:00</div>
-                  <div class="flex gap-2 mb-6">
-                    <span class="w-2 h-2 rounded-full bg-primary"></span>
-                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
-                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
-                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                  <div id="dashCycleDots" class="flex gap-2 mb-6">
+                    <span class="dash-cycle-dot w-2 h-2 rounded-full bg-primary"></span>
+                    <span class="dash-cycle-dot w-2 h-2 rounded-full bg-outline-variant"></span>
+                    <span class="dash-cycle-dot w-2 h-2 rounded-full bg-outline-variant"></span>
+                    <span class="dash-cycle-dot w-2 h-2 rounded-full bg-outline-variant"></span>
                   </div>
                 </div>
                 <div class="flex items-center gap-6">
@@ -308,7 +320,7 @@
             <!-- Quick Add -->
             <div class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container p-5 mb-4 organic-card">
               <div class="flex flex-col gap-3">
-                <input type="text" id="quickAddInput" class="w-full font-body text-lg border-none bg-surface-container-low rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-primary transition-all outline-none" placeholder="What are we working on?" style="color:var(--on-surface)">
+                <input type="text" id="quickAddInput" maxlength="200" class="w-full font-body text-lg border-none bg-surface-container-low rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-primary transition-all outline-none" placeholder="What are we working on?" style="color:var(--on-surface)">
                 <div class="flex items-center justify-between gap-3">
                   <div class="flex gap-2">
                     <button id="addTaskBtn" class="flex items-center gap-1 px-3 py-1.5 rounded-full stitch-border text-xs font-mono font-semibold text-outline hover:bg-surface-container-low transition-all press-effect">
@@ -466,7 +478,7 @@
   </nav>
 
   <!-- ===== TASK MODAL ===== -->
-  <div id="taskModal" class="modal-overlay hidden">
+  <div id="taskModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal max-w-lg w-full mx-4">
       <div class="modal-header">
         <h2 id="modalTitle" class="font-display font-bold text-lg">Add Task</h2>
@@ -478,11 +490,11 @@
         <input type="hidden" id="editId" value="">
         <div class="form-group">
           <label for="taskTitle">Title *</label>
-          <input type="text" id="taskTitle" placeholder="What needs to be done?" required>
+          <input type="text" id="taskTitle" placeholder="What needs to be done?" maxlength="200" required>
         </div>
         <div class="form-group">
           <label for="taskDescription">Description</label>
-          <textarea id="taskDescription" rows="3" placeholder="Add details..."></textarea>
+          <textarea id="taskDescription" rows="3" maxlength="2000" placeholder="Add details..."></textarea>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -503,7 +515,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="taskProject">Project</label>
-            <input type="text" id="taskProject" placeholder="e.g. Work, Personal">
+            <input type="text" id="taskProject" placeholder="e.g. Work, Personal" maxlength="40">
           </div>
           <div class="form-group">
             <label for="taskFrequency">Repeat</label>
@@ -518,12 +530,12 @@
         </div>
         <div class="form-group">
           <label for="taskEstPomodoros">Estimated Pomodoros</label>
-          <input type="number" id="taskEstPomodoros" min="0" value="0" placeholder="0">
+          <input type="number" id="taskEstPomodoros" min="0" max="99" value="0" placeholder="0">
         </div>
         <div class="form-group">
           <label>Tags</label>
           <div class="tags-input-wrapper">
-            <input type="text" id="taskTags" placeholder="Type a tag and press Enter">
+            <input type="text" id="taskTags" placeholder="Type a tag and press Enter" maxlength="30">
             <div id="tagsContainer" class="tags-container"></div>
           </div>
         </div>
@@ -531,7 +543,7 @@
           <label>Subtasks</label>
           <div id="modalSubtaskList" class="modal-subtask-list"></div>
           <div class="subtask-add">
-            <input type="text" id="taskSubtaskInput" class="subtask-input" placeholder="Add a subtask and press Enter">
+            <input type="text" id="taskSubtaskInput" class="subtask-input" maxlength="200" placeholder="Add a subtask and press Enter">
             <button type="button" id="taskSubtaskAdd" class="subtask-add-btn">Add</button>
           </div>
           <p class="subtask-hint">Pomodoros are tracked on the parent task only.</p>
@@ -545,10 +557,10 @@
   </div>
 
   <!-- ===== HELP & SUPPORT MODAL ===== -->
-  <div id="supportModal" class="modal-overlay hidden">
+  <div id="supportModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="supportTitle">
     <div class="modal max-w-lg w-full mx-4">
       <div class="modal-header">
-        <h2 class="font-display font-bold text-lg">Help &amp; Support</h2>
+        <h2 id="supportTitle" class="font-display font-bold text-lg">Help &amp; Support</h2>
         <button id="supportClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all" aria-label="Close">
           <span class="material-symbols-outlined text-sm">close</span>
         </button>
@@ -567,11 +579,11 @@
         </div>
         <div class="form-group">
           <label for="supportSubject">Subject</label>
-          <input type="text" id="supportSubject" placeholder="Short summary">
+          <input type="text" id="supportSubject" placeholder="Short summary" maxlength="150">
         </div>
         <div class="form-group" id="supportEmailGroup">
           <label for="supportReplyTo">Your email</label>
-          <input type="email" id="supportReplyTo" placeholder="you@example.com" autocomplete="email">
+          <input type="email" id="supportReplyTo" placeholder="you@example.com" maxlength="120" autocomplete="email">
           <span class="support-hint">Optional, but I can't reply without it.</span>
         </div>
         <div class="form-group">
@@ -617,7 +629,7 @@
   </div>
 
   <!-- ===== CONFIRM MODAL ===== -->
-  <div id="confirmModal" class="modal-overlay hidden">
+  <div id="confirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
     <div class="modal confirm-modal max-w-sm w-full mx-4">
       <div class="modal-header">
         <h2 id="confirmTitle" class="font-display font-bold text-lg">Confirm</h2>
@@ -633,10 +645,10 @@
   </div>
 
   <!-- ===== HELP OVERLAY ===== -->
-  <div id="helpOverlay" class="help-overlay hidden">
+  <div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
     <div class="help-modal max-w-md w-full mx-4">
       <div class="help-header">
-        <h2 class="font-display font-bold text-lg">How to use</h2>
+        <h2 id="helpTitle" class="font-display font-bold text-lg">How to use</h2>
         <button id="helpClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all">
           <span class="material-symbols-outlined text-sm">close</span>
         </button>
@@ -666,12 +678,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Hidden compact timer elements for JS compat -->
-  <span id="compactTimer" style="display:none"></span>
-  <span id="compactPhase" style="display:none"></span>
-  <span id="compactSessions" style="display:none"></span>
-  <button id="compactStartBtn" style="display:none"></button>
 
   <script src="app.js"></script>
   <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>

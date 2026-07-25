@@ -20,6 +20,28 @@ Open `index.html` in any browser or visit the GitHub Pages URL.
 
 Push to `main` and enable Pages in repo settings → Source: **GitHub Actions**.
 
+## Tests
+
+```
+npm install     # dev-only: jsdom + css-tree
+npm test        # all suites + stylesheet audits
+npm run test:verbose
+```
+
+Suites live in `tests/` and run the real `index.html` / `app.js` / `style.css` in
+jsdom — there is no build step and nothing is mocked except the network. Two of
+them are stylesheet audits rather than behaviour tests:
+
+- `control-audit.js` resolves the CSS cascade (specificity, source order,
+  `!important`, inline styles, **and the `@tailwindcss/forms` base layer**) for
+  every form control in both themes, and fails on any control that falls back to
+  a browser default, uses a hard-coded colour, or is the same colour as its
+  container.
+- `token-audit.js` fails if a bright theme token used as a surface or focus ring
+  has no dark-mode override, or if `color-scheme` isn't declared.
+
+`npm test` runs on every push and pull request, and the deploy is gated on it.
+
 ## Versioning
 
 The version shown in the sidebar comes from `version.json`.

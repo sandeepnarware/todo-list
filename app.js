@@ -10,6 +10,10 @@ let pomState = {
   running: false,
   sessionCount: 0,
   timerId: null,
+  // Wall-clock instant the current run ends. The countdown is derived from this
+  // rather than accumulated from interval ticks, which browsers throttle hard in
+  // background tabs (a 25 min session could take far longer).
+  endsAt: null,
 };
 
 /* ===== Pomodoro DOM ===== */
@@ -22,10 +26,6 @@ const progressFg = document.querySelector(".timer-ring .fg");
 const circumference = 314;
 
 const pomSection = document.getElementById("pomodoroSection");
-const compactTimer = document.getElementById("compactTimer");
-const compactPhase = document.getElementById("compactPhase");
-const compactSessions = document.getElementById("compactSessions");
-const compactStartBtn = document.getElementById("compactStartBtn");
 
 /* ===== Audio ===== */
 let audioCtx = null;
@@ -85,16 +85,6 @@ function phaseDisplayName(phase) {
   return "Break";
 }
 
-function updateCompactDisplay() {
-  compactTimer.textContent = formatTime(pomState.timeLeft);
-  compactPhase.textContent = phaseDisplayName(pomState.phase);
-  compactSessions.textContent = `${pomState.sessionCount} sessions`;
-}
-
-function setCompact(compact) {
-  // compact mode disabled — full view always shown
-}
-
 function getPhaseTime(phase) {
   if (phase === "focus") return FOCUS_TIME;
   if (phase === "longbreak") return LONG_BREAK_TIME;
@@ -102,7 +92,9 @@ function getPhaseTime(phase) {
 }
 
 function updateDashDots() {
-  const dots = document.querySelectorAll("#dashTimer ~ .flex.gap-2 .w-2");
+  // Explicit hook rather than a structural sibling/utility-class selector,
+  // which broke on any markup reshuffle.
+  const dots = document.querySelectorAll("#dashCycleDots .dash-cycle-dot");
   if (!dots.length) return;
   // Completed focus sessions within the current cycle (0..POMODOROS_BEFORE_LONG_BREAK-1).
   const completed = pomState.sessionCount % POMODOROS_BEFORE_LONG_BREAK;
@@ -123,7 +115,6 @@ function updateDisplay() {
   timerEl.textContent = formatTime(pomState.timeLeft);
   const dashTimer = document.getElementById("dashTimer");
   if (dashTimer) dashTimer.textContent = formatTime(pomState.timeLeft);
-  updateCompactDisplay();
   updateDashDots();
   if (pomState.running) {
     const labels = { focus: "F", break: "B", longbreak: "LB" };
@@ -177,38 +168,41 @@ function setTimerButton(phase) {
 function startTimer() {
   if (pomState.running) return;
   pomState.running = true;
+  pomState.endsAt = Date.now() + pomState.timeLeft * 1000;
   setTimerButton("running");
   clearInterval(pomState.timerId); // kill any orphaned interval before starting a new one
   pomState.timerId = setInterval(tick, 1000);
-  setCompact(false);
   updatePipControls();
 }
 
 function pauseTimer() {
+  // Capture the true remaining time before dropping endsAt, so pausing between
+  // ticks doesn't round away up to a second.
+  if (pomState.endsAt) pomState.timeLeft = remainingSeconds();
   pomState.running = false;
+  pomState.endsAt = null;
   setTimerButton("paused");
   clearInterval(pomState.timerId);
   updateDisplay();
-  setCompact(true);
   updatePipControls();
 }
 
 function resetTimer() {
   pomState.running = false;
+  pomState.endsAt = null;
   clearInterval(pomState.timerId);
   setTimerButton("paused");
   pomState.phase = "focus";
   pomState.timeLeft = FOCUS_TIME;
   updatePhaseLabel();
   updateDisplay();
-  setCompact(true);
   updatePipControls();
   updateDashPhaseTabs();
 }
 
 function recordSession() {
   const now = new Date();
-  const date = now.toISOString().slice(0, 10);
+  const date = localDateKey(now);
   const time = now.toTimeString().slice(0, 5);
   const history = loadHistory();
   history.push({ date, time, timestamp: Date.now() });
@@ -218,6 +212,7 @@ function recordSession() {
 
 function switchPhase() {
   const finishedFocus = pomState.phase === "focus";
+  pomState.endsAt = null; // the next phase starts paused
 
   // 1) Advance to the next phase and paint the new timer FIRST, so the
   //    break/focus countdown is shown immediately (never left stuck at 00:00).
@@ -255,16 +250,24 @@ function switchPhase() {
   }
 }
 
+function remainingSeconds() {
+  if (!pomState.endsAt) return pomState.timeLeft;
+  return Math.max(0, Math.round((pomState.endsAt - Date.now()) / 1000));
+}
+
 function tick() {
   // Bail out if this interval no longer owns the timer (orphaned/stale interval).
   if (!pomState.running) {
     clearInterval(pomState.timerId);
     return;
   }
-  pomState.timeLeft--;
+  // Recomputed from the end instant, so a throttled tab self-corrects instead of
+  // drifting by however many ticks the browser skipped.
+  pomState.timeLeft = remainingSeconds();
   if (pomState.timeLeft <= 0) {
     pomState.timeLeft = 0; // clamp so the countdown never displays a negative value
     pomState.running = false;
+    pomState.endsAt = null;
     clearInterval(pomState.timerId);
     pomState.timerId = null;
     updateDisplay();
@@ -279,7 +282,6 @@ function tick() {
   updateDisplay();
 }
 
-compactStartBtn.addEventListener("click", startTimer);
 pauseBtn.addEventListener("click", pauseTimer);
 resetBtn.addEventListener("click", resetTimer);
 
@@ -331,6 +333,7 @@ document.getElementById("dashPhaseTabs").addEventListener("click", (e) => {
   if (phase === pomState.phase) return;
   if (pomState.running) pauseTimer();
   pomState.phase = phase;
+  pomState.endsAt = null;
   pomState.timeLeft = getPhaseTime(phase);
   updatePhaseLabel();
   updateDisplay();
@@ -746,8 +749,19 @@ function parseDueInfo(todo) {
 /* ===== Todo localStorage ===== */
 function loadTodos() {
   try {
-    const data = JSON.parse(localStorage.getItem("todos")) || [];
-    return data.map(migrateTodo);
+    const data = JSON.parse(localStorage.getItem("todos"));
+    if (!Array.isArray(data)) return [];
+    // Drop anything that can't be repaired rather than letting one bad entry
+    // throw and wipe the whole list.
+    return data
+      .map((entry) => {
+        try {
+          return migrateTodo(entry);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -757,13 +771,42 @@ function saveTodos() {
   localStorage.setItem("todos", JSON.stringify(todos));
 }
 
+/* Single definition of a task's shape. Previously this literal was repeated in
+   four places, which is how `subtasks` came to be missing from some of them. */
+function makeTodo(fields = {}) {
+  return {
+    id: crypto.randomUUID(),
+    title: "Untitled",
+    description: "",
+    dueDate: null,
+    priority: "none",
+    project: "",
+    frequency: "none",
+    tags: [],
+    done: false,
+    completedAt: null,
+    createdAt: Date.now(),
+    pomodoros: 0,
+    estPomodoros: 0,
+    wasGolden: false,
+    subtasks: [],
+    ...fields,
+  };
+}
+
 function migrateTodo(old) {
+  if (!old || typeof old !== "object") return null;
   if (old.id) {
     if (old.pomodoros === undefined) old.pomodoros = 0;
     if (old.wasGolden === undefined) old.wasGolden = false;
     if (!Array.isArray(old.subtasks)) old.subtasks = [];
+    if (!Array.isArray(old.tags)) old.tags = [];
+    if (typeof old.title !== "string") old.title = String(old.title ?? "Untitled");
+    old.done = !!old.done;
     return old;
   }
+  // Pre-id format: the title lived in `text`.
+  if (typeof old.text !== "string") return null;
   const tags = [];
   let text = old.text;
   const tagMatches = text.match(/#([\w-]+)/g);
@@ -800,23 +843,12 @@ function migrateTodo(old) {
   text = text.replace(/@(Today|Tomorrow)\b/gi, "").trim();
   text = text.replace(/@(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g, "").trim();
   text = text.replace(/#CompleteOn\[\d{2}\/\d{2}\/\d{2}\]/g, "").trim();
-  return {
-    id: crypto.randomUUID(),
+  return makeTodo({
     title: text || "Untitled",
-    description: "",
     dueDate,
-    priority: "none",
-    project: "",
-    frequency: "none",
     tags,
-    done: old.done,
-    completedAt: null,
-    createdAt: Date.now(),
-    pomodoros: 0,
-    estPomodoros: 0,
-    wasGolden: false,
-    subtasks: [],
-  };
+    done: !!old.done,
+  });
 }
 
 /* ===== Subtasks =====
@@ -897,7 +929,7 @@ function renderTagsList(tags, tagColors) {
   return tags
     .map((t) => {
       const c = tagColors[t.toLowerCase()] || TAG_COLORS[0];
-      return `<span class="tag" style="background:${c}33;color:${c}">${t}</span>`;
+      return `<span class="tag" style="background:${c}33;color:${c}">${escapeHtml(t)}</span>`;
     })
     .join("");
 }
@@ -945,7 +977,7 @@ function renderTagCloud() {
       const style = c
         ? `style="background:${c}22;color:${c};border-color:${c}44"`
         : "";
-      return `<span class="tag-pill ${active}" data-tag="${t}" ${style}>${t} <span class="count">${count}</span></span>`;
+      return `<span class="tag-pill ${active}" data-tag="${escapeHtml(t)}" ${style}>${escapeHtml(t)} <span class="count">${count}</span></span>`;
     })
     .join("");
   const tagCloudEl = document.getElementById("tagCloud");
@@ -972,7 +1004,7 @@ function renderTagCloud() {
           const style = c
             ? `style="background:${c}22;color:${c};border-color:${c}44"`
             : "";
-          return `<span class="tag-pill ${active}" data-tag="${t}" ${style}>${t}</span>`;
+          return `<span class="tag-pill ${active}" data-tag="${escapeHtml(t)}" ${style}>${escapeHtml(t)}</span>`;
         })
         .join("");
     if (sidebarCloud)
@@ -1057,23 +1089,19 @@ function toggleTodoDone(todo, done) {
   if (done && todo.frequency && todo.frequency !== "none") {
     const nextDue = calcNextDue(todo.dueDate, todo.frequency);
     if (nextDue) {
-      todos.push({
-        id: crypto.randomUUID(),
-        title: todo.title,
-        description: todo.description,
-        dueDate: nextDue,
-        priority: todo.priority,
-        project: todo.project,
-        frequency: todo.frequency,
-        tags: [...todo.tags],
-        done: false,
-        completedAt: null,
-        createdAt: Date.now(),
-        pomodoros: 0,
-        estPomodoros: todo.estPomodoros || 0,
-        wasGolden: false,
-        subtasks: getSubtasks(todo).map((s) => makeSubtask(s.title)),
-      });
+      todos.push(
+        makeTodo({
+          title: todo.title,
+          description: todo.description,
+          dueDate: nextDue,
+          priority: todo.priority,
+          project: todo.project,
+          frequency: todo.frequency,
+          tags: [...(todo.tags || [])],
+          estPomodoros: todo.estPomodoros || 0,
+          subtasks: getSubtasks(todo).map((s) => makeSubtask(s.title)),
+        }),
+      );
     }
   }
   saveTodos();
@@ -1383,6 +1411,7 @@ function buildSubtaskPanel(todo) {
   input.type = "text";
   input.className = "subtask-input";
   input.placeholder = "Add a subtask…";
+  input.maxLength = 200;
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -1566,7 +1595,7 @@ function renderTodos() {
     const groups = {};
     completed.forEach((todo) => {
       const completedAt = todo.completedAt || todo.createdAt || 0;
-      const key = new Date(completedAt).toISOString().slice(0, 10);
+      const key = localDateKey(new Date(completedAt));
       if (!groups[key]) groups[key] = [];
       groups[key].push(todo);
     });
@@ -1576,10 +1605,8 @@ function renderTodos() {
     if (completedPage >= totalPages) completedPage = totalPages - 1;
     if (completedPage < 0) completedPage = 0;
 
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000)
-      .toISOString()
-      .slice(0, 10);
+    const today = localDateKey(new Date());
+    const yesterday = localDateKey(new Date(Date.now() - 86400000));
     const startIdx = completedPage * 2;
 
     dateKeys.slice(startIdx, startIdx + 2).forEach((dateKey) => {
@@ -1711,13 +1738,7 @@ function saveModal() {
   if (editIdx !== "") {
     Object.assign(todos[parseInt(editIdx)], data);
   } else {
-    data.id = crypto.randomUUID();
-    data.done = false;
-    data.completedAt = null;
-    data.createdAt = Date.now();
-    data.pomodoros = 0;
-    data.wasGolden = false;
-    todos.push(data);
+    todos.push(makeTodo(data));
   }
 
   saveTodos();
@@ -1743,7 +1764,7 @@ function renderTagChips() {
   tagsContainer.innerHTML = tagsList
     .map(
       (t) =>
-        `<span class="tag-chip">${t} <span class="tag-chip-remove" data-tag="${t}">&times;</span></span>`,
+        `<span class="tag-chip">${escapeHtml(t)} <span class="tag-chip-remove" data-tag="${escapeHtml(t)}">&times;</span></span>`,
     )
     .join("");
   tagsContainer.querySelectorAll(".tag-chip-remove").forEach((el) => {
@@ -1820,48 +1841,71 @@ if (taskSubtaskInput) {
   });
 }
 
+/* ===== Modal focus handling =====
+   Keeps Tab inside an open dialog instead of letting it walk the page behind. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function focusableIn(container) {
+  return [...container.querySelectorAll(FOCUSABLE)].filter(
+    (el) => el.offsetParent !== null || el === document.activeElement,
+  );
+}
+
+function trapFocus(container, e) {
+  const items = focusableIn(container);
+  if (items.length === 0) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 /* ===== Confirm Modal ===== */
 function showConfirmModal(message) {
+  const overlay = document.getElementById("confirmModal");
+  const msgEl = document.getElementById("confirmMessage");
+  const okBtn = document.getElementById("confirmOk");
+  const cancelBtn = document.getElementById("confirmCancel");
+
+  msgEl.textContent = message;
+  overlay.classList.remove("hidden");
+  const returnFocusTo = document.activeElement;
+  okBtn.focus();
+
   return new Promise((resolve) => {
-    const overlay = document.getElementById("confirmModal");
-    const msgEl = document.getElementById("confirmMessage");
-    const okBtn = document.getElementById("confirmOk");
-    const cancelBtn = document.getElementById("confirmCancel");
-
-    msgEl.textContent = message;
-    overlay.classList.remove("hidden");
-
     function cleanup(result) {
       overlay.classList.add("hidden");
       okBtn.removeEventListener("click", onOk);
       cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKey);
+      if (returnFocusTo && returnFocusTo.focus) returnFocusTo.focus();
       resolve(result);
     }
-
-    function onOk() {
-      cleanup(true);
-    }
-    function onCancel() {
-      cleanup(false);
-    }
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    // Dismissing via the backdrop or Escape has to settle the promise as well —
+    // otherwise the awaiting caller hangs forever and these listeners pile up.
+    const onBackdrop = (e) => {
+      if (e.target === overlay) cleanup(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") cleanup(false);
+      else if (e.key === "Tab") trapFocus(overlay, e);
+    };
 
     okBtn.addEventListener("click", onOk);
     cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKey);
   });
 }
-
-document.getElementById("confirmModal").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) {
-    document.getElementById("confirmModal").classList.add("hidden");
-  }
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    const overlay = document.getElementById("confirmModal");
-    if (!overlay.classList.contains("hidden")) overlay.classList.add("hidden");
-  }
-});
 
 addTaskBtn.addEventListener("click", openAddModal);
 const headerAddBtn = document.getElementById("headerAddBtn");
@@ -1871,23 +1915,7 @@ function quickAddTask() {
   const input = document.getElementById("quickAddInput");
   const title = input.value.trim();
   if (!title) return;
-  const todo = {
-    id: crypto.randomUUID(),
-    title,
-    description: "",
-    dueDate: null,
-    priority: "none",
-    project: "",
-    frequency: "none",
-    tags: [],
-    done: false,
-    completedAt: null,
-    createdAt: Date.now(),
-    pomodoros: 0,
-    estPomodoros: 0,
-    wasGolden: false,
-    subtasks: [],
-  };
+  const todo = makeTodo({ title });
   todos.push(todo);
   saveTodos();
   renderTagCloud();
@@ -1920,10 +1948,6 @@ taskTags.addEventListener("keydown", (e) => {
       taskTags.value = "";
     }
   }
-});
-
-taskModal.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeModal();
 });
 
 document.addEventListener("keydown", (e) => {
@@ -2030,7 +2054,7 @@ function renderWeeklyStats() {
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - now.getDay());
   weekStart.setHours(0, 0, 0, 0);
-  const weekStartStr = weekStart.toISOString().slice(0, 10);
+  const weekStartStr = localDateKey(weekStart);
   const weekSessions = history.filter((s) => s.date >= weekStartStr).length;
   const weekCompleted = todos.filter(
     (t) => t.done && t.completedAt && new Date(t.completedAt) >= weekStart,
@@ -2122,10 +2146,23 @@ todoList.addEventListener("dragend", () => {
 /* ===== History ===== */
 function loadHistory() {
   try {
-    return JSON.parse(localStorage.getItem("pomodoroHistory")) || [];
+    const raw = JSON.parse(localStorage.getItem("pomodoroHistory")) || [];
+    return raw.map(migrateSession);
   } catch {
     return [];
   }
+}
+
+/* Sessions used to store `date` as a UTC day while every chart buckets by local
+   day, so anything logged after the UTC/local boundary landed on the wrong date.
+   `timestamp` is authoritative, so re-derive date and time from it. Idempotent. */
+function migrateSession(s) {
+  if (!s || typeof s !== "object" || !s.timestamp) return s;
+  const d = new Date(s.timestamp);
+  if (Number.isNaN(d.getTime())) return s;
+  s.date = localDateKey(d);
+  s.time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return s;
 }
 
 function saveHistory(history) {
@@ -2187,7 +2224,7 @@ function renderStats() {
   let streak = 0;
   if (streakEl) {
     const dates = [...new Set(history.map((s) => s.date))].sort().reverse();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKey(new Date());
     let check = today;
     for (const d of dates) {
       if (d === check) {
@@ -2379,7 +2416,7 @@ function renderProjectsHTML() {
     html += `
       <div>
         <div class="flex justify-between mb-2 text-sm font-bold font-body">
-          <span>${p.name}</span>
+          <span>${escapeHtml(p.name)}</span>
           <span class="font-mono" style="color:${color}">${pct}%</span>
         </div>
         <div class="w-full h-3 bg-surface-container-high rounded-full overflow-hidden">
@@ -2417,7 +2454,7 @@ function renderProjectsHTML() {
   })();
   const totalSessions = history.length;
   const todaySessions = history.filter(
-    (s) => s.date === new Date().toISOString().slice(0, 10),
+    (s) => s.date === localDateKey(new Date()),
   ).length;
   let insightMsg = "Complete your first pomodoro session to unlock insights.";
   if (totalSessions > 0) {
@@ -2888,7 +2925,7 @@ function renderQuarterlyGoals() {
               (item, i) => `
         <li class="flex items-start gap-3">
           <input type="checkbox" class="stitch-checkbox mt-0.5" ${item.done ? "checked" : ""} data-key="${key}" data-idx="${i}">
-          <span class="flex-1 text-sm font-body ${item.done ? "line-through opacity-60 text-on-surface-variant" : "text-on-surface"}">${item.text}</span>
+          <span class="flex-1 text-sm font-body ${item.done ? "line-through opacity-60 text-on-surface-variant" : "text-on-surface"}">${escapeHtml(item.text)}</span>
           <button class="qg-item-del text-outline hover:text-primary transition-colors text-sm" data-key="${key}" data-idx="${i}">✕</button>
         </li>
       `,
@@ -2923,7 +2960,7 @@ function renderQuarterlyGoals() {
         </div>
         <ul class="space-y-3">${itemsHtml}</ul>
         <div class="flex items-center gap-2 mt-4 pt-3 border-t border-outline-variant/20">
-          <input type="text" data-key="${key}" class="flex-1 bg-surface-container-low rounded-lg px-3 py-2 text-xs font-body outline-none focus:ring-1 focus:ring-primary" placeholder="Add goal...">
+          <input type="text" data-key="${key}" class="flex-1 bg-surface-container-low rounded-lg px-3 py-2 text-xs font-body outline-none focus:ring-1 focus:ring-primary" maxlength="200" placeholder="Add goal...">
           <button class="qg-add-btn bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-all active:scale-95 squishy-button" data-key="${key}">+</button>
         </div>
       </div>
@@ -3376,11 +3413,6 @@ if (supportModal) {
       else sendSupportEmail();
     }
   });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !supportModal.classList.contains("hidden"))
-      closeSupportModal();
-  });
-
   const supportMailLink = document.getElementById("supportMailLink");
   if (supportMailLink) {
     supportMailLink.textContent = SUPPORT_EMAIL;
@@ -3477,7 +3509,7 @@ function renderDashboardQuotes() {
         <span class="material-symbols-outlined text-outline-variant shrink-0" style="font-size:20px">format_quote</span>
         <div class="min-w-0">
           <span class="quote-topic quote-topic-${quote.topic}">${label}</span>
-          <p class="font-body text-sm italic text-on-surface-variant leading-relaxed">"${quote.q}"<br><span class="not-italic font-semibold text-xs opacity-60">&mdash; ${quote.a}</span></p>
+          <p class="font-body text-sm italic text-on-surface-variant leading-relaxed">"${escapeHtml(quote.q)}"<br><span class="not-italic font-semibold text-xs opacity-60">&mdash; ${escapeHtml(quote.a)}</span></p>
         </div>
       </div>`;
     })
@@ -3488,7 +3520,7 @@ function renderDashboardQuotes() {
 function renderDashboardUpNext() {
   const container = document.getElementById("dashTaskList");
   if (!container) return;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey(new Date());
   const pending = todos.filter((t) => !t.done);
   if (pending.length === 0) {
     container.innerHTML =
@@ -3575,7 +3607,7 @@ function renderDashboardUpNext() {
     })
     .join("");
   container._shownTasks = shown;
-  setupDashDragDrop(container, shown);
+  setupDashDragDrop(container);
 }
 
 document.addEventListener("click", async function _dashPlayHandler(e) {
@@ -3598,6 +3630,7 @@ document.addEventListener("click", async function _dashPlayHandler(e) {
   setActiveTask(taskId);
   if (pomState.phase !== "focus") {
     pomState.phase = "focus";
+    pomState.endsAt = null;
     pomState.timeLeft = FOCUS_TIME;
     updatePhaseLabel();
     updateDisplay();
@@ -3643,7 +3676,16 @@ document.addEventListener("click", function _dashSubtaskCheckHandler(e) {
   toggleSubtaskDone(todo, sub.id, !sub.done);
 });
 
-function setupDashDragDrop(container, todayTasks) {
+/* Bound exactly once. The previous version called removeEventListener with
+   freshly created closures — a no-op — so every re-render stacked another set of
+   handlers, each holding a stale task list, and one drop spliced the array
+   several times. The current row list is read from container._shownTasks. */
+let dashDragBound = false;
+
+function setupDashDragDrop(container) {
+  if (dashDragBound) return;
+  dashDragBound = true;
+  const rows = () => container._shownTasks || [];
   let dragSrcIdx = null;
   const onDragStart = (e) => {
     const item = e.target.closest(".dash-task-item");
@@ -3677,8 +3719,10 @@ function setupDashDragDrop(container, todayTasks) {
     if (!target) return;
     const targetIdx = parseInt(target.dataset.idx);
     if (dragSrcIdx === targetIdx) return;
-    const srcTask = todayTasks[dragSrcIdx];
-    const targetTask = todayTasks[targetIdx];
+    const shown = rows();
+    const srcTask = shown[dragSrcIdx];
+    const targetTask = shown[targetIdx];
+    if (!srcTask || !targetTask) return;
     const srcTodosIdx = todos.indexOf(srcTask);
     const targetTodosIdx = todos.indexOf(targetTask);
     if (srcTodosIdx === -1 || targetTodosIdx === -1) return;
@@ -3689,10 +3733,6 @@ function setupDashDragDrop(container, todayTasks) {
     renderDashboardUpNext();
     renderTodos();
   };
-  container.removeEventListener("dragstart", onDragStart);
-  container.removeEventListener("dragend", onDragEnd);
-  container.removeEventListener("dragover", onDragOver);
-  container.removeEventListener("drop", onDrop);
   container.addEventListener("dragstart", onDragStart);
   container.addEventListener("dragend", onDragEnd);
   container.addEventListener("dragover", onDragOver);
@@ -3719,3 +3759,41 @@ updateDashboardStats();
 renderDashboardUpNext();
 loadQuotes();
 loadVersion();
+
+/* Background tabs throttle timers, so re-sync the countdown the moment the tab
+   becomes visible again instead of waiting for the next interval tick. */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !pomState.running) return;
+  pomState.timeLeft = remainingSeconds();
+  updateDisplay();
+});
+
+/* ===== Dialog keyboard handling =====
+   One handler for every dialog instead of an Escape listener per modal (the old
+   arrangement is how the confirm dialog ended up able to close without settling
+   its promise). showConfirmModal owns its own keys while open, because it has to
+   resolve a promise on dismiss. */
+const DIALOGS = [
+  { id: "taskModal", close: () => closeModal() },
+  { id: "supportModal", close: () => closeSupportModal() },
+  { id: "helpOverlay", close: () => helpOverlay.classList.add("hidden") },
+];
+
+function topmostOpenDialog() {
+  // Later entries sit above earlier ones; confirmModal is handled separately.
+  for (let i = DIALOGS.length - 1; i >= 0; i--) {
+    const el = document.getElementById(DIALOGS[i].id);
+    if (el && !el.classList.contains("hidden")) return { el, ...DIALOGS[i] };
+  }
+  return null;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" && e.key !== "Tab") return;
+  const confirm = document.getElementById("confirmModal");
+  if (confirm && !confirm.classList.contains("hidden")) return; // owns its keys
+  const open = topmostOpenDialog();
+  if (!open) return;
+  if (e.key === "Escape") open.close();
+  else trapFocus(open.el, e);
+});
