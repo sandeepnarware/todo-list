@@ -24,6 +24,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history — the patch number is derived from the commit count.
+          fetch-depth: 0
+
+      # Stamps version.json in the deploy artifact only; nothing is committed
+      # back, so this never triggers another deploy.
+      - name: Stamp release version
+        run: |
+          export PATCH=$(git rev-list --count HEAD)
+          node -e '
+            const fs = require("fs");
+            const v = JSON.parse(fs.readFileSync("version.json", "utf8"));
+            v.patch = Number(process.env.PATCH);
+            v.commit = (process.env.GITHUB_SHA || "").slice(0, 7);
+            v.released = new Date().toISOString().slice(0, 10);
+            fs.writeFileSync("version.json", JSON.stringify(v, null, 2) + "\n");
+            console.log("Releasing v" + v.major + "." + v.minor + "." + v.patch + " (" + v.commit + ")");
+          '
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

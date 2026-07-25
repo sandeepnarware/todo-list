@@ -1,6 +1,6 @@
 const CACHE = 'pomodone-v4';
 // Scope-relative so the same list works at the domain root and under /todo-list/.
-const URLS = ['./', './index.html', './style.css', './app.js', './quotes.json', './icon.svg', './manifest.json'];
+const URLS = ['./', './index.html', './style.css', './app.js', './quotes.json', './version.json', './icon.svg', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

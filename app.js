@@ -2579,6 +2579,35 @@ function renderQuarterlyGoals() {
   });
 }
 
+/* ===== App Version =====
+   version.json is the single source of truth. major/minor are hand-edited;
+   the patch number is stamped on every release by the deploy workflow, so the
+   version the user sees changes with each release without anyone editing markup.
+   If the file can't be loaded the fallback text baked into index.html stands. */
+const VERSION_URL = 'version.json';
+
+function formatVersion(v) {
+  const major = Number.isFinite(v.major) ? v.major : 0;
+  const minor = Number.isFinite(v.minor) ? v.minor : 0;
+  const patch = Number.isFinite(v.patch) ? v.patch : 0;
+  return `v${major}.${minor}.${patch}`;
+}
+
+function loadVersion() {
+  const el = document.getElementById('appVersion');
+  if (!el) return Promise.resolve();
+  return fetch(VERSION_URL)
+    .then(res => { if (!res.ok) throw new Error(VERSION_URL + ' ' + res.status); return res.json(); })
+    .then(v => {
+      el.textContent = formatVersion(v);
+      const detail = [];
+      if (v.commit) detail.push('commit ' + v.commit);
+      if (v.released) detail.push('released ' + v.released);
+      if (detail.length) el.title = detail.join(' · ');
+    })
+    .catch(err => { console.error('Could not load ' + VERSION_URL, err); });
+}
+
 /* ===== Dashboard Quotes =====
    The pool lives in quotes.json — 100 curated quotes, each tagged time /
    success / hardwork. No external quotes API is involved: api.quotable.io (the
@@ -2807,3 +2836,4 @@ renderQuarterlyGoals();
 updateDashboardStats();
 renderDashboardUpNext();
 loadQuotes();
+loadVersion();

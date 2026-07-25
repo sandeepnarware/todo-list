@@ -19,3 +19,16 @@ Open `index.html` in any browser or visit the GitHub Pages URL.
 ## Deploy
 
 Push to `main` and enable Pages in repo settings → Source: **GitHub Actions**.
+
+## Versioning
+
+The version shown in the sidebar comes from `version.json`.
+
+- **`major` / `minor`** — edit by hand in `version.json` when you want to mark a
+  bigger change.
+- **`patch`** — do **not** edit. The deploy workflow stamps it on every release
+  from the commit count on `main`, along with the short commit sha and release
+  date (both shown on hover). The stamp applies to the deployed artifact only,
+  so nothing is committed back and no extra deploy is triggered.
+
+Locally the committed `patch: 0` / `commit: "local"` values are what you see.

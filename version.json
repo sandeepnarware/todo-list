@@ -1,0 +1,8 @@
+{
+  "_note": "major and minor are edited by hand. patch, commit and released are stamped automatically on every release by .github/workflows/deploy.yml — do not bump them manually.",
+  "major": 2,
+  "minor": 0,
+  "patch": 0,
+  "commit": "local",
+  "released": null
+}
