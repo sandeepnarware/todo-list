@@ -474,7 +474,10 @@ function saveActiveTask(id) {
 function getActiveTask() {
   if (!activeTaskId) return null;
   const task = todos.find(t => t.id === activeTaskId);
-  if (!task) {
+  // A deleted OR completed task is no longer something to focus on. Checking
+  // `done` here also self-heals a stored id that points at a task completed
+  // before this rule existed.
+  if (!task || task.done) {
     saveActiveTask(null);
     return null;
   }
@@ -484,9 +487,11 @@ function getActiveTask() {
 function setActiveTask(id) {
   if (activeTaskId === id) {
     saveActiveTask(null);
-  } else {
-    saveActiveTask(id);
+    return;
   }
+  const target = id ? todos.find(t => t.id === id) : null;
+  if (target && target.done) return; // a finished task can't be the focus
+  saveActiveTask(id);
 }
 
 function updateCurrentTaskDisplay() {
@@ -895,6 +900,8 @@ function toggleTodoDone(todo, done) {
   } else {
     subs.forEach(s => { if (s.autoDone) { s.done = false; s.completedAt = null; delete s.autoDone; } });
   }
+  // Completing the focused task drops it out of the Pomodoro view.
+  if (done && todo.id === activeTaskId) saveActiveTask(null);
   if (done && todo.id === goldenTaskId) {
     todo.wasGolden = true;
     saveGoldenTask(null);
@@ -927,6 +934,9 @@ function toggleTodoDone(todo, done) {
   renderDashboardUpNext();
   updateDashboardStats();
   renderStats();
+  // Last, so it sees the final task list: any recurrence clone now exists, and
+  // the Pomodoro's fallback task is re-picked if the completed one was showing.
+  updateCurrentTaskDisplay();
 }
 
 function renderTodoItem(todo, tagColors, showCompleted) {
@@ -1049,19 +1059,22 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   });
   actionsRow.appendChild(goldenBtn);
 
-  const playBtn = document.createElement('button');
-  playBtn.className = 'play-btn';
-  playBtn.innerHTML = todo.id === activeTaskId ? '⏹' : '▶';
-  playBtn.setAttribute('aria-label', 'Focus on this task');
-  playBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (activeTaskId && activeTaskId !== todo.id) {
-      const current = getActiveTask();
-      if (!await showConfirmModal(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
-    }
-    setActiveTask(todo.id);
-  });
-  actionsRow.appendChild(playBtn);
+  // No focus button on a finished task — there's nothing left to work on.
+  if (!todo.done) {
+    const playBtn = document.createElement('button');
+    playBtn.className = 'play-btn';
+    playBtn.innerHTML = todo.id === activeTaskId ? '⏹' : '▶';
+    playBtn.setAttribute('aria-label', 'Focus on this task');
+    playBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (activeTaskId && activeTaskId !== todo.id) {
+        const current = getActiveTask();
+        if (!await showConfirmModal(`You're focusing on "${current ? current.title : 'a task'}". Switch to "${todo.title}"?`)) return;
+      }
+      setActiveTask(todo.id);
+    });
+    actionsRow.appendChild(playBtn);
+  }
 
   const subBtn = document.createElement('button');
   subBtn.className = 'subtask-toggle-btn' + (expandedSubtasks.has(todo.id) ? ' active' : '');
