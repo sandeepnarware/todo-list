@@ -724,8 +724,16 @@ function migrateTodo(old) {
 /* ===== Subtasks =====
    Checklist items owned by a task. Pomodoros stay on the parent — subtasks
    only carry a done flag. */
-const expandedSubtasks = new Set();
+const expandedSubtasks = new Set();     // task-list panels
+const dashExpandedSubtasks = new Set(); // dashboard "Up Next" panels, tracked separately
+                                        // so the dashboard can stay compact
 let pendingSubtaskFocus = null;
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
 
 function getSubtasks(todo) {
   if (!Array.isArray(todo.subtasks)) todo.subtasks = [];
@@ -2608,6 +2616,244 @@ function loadVersion() {
     .catch(err => { console.error('Could not load ' + VERSION_URL, err); });
 }
 
+/* ===== Help & Support =====
+   No backend here, so the composer hands off to the user's mail client via a
+   mailto: link. Nothing is sent from the page — the user reviews the draft and
+   sends it themselves, and the address is shown for manual use as a fallback. */
+const SUPPORT_EMAIL = 'sandeep.kumar.narware@gmail.com';
+
+/* ---------------------------------------------------------------------------
+   IN-APP SENDING (optional)
+   Paste your Web3Forms access key below to let the app send support messages
+   directly, instead of handing off to the user's mail client. Get one free at
+   https://web3forms.com/#start — enter SUPPORT_EMAIL, confirm the email they
+   send you, and paste the UUID here.
+
+   The key is meant to be public (Web3Forms documents this), so committing it
+   is fine. While it's empty the app simply keeps using the mailto composer.
+   Free tier is 250 messages/month; past that, sends fail and the UI falls
+   back to the mail-client draft.
+   --------------------------------------------------------------------------- */
+const WEB3FORMS_ACCESS_KEY = '';
+const WEB3FORMS_ENDPOINT = 'https://api.web3forms.com/submit';
+
+const SUPPORT_TYPES = {
+  bug: { subject: 'Bug report', diagnostics: true },
+  feature: { subject: 'Feature request', diagnostics: false },
+  hello: { subject: 'Hello', diagnostics: false },
+};
+
+const supportModal = document.getElementById('supportModal');
+const supportType = document.getElementById('supportType');
+const supportSubject = document.getElementById('supportSubject');
+const supportReplyTo = document.getElementById('supportReplyTo');
+const supportMessage = document.getElementById('supportMessage');
+const supportDiagnostics = document.getElementById('supportDiagnostics');
+const supportCount = document.getElementById('supportCount');
+const supportStatus = document.getElementById('supportStatus');
+const supportBotcheck = document.getElementById('supportBotcheck');
+
+/* In-app sending is on only once an access key is configured. */
+function supportServiceEnabled() {
+  return typeof WEB3FORMS_ACCESS_KEY === 'string' && WEB3FORMS_ACCESS_KEY.trim().length > 0;
+}
+
+function setSupportStatus(text, kind) {
+  if (!supportStatus) return;
+  if (!text) { supportStatus.classList.add('hidden'); supportStatus.textContent = ''; return; }
+  supportStatus.textContent = text;
+  supportStatus.className = 'support-status ' + (kind || 'info');
+}
+
+function setSupportBusy(busy) {
+  const btn = document.getElementById('supportSend');
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.textContent = busy ? 'Sending…' : (supportServiceEnabled() ? 'Send message' : 'Open in email app');
+}
+
+function appVersionString() {
+  const el = document.getElementById('appVersion');
+  return el && el.textContent.trim() ? el.textContent.trim() : 'unknown';
+}
+
+/* Environment only — never task data. */
+function supportDiagnosticsBlock() {
+  const lines = [
+    `App: PomoDone ${appVersionString()}`,
+    `Browser: ${navigator.userAgent}`,
+    `Language: ${navigator.language || 'unknown'}`,
+    `Screen: ${window.screen ? window.screen.width + 'x' + window.screen.height : 'unknown'}`,
+    `Theme: ${document.documentElement.classList.contains('dark') ? 'dark' : 'light'}`,
+  ];
+  return '\n\n---\nTechnical details\n' + lines.join('\n');
+}
+
+function defaultSubjectFor(type) {
+  const t = SUPPORT_TYPES[type] || SUPPORT_TYPES.hello;
+  return `PomoDone ${appVersionString()} — ${t.subject}`;
+}
+
+function applySupportType() {
+  const type = supportType.value;
+  const t = SUPPORT_TYPES[type] || SUPPORT_TYPES.hello;
+  // Only overwrite the subject while the user hasn't customised it.
+  if (!supportSubject.dataset.touched) supportSubject.value = defaultSubjectFor(type);
+  supportDiagnostics.checked = t.diagnostics;
+}
+
+function updateSupportCount() {
+  const max = supportMessage.getAttribute('maxlength') || 1500;
+  supportCount.textContent = `${supportMessage.value.length} / ${max}`;
+}
+
+function openSupportModal() {
+  supportType.value = 'bug';
+  delete supportSubject.dataset.touched;
+  supportMessage.value = '';
+  if (supportReplyTo) supportReplyTo.value = localStorage.getItem('supportReplyTo') || '';
+  if (supportBotcheck) supportBotcheck.checked = false;
+  applySupportType();
+  updateSupportCount();
+  setSupportStatus('', null);
+  setSupportBusy(false);
+
+  const enabled = supportServiceEnabled();
+  // The reply-to field only helps when we send it ourselves; a mail draft
+  // already carries the user's address.
+  const emailGroup = document.getElementById('supportEmailGroup');
+  if (emailGroup) emailGroup.classList.toggle('hidden', !enabled);
+  const fallbackBtn = document.getElementById('supportMailtoFallback');
+  if (fallbackBtn) fallbackBtn.classList.toggle('hidden', !enabled);
+
+  supportModal.classList.remove('hidden');
+  supportMessage.focus();
+}
+
+function closeSupportModal() {
+  supportModal.classList.add('hidden');
+}
+
+/* Returns the mailto URL, or null when there's nothing to send. Kept separate
+   from the navigation below so the composed message can be reasoned about. */
+function buildSupportMailto() {
+  const message = supportMessage.value.trim();
+  if (!message) return null;
+  const subject = supportSubject.value.trim() || defaultSubjectFor(supportType.value);
+  const body = message + (supportDiagnostics.checked ? supportDiagnosticsBlock() : '');
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function sendSupportEmail() {
+  const url = buildSupportMailto();
+  if (!url) { supportMessage.focus(); return; }
+  window.location.href = url;
+  closeSupportModal();
+  showToast('Opening your email app — nothing is sent until you hit send there.');
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Guards against a second submit while one is in flight. The disabled button
+// covers mouse clicks, but Ctrl+Enter bypasses it.
+let supportSending = false;
+
+/* Posts straight to Web3Forms. Any failure — offline, over quota, network —
+   leaves the modal open and points the user at the mail-client fallback, so a
+   message is never silently lost. */
+async function submitSupportViaService() {
+  if (supportSending) return;
+  const message = supportMessage.value.trim();
+  if (!message) { supportMessage.focus(); return; }
+
+  const replyTo = supportReplyTo ? supportReplyTo.value.trim() : '';
+  if (replyTo && !EMAIL_RE.test(replyTo)) {
+    setSupportStatus('That email address looks incomplete — fix it, or clear it to send anonymously.', 'error');
+    supportReplyTo.focus();
+    return;
+  }
+  if (supportBotcheck && supportBotcheck.checked) return; // honeypot tripped
+  if (navigator.onLine === false) {
+    setSupportStatus("You're offline, so this can't be sent right now. Open a draft in your email app instead — it'll go out when you reconnect.", 'error');
+    return;
+  }
+
+  const payload = {
+    access_key: WEB3FORMS_ACCESS_KEY,
+    subject: supportSubject.value.trim() || defaultSubjectFor(supportType.value),
+    from_name: 'PomoDone Support',
+    message: message + (supportDiagnostics.checked ? supportDiagnosticsBlock() : ''),
+    botcheck: false,
+  };
+  if (replyTo) { payload.email = replyTo; payload.name = replyTo; }
+
+  supportSending = true;
+  setSupportBusy(true);
+  setSupportStatus('Sending…', 'info');
+  try {
+    const res = await fetch(WEB3FORMS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    let data = {};
+    try { data = await res.json(); } catch { /* non-JSON error page */ }
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || `the service returned ${res.status}`);
+    }
+    if (replyTo) localStorage.setItem('supportReplyTo', replyTo);
+    setSupportStatus('', null);
+    closeSupportModal();
+    showToast(replyTo ? 'Message sent — I\'ll reply to ' + replyTo : 'Message sent. Thank you!');
+  } catch (err) {
+    console.error('Support send failed', err);
+    setSupportStatus(`Couldn't send — ${err.message}. Your message is still here; open a draft in your email app instead.`, 'error');
+  } finally {
+    supportSending = false;
+    setSupportBusy(false);
+  }
+}
+
+if (supportModal) {
+  const supportBtn = document.getElementById('supportBtn');
+  if (supportBtn) supportBtn.addEventListener('click', openSupportModal);
+  document.getElementById('supportClose').addEventListener('click', closeSupportModal);
+  document.getElementById('supportCancel').addEventListener('click', closeSupportModal);
+  document.getElementById('supportSend').addEventListener('click', () => {
+    if (supportServiceEnabled()) submitSupportViaService();
+    else sendSupportEmail();
+  });
+  const fallbackBtn = document.getElementById('supportMailtoFallback');
+  if (fallbackBtn) fallbackBtn.addEventListener('click', sendSupportEmail);
+  supportModal.addEventListener('click', (e) => { if (e.target === supportModal) closeSupportModal(); });
+  supportType.addEventListener('change', applySupportType);
+  supportSubject.addEventListener('input', () => { supportSubject.dataset.touched = '1'; });
+  supportMessage.addEventListener('input', updateSupportCount);
+  supportMessage.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (supportServiceEnabled()) submitSupportViaService();
+      else sendSupportEmail();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !supportModal.classList.contains('hidden')) closeSupportModal();
+  });
+
+  const supportMailLink = document.getElementById('supportMailLink');
+  if (supportMailLink) {
+    supportMailLink.textContent = SUPPORT_EMAIL;
+    supportMailLink.href = 'mailto:' + SUPPORT_EMAIL;
+  }
+  document.getElementById('supportCopy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      showToast('Email address copied');
+    } catch {
+      showToast('Copy failed — the address is shown above');
+    }
+  });
+}
+
 /* ===== Dashboard Quotes =====
    The pool lives in quotes.json — 100 curated quotes, each tagged time /
    success / hardwork. No external quotes API is involved: api.quotable.io (the
@@ -2716,15 +2962,38 @@ function renderDashboardUpNext() {
     const subMeta = sub.total > 0 ? ` • ☑ ${sub.done}/${sub.total}` : '';
     const meta = (isDueToday ? 'Today' : t.dueDate ? t.dueDate : `${t.pomodoros || 0} POMOS`) + subMeta;
     const playIcon = isActive ? 'pause_circle' : 'play_circle';
-    return `<div class="dash-task-item flex items-center gap-2 p-3 rounded-xl border-l-4 bg-surface-container-low border-l-surface-container transition-all hover:translate-x-1 ${goldenCls}" draggable="true" data-idx="${idx}" data-task-id="${t.id}">
-      <span class="material-symbols-outlined text-outline-variant text-lg drag-handle-dash" style="cursor:grab">drag_indicator</span>
-      <button class="dash-task-play material-symbols-outlined text-lg ${isActive ? 'text-secondary' : 'text-primary'} hover:scale-110 transition-transform shrink-0" data-task-id="${t.id}" aria-label="${isActive ? 'Pause' : 'Focus on this task'}">${playIcon}</button>
-      <button class="dash-task-check material-symbols-outlined text-sm ${t.done ? 'text-secondary' : 'text-outline-variant'} hover:text-secondary hover:scale-110 transition-all shrink-0" data-task-id="${t.id}" aria-label="Mark task complete">${t.done ? 'check_circle' : 'radio_button_unchecked'}</button>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-semibold truncate">${t.title}</p>
-        <p class="text-[10px] font-mono opacity-50">${t.project ? t.project.toUpperCase() + ' • ' : ''}${meta}</p>
+
+    // Collapsible checklist, shown only for tasks that have subtasks. Dragging is
+    // disabled while a panel is open so its checkboxes stay clickable.
+    const subOpen = dashExpandedSubtasks.has(t.id);
+    const subToggle = sub.total > 0
+      ? `<button class="dash-subtask-toggle" data-task-id="${t.id}" aria-expanded="${subOpen}" title="${subOpen ? 'Hide' : 'Show'} subtasks" aria-label="${subOpen ? 'Hide' : 'Show'} ${sub.total} subtasks">
+           <span class="material-symbols-outlined">${subOpen ? 'expand_less' : 'expand_more'}</span>
+         </button>`
+      : '';
+    const subPanel = sub.total > 0 && subOpen
+      ? `<ul class="dash-subtask-list">
+           ${getSubtasks(t).map(s => `
+             <li class="dash-subtask-item${s.done ? ' done' : ''}">
+               <button class="dash-subtask-check material-symbols-outlined" data-task-id="${t.id}" data-sub-id="${s.id}" aria-label="${s.done ? 'Mark subtask not done' : 'Mark subtask done'}">${s.done ? 'check_circle' : 'radio_button_unchecked'}</button>
+               <span class="dash-subtask-text">${escapeHtml(s.title)}</span>
+             </li>`).join('')}
+         </ul>`
+      : '';
+
+    return `<div class="dash-task-item p-3 rounded-xl border-l-4 bg-surface-container-low border-l-surface-container transition-all hover:translate-x-1 ${goldenCls}" draggable="${!subOpen}" data-idx="${idx}" data-task-id="${t.id}">
+      <div class="dash-task-main flex items-center gap-2">
+        <span class="material-symbols-outlined text-outline-variant text-lg drag-handle-dash" style="cursor:grab">drag_indicator</span>
+        <button class="dash-task-play material-symbols-outlined text-lg ${isActive ? 'text-secondary' : 'text-primary'} hover:scale-110 transition-transform shrink-0" data-task-id="${t.id}" aria-label="${isActive ? 'Pause' : 'Focus on this task'}">${playIcon}</button>
+        <button class="dash-task-check material-symbols-outlined text-sm ${t.done ? 'text-secondary' : 'text-outline-variant'} hover:text-secondary hover:scale-110 transition-all shrink-0" data-task-id="${t.id}" aria-label="Mark task complete">${t.done ? 'check_circle' : 'radio_button_unchecked'}</button>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold truncate">${escapeHtml(t.title)}</p>
+          <p class="text-[10px] font-mono opacity-50">${t.project ? escapeHtml(t.project.toUpperCase()) + ' • ' : ''}${meta}</p>
+        </div>
+        ${subToggle}
+        ${starIcon}
       </div>
-      ${starIcon}
+      ${subPanel}
     </div>`;
   }).join('');
   container._shownTasks = shown;
@@ -2765,6 +3034,30 @@ document.addEventListener('click', function _dashCheckHandler(e) {
   const todo = todos.find(t => t.id === taskId);
   if (!todo) return;
   toggleTodoDone(todo, !todo.done);
+});
+
+/* Dashboard: expand/collapse a task's checklist in place */
+document.addEventListener('click', function _dashSubtaskToggleHandler(e) {
+  const btn = e.target.closest('.dash-subtask-toggle');
+  if (!btn) return;
+  e.stopPropagation();
+  const taskId = btn.dataset.taskId;
+  if (!taskId) return;
+  if (dashExpandedSubtasks.has(taskId)) dashExpandedSubtasks.delete(taskId);
+  else dashExpandedSubtasks.add(taskId);
+  renderDashboardUpNext();
+});
+
+/* Dashboard: tick a subtask off without leaving the dashboard */
+document.addEventListener('click', function _dashSubtaskCheckHandler(e) {
+  const btn = e.target.closest('.dash-subtask-check');
+  if (!btn) return;
+  e.stopPropagation();
+  const todo = todos.find(t => t.id === btn.dataset.taskId);
+  if (!todo) return;
+  const sub = getSubtasks(todo).find(s => s.id === btn.dataset.subId);
+  if (!sub) return;
+  toggleSubtaskDone(todo, sub.id, !sub.done);
 });
 
 function setupDashDragDrop(container, todayTasks) {

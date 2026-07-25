@@ -127,6 +127,59 @@
   background: color-mix(in srgb, var(--tertiary-fixed) 25%, transparent);
 }
 
+/* ===== Up Next: collapsible subtask checklist ===== */
+.dash-subtask-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--on-surface-variant);
+  opacity: 0.55;
+  padding: 2px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.dash-subtask-toggle:hover { opacity: 1; color: var(--primary); background: var(--surface-container); }
+.dash-subtask-toggle[aria-expanded="true"] { opacity: 1; color: var(--primary); }
+.dash-subtask-toggle .material-symbols-outlined { font-size: 20px; }
+
+/* Indented under the task title, aligned past the drag/play/check icons */
+.dash-subtask-list {
+  list-style: none;
+  margin: 8px 0 2px 34px;
+  padding-left: 10px;
+  border-left: 2px solid var(--outline-variant);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.dash-subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 5px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.dash-subtask-item:hover { background: var(--surface-container); }
+.dash-subtask-check {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--outline-variant);
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+  font-size: 17px !important;
+  transition: color 0.2s, transform 0.2s;
+}
+.dash-subtask-check:hover { color: var(--secondary); transform: scale(1.15); }
+.dash-subtask-item.done .dash-subtask-check { color: var(--secondary); }
+.dash-subtask-text { font-size: 12px; min-width: 0; word-break: break-word; }
+.dash-subtask-item.done .dash-subtask-text { text-decoration: line-through; opacity: 0.55; }
+
 /* ===== BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -415,35 +468,44 @@ section[data-tab].tab-hidden { display: none !important; }
   list-style: none;
 }
 
-.subtask-add { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+/* Matches the app's form-input treatment (see .form-group input): 1.5px border,
+   12px radius, surface-container-low fill, primary focus ring. */
+.subtask-add { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .subtask-input {
   flex: 1;
   min-width: 0;
-  background: var(--surface-container-lowest);
-  border: 1px solid var(--outline-variant);
-  border-radius: 8px;
-  padding: 6px 10px;
+  background: var(--surface-container-low);
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 8px 12px;
   font-size: 13px;
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
   color: var(--on-surface);
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.subtask-input:focus { border-color: var(--primary); }
+.subtask-input::placeholder { color: var(--outline); opacity: 0.5; }
+.subtask-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-fixed);
+}
+
+/* Pill "add" button, matching the quick-add button in the task header */
 .subtask-add-btn {
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
   border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 11px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 12px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity 0.2s;
+  transition: filter 0.2s, transform 0.15s;
 }
-.subtask-add-btn:hover { opacity: 0.9; }
+.subtask-add-btn:hover { filter: brightness(1.08); }
+.subtask-add-btn:active { transform: scale(0.95); }
 
 /* Subtask editor inside the task modal */
 .modal-subtask-list { display: flex; flex-direction: column; gap: 4px; }
@@ -473,16 +535,20 @@ section[data-tab].tab-hidden { display: none !important; }
 .modal-subtask-title {
   flex: 1;
   min-width: 0;
-  background: var(--surface-container-lowest);
-  border: 1px solid var(--outline-variant);
-  border-radius: 8px;
-  padding: 6px 10px;
+  background: var(--surface-container-low);
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 8px 12px;
   font-size: 13px;
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
   color: var(--on-surface);
   outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.modal-subtask-title:focus { border-color: var(--primary); }
+.modal-subtask-title:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-fixed);
+}
 .modal-subtask-row.done .modal-subtask-title { text-decoration: line-through; opacity: 0.6; }
 .subtask-hint { font-size: 11px; color: var(--on-surface-variant); opacity: 0.6; margin-top: 6px; }
 
@@ -1172,6 +1238,103 @@ section[data-tab].tab-hidden { display: none !important; }
   transition: border-color 0.2s;
 }
 .stitch-border:hover { border-color: var(--primary); }
+
+/* ===== HELP & SUPPORT MODAL ===== */
+.support-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+#supportCount { text-align: right; font-family: 'JetBrains Mono', monospace; }
+
+.support-diag {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--on-surface);
+}
+.support-diag .stitch-checkbox { margin-top: 2px; flex-shrink: 0; }
+.support-diag .support-hint { margin-top: 2px; }
+
+/* Honeypot — invisible to people, still submittable by bots */
+.support-botcheck { display: none !important; }
+
+.support-status {
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+.support-status.hidden { display: none; }
+.support-status.info {
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+}
+.support-status.error {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.support-fallback-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: 1.5px dashed var(--outline-variant);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  color: var(--on-surface-variant);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.support-fallback-btn:hover { border-color: var(--primary); color: var(--primary); }
+.support-fallback-btn.hidden { display: none; }
+.support-fallback-btn .material-symbols-outlined { font-size: 16px; }
+
+.support-direct {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--outline-variant);
+}
+.support-direct .support-hint { margin-top: 0; margin-bottom: 6px; }
+.support-direct-row { display: flex; align-items: center; gap: 8px; }
+.support-email {
+  flex: 1;
+  min-width: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--primary);
+  text-decoration: none;
+  word-break: break-all;
+}
+.support-email:hover { text-decoration: underline; }
+.support-copy-btn {
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  border: none;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+.support-copy-btn:hover { background: var(--primary-container); color: var(--on-primary-container); }
+.support-copy-btn:active { transform: scale(0.95); }
+.support-copy-btn .material-symbols-outlined { font-size: 16px; }
 
 /* Donate button (Razorpay) — keep the injected widget inside the narrow sidebar card */
 .donate-wrap {

@@ -135,6 +135,11 @@
         <button id="helpBtn" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Help">
           <span class="material-symbols-outlined text-lg">help</span>
         </button>
+        <!-- `feedback` (speech bubble + !) rather than a second question-mark glyph,
+             so it reads as distinct from the neighbouring `help` button. -->
+        <button id="supportBtn" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Help and support — report a bug, request a feature, or reach out" title="Help &amp; Support">
+          <span class="material-symbols-outlined text-lg">feedback</span>
+        </button>
         <button id="themeToggle" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Toggle theme">
           <span class="material-symbols-outlined text-lg">dark_mode</span>
         </button>
@@ -534,6 +539,72 @@
         <div class="modal-actions">
           <button id="modalCancel" class="btn-secondary">Cancel</button>
           <button id="modalSave" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HELP & SUPPORT MODAL ===== -->
+  <div id="supportModal" class="modal-overlay hidden">
+    <div class="modal max-w-lg w-full mx-4">
+      <div class="modal-header">
+        <h2 class="font-display font-bold text-lg">Help &amp; Support</h2>
+        <button id="supportClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all" aria-label="Close">
+          <span class="material-symbols-outlined text-sm">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-on-surface-variant leading-relaxed mb-4">
+          Found a bug, want a new feature, or just want to say hello? Send a message and it opens in your email app.
+        </p>
+        <div class="form-group">
+          <label for="supportType">What's this about?</label>
+          <select id="supportType">
+            <option value="bug">Report a bug</option>
+            <option value="feature">Request a feature</option>
+            <option value="hello">Just reaching out</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="supportSubject">Subject</label>
+          <input type="text" id="supportSubject" placeholder="Short summary">
+        </div>
+        <div class="form-group" id="supportEmailGroup">
+          <label for="supportReplyTo">Your email</label>
+          <input type="email" id="supportReplyTo" placeholder="you@example.com" autocomplete="email">
+          <span class="support-hint">Optional, but I can't reply without it.</span>
+        </div>
+        <div class="form-group">
+          <label for="supportMessage">Message *</label>
+          <textarea id="supportMessage" rows="5" maxlength="1500" placeholder="What happened, or what would you like to see?"></textarea>
+          <p id="supportCount" class="support-hint">0 / 1500</p>
+        </div>
+        <label class="support-diag">
+          <input type="checkbox" id="supportDiagnostics" class="stitch-checkbox" checked>
+          <span>
+            Include technical details
+            <span class="support-hint">App version, browser and screen size — never your tasks. You'll see the full message before sending.</span>
+          </span>
+        </label>
+        <!-- Honeypot: hidden from people, tempting to bots. Never filled legitimately. -->
+        <input type="checkbox" name="botcheck" id="supportBotcheck" class="support-botcheck" tabindex="-1" aria-hidden="true">
+        <p id="supportStatus" class="support-status hidden" role="status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button id="supportCancel" class="btn-secondary">Cancel</button>
+          <button id="supportSend" class="btn-primary">Open in email app</button>
+        </div>
+        <div class="support-direct">
+          <button id="supportMailtoFallback" class="support-fallback-btn hidden">
+            <span class="material-symbols-outlined">drafts</span>
+            Prefer your own email app? Open a draft instead
+          </button>
+          <span class="support-hint">Or email directly</span>
+          <div class="support-direct-row">
+            <a id="supportMailLink" class="support-email" href="mailto:sandeep.kumar.narware@gmail.com">sandeep.kumar.narware@gmail.com</a>
+            <button id="supportCopy" class="support-copy-btn" title="Copy email address">
+              <span class="material-symbols-outlined">content_copy</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
