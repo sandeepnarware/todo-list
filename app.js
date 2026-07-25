@@ -1704,7 +1704,7 @@ function switchTab(tabId) {
   if (pageTitle) pageTitle.textContent = titles[tabId] || 'Pomodoro';
   const ambient = document.getElementById('ambientBg');
   if (ambient) ambient.classList.toggle('hidden', tabId !== 'pomodoro');
-  if (tabId === 'dashboard') { updateDashboardStats(); renderDashboardUpNext(); fetchQuotes(); updateCurrentTaskDisplay(); }
+  if (tabId === 'dashboard') { updateDashboardStats(); renderDashboardUpNext(); renderDashboardQuotes(); updateCurrentTaskDisplay(); }
   if (tabId === 'pomodoro') updateCurrentTaskDisplay();
   if (tabId === 'tasks') renderTodos();
   if (tabId === 'stats') renderStats();
@@ -2579,66 +2579,77 @@ function renderQuarterlyGoals() {
   });
 }
 
-/* ===== Dashboard Quotes ===== */
-const fallbackQuotes = [
-  { q: 'Slow progress is still progress. Every stitch counts towards the final masterpiece.', a: 'Unknown' },
-  { q: 'Success is the sum of small efforts, repeated day in and day out.', a: 'Robert Collier' },
-  { q: 'Hard work beats talent when talent doesn\'t work hard.', a: 'Tim Notke' },
-  { q: 'Success is not final, failure is not fatal: it is the courage to continue that counts.', a: 'Winston Churchill' },
-  { q: 'The only way to do great work is to love what you do.', a: 'Steve Jobs' },
-  { q: 'Don\'t watch the clock; do what it does. Keep going.', a: 'Sam Levenson' },
-  { q: 'Strive not to be a success, but rather to be of value.', a: 'Albert Einstein' },
-  { q: 'The difference between ordinary and extraordinary is that little extra.', a: 'Jimmy Johnson' },
-  { q: 'It does not matter how slowly you go as long as you do not stop.', a: 'Confucius' },
-  { q: 'Success usually comes to those who are too busy to be looking for it.', a: 'Henry David Thoreau' },
-  { q: 'The future depends on what you do today.', a: 'Mahatma Gandhi' },
-  { q: 'There are no shortcuts to any place worth going.', a: 'Beverly Sills' },
-  { q: 'The only limit to our realization of tomorrow is our doubts of today.', a: 'Franklin D. Roosevelt' },
-  { q: 'Hard things are worth doing well.', a: 'Unknown' },
-  { q: 'Dream big. Work hard. Stay focused.', a: 'Unknown' },
-];
+/* ===== Dashboard Quotes =====
+   The pool lives in quotes.json — 100 curated quotes, each tagged time /
+   success / hardwork. No external quotes API is involved: api.quotable.io (the
+   old primary) is offline and dummyjson / zenquotes serve untagged random
+   quotes, which is how off-topic ones slipped in. quotes.json is precached by
+   the service worker, so this keeps working offline.
+   To add a quote, append an entry to quotes.json with a matching topic. */
+const QUOTES_URL = 'quotes.json';
+const QUOTES_SHOWN = 3;
+const QUOTE_TOPIC_LABELS = { time: 'Time', success: 'Success', hardwork: 'Hard Work' };
 
-function pickShuffled(arr, n) {
+let quotePool = [];
+let quotesState = 'loading'; // loading | ready | error
+let lastQuoteKeys = [];      // previous draw, so a re-render never repeats it
+
+function loadQuotes() {
+  return fetch(QUOTES_URL)
+    .then(res => { if (!res.ok) throw new Error(QUOTES_URL + ' ' + res.status); return res.json(); })
+    .then(data => {
+      const labels = (data && data.topics) || QUOTE_TOPIC_LABELS;
+      quotePool = ((data && data.quotes) || []).filter(q => q && q.q && q.a && labels[q.topic]);
+      Object.assign(QUOTE_TOPIC_LABELS, labels);
+      quotesState = quotePool.length > 0 ? 'ready' : 'error';
+    })
+    .catch(err => {
+      console.error('Could not load ' + QUOTES_URL, err);
+      quotesState = 'error';
+    })
+    .then(() => renderDashboardQuotes());
+}
+
+function shuffle(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
-  return copy.slice(0, n);
+  return copy;
 }
 
-function fetchQuotes() {
+/* Random draw across the whole pool — distinct within a render, and never a
+   straight repeat of the previous draw. */
+function pickQuotes(n) {
+  if (quotePool.length === 0) return [];
+  const fresh = quotePool.filter(q => !lastQuoteKeys.includes(q.q));
+  const source = fresh.length >= n ? fresh : quotePool;
+  const picks = shuffle(source).slice(0, Math.min(n, source.length));
+  lastQuoteKeys = picks.map(p => p.q);
+  return picks;
+}
+
+function renderDashboardQuotes() {
   const container = document.getElementById('dashQuotes');
   if (!container) return;
-
-  function renderQuoteCards(quotes) {
-    container.innerHTML = quotes.map(q => `
+  if (quotesState === 'error') {
+    container.innerHTML = '<p class="text-xs text-on-surface-variant opacity-50">Quotes unavailable right now.</p>';
+    return;
+  }
+  const picks = pickQuotes(QUOTES_SHOWN);
+  if (picks.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = picks.map(quote => {
+    const label = QUOTE_TOPIC_LABELS[quote.topic] || quote.topic;
+    return `
       <div class="organic-card stitch-border p-4 bg-surface-container-low flex items-start gap-3">
         <span class="material-symbols-outlined text-outline-variant shrink-0" style="font-size:20px">format_quote</span>
-        <p class="font-body text-sm italic text-on-surface-variant leading-relaxed">"${q.q}"${q.a ? `<br><span class="not-italic font-semibold text-xs opacity-60">&mdash; ${q.a}</span>` : ''}</p>
-      </div>
-    `).join('');
-  }
-
-  function normalizeQuotes(data) {
-    if (Array.isArray(data)) return data.map(q => ({ q: q.content || q.quote || q.q, a: q.author || q.a }));
-    if (data.quotes) return data.quotes.map(q => ({ q: q.quote || q.q, a: q.author || q.a }));
-    return null;
-  }
-  Promise.any([
-    fetch('https://api.quotable.io/quotes/random?tags=work|success|perseverance|motivation&limit=3').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    fetch('https://dummyjson.com/quotes/random/3').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-  ]).then(data => {
-    const quotes = normalizeQuotes(data);
-    if (quotes && quotes.length >= 3) {
-      renderQuoteCards(quotes);
-      return;
-    }
-    throw new Error('not enough quotes');
-  })
-    .catch(() => {
-      renderQuoteCards(pickShuffled(fallbackQuotes, 3));
-    });
+        <div class="min-w-0">
+          <span class="quote-topic quote-topic-${quote.topic}">${label}</span>
+          <p class="font-body text-sm italic text-on-surface-variant leading-relaxed">"${quote.q}"<br><span class="not-italic font-semibold text-xs opacity-60">&mdash; ${quote.a}</span></p>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ===== Dashboard Up Next ===== */
@@ -2795,4 +2806,4 @@ renderWeeklyStats();
 renderQuarterlyGoals();
 updateDashboardStats();
 renderDashboardUpNext();
-fetchQuotes();
+loadQuotes();

@@ -1173,6 +1173,24 @@ section[data-tab].tab-hidden { display: none !important; }
 }
 .stitch-border:hover { border-color: var(--primary); }
 
+/* Quote topic chip — every dashboard quote is tagged time / success / hard work */
+.quote-topic {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+}
+.quote-topic-time { background: color-mix(in srgb, var(--trend-1) 16%, transparent); color: var(--trend-1); }
+.quote-topic-success { background: color-mix(in srgb, var(--trend-3) 16%, transparent); color: var(--trend-3); }
+.quote-topic-hardwork { background: color-mix(in srgb, var(--trend-2) 16%, transparent); color: var(--trend-2); }
+
 .golden-glow {
   animation: golden-shimmer 3s ease-in-out infinite;
   background-size: 200% 200%;

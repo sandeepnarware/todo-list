@@ -1,9 +1,14 @@
-const CACHE = 'pomodone-v3';
-const URLS = ['/', '/todo-list/', '/index.html', '/style.css', '/app.js', '/icon.svg', '/manifest.json'];
+const CACHE = 'pomodone-v4';
+// Scope-relative so the same list works at the domain root and under /todo-list/.
+const URLS = ['./', './index.html', './style.css', './app.js', './quotes.json', './icon.svg', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(URLS)).then(() => self.skipWaiting())
+    // Cache entries individually: addAll() rejects the whole install if any one
+    // URL 404s, which would leave the app with no offline copy at all.
+    caches.open(CACHE)
+      .then(c => Promise.all(URLS.map(u => c.add(u).catch(() => {}))))
+      .then(() => self.skipWaiting())
   );
 });
 
