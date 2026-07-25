@@ -487,7 +487,11 @@ section[data-tab].tab-hidden { display: none !important; }
 .subtask-input {
   flex: 1;
   min-width: 0;
-  background: var(--surface-container-low);
+  /* NOT --surface-container-low: the panel around it already uses that, so the
+     field had zero contrast and no visible box in either theme. One step up
+     reproduces the container-vs-field relationship the modal inputs have.
+     (Inside the modal, .form-group's rule wins and keeps the standard fill.) */
+  background: var(--surface-container-high);
   border: 1.5px solid var(--outline-variant);
   border-radius: 12px;
   padding: 8px 12px;
