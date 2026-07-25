@@ -1173,6 +1173,17 @@ section[data-tab].tab-hidden { display: none !important; }
 }
 .stitch-border:hover { border-color: var(--primary); }
 
+/* Donate button (Razorpay) — keep the injected widget inside the narrow sidebar card */
+.donate-wrap {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--outline-variant);
+  display: flex;
+  justify-content: center;
+}
+.donate-wrap form { max-width: 100%; }
+.donate-wrap iframe { max-width: 100% !important; border: 0; }
+
 /* Quote topic chip — every dashboard quote is tagged time / success / hard work */
 .quote-topic {
   display: inline-block;

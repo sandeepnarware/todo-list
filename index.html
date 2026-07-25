@@ -95,11 +95,19 @@
       </button>
     </nav>
     <!-- Profile Card -->
-    <div class="mt-auto px-4 py-4 flex items-center gap-3 bg-surface-container rounded-organic">
-      <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm overflow-hidden flex-shrink-0" id="sidebarAvatar">PD</div>
-      <div class="min-w-0">
-        <p class="text-sm font-bold truncate" style="color:var(--on-surface)">PomoDone</p>
-        <p class="text-xs opacity-50 font-mono">v2.0</p>
+    <div class="mt-auto px-4 py-4 bg-surface-container rounded-organic">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm overflow-hidden flex-shrink-0" id="sidebarAvatar">PD</div>
+        <div class="min-w-0">
+          <p class="text-sm font-bold truncate" style="color:var(--on-surface)">PomoDone</p>
+          <p class="text-xs opacity-50 font-mono">v2.0</p>
+        </div>
+      </div>
+      <!-- Donate — Razorpay renders its button into this form -->
+      <div class="donate-wrap">
+        <form>
+          <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
+        </form>
       </div>
     </div>
   </aside>

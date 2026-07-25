@@ -22,6 +22,9 @@ self.addEventListener('activate', e => {
 // falling back to the cache only when offline. Successful responses refresh the cache.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Let cross-origin traffic (Razorpay checkout script, its iframe and API calls)
+  // go straight to the network — payment widgets must never be served from cache.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then(res => {
