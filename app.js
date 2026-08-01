@@ -2235,7 +2235,7 @@ function switchTab(tabId) {
     .forEach((s) => s.classList.toggle("tab-hidden", s.dataset.tab !== tabId));
   localStorage.setItem("activeTab", tabId);
   const titles = {
-    dashboard: "Today's Overview",
+    dashboard: "Overview",
     pomodoro: "Pomodoro",
     tasks: "Tasks",
     stats: "Statistics",
