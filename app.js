@@ -1068,16 +1068,16 @@ function renderTagCloud() {
       .map((t) => tagPillHtml(t, colorMap, false))
       .join("");
   if (sidebarTags)
-    sidebarTags.innerHTML = regularTags
-      .map((t) => tagPillHtml(t, colorMap, false))
-      .join("");
-  // Once every task of a project is done there is nothing to focus on, so the
-  // whole section goes rather than leaving an empty heading behind.
+    sidebarTags.innerHTML =
+      regularTags.map((t) => tagPillHtml(t, colorMap, false)).join("") ||
+      '<span class="tag-cloud-empty">No tags on open tasks</span>';
+  // Projects disappear once none of them has open work left — there's nothing to
+  // focus on. Tags keep their section either way: it is the other half of the
+  // filter, and hiding it made the feature look like it had been removed. The
+  // empty state says why the list is short instead.
   const projectBlock = document.getElementById("projectFocusBlock");
   if (projectBlock)
     projectBlock.classList.toggle("hidden", projectTags.length === 0);
-  const tagsBlock = document.getElementById("activeTagsBlock");
-  if (tagsBlock) tagsBlock.classList.toggle("hidden", regularTags.length === 0);
 
   // Filter read-out — names what's selected and offers the way back out.
   const clearBtn = document.getElementById("tagFilterClear");

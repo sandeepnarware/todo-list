@@ -80,16 +80,26 @@ console.log('\n2. Project pills read as project names, not filter keys');
   check('but the filter key is unchanged underneath', pills[0].dataset.tag === 'project:work', pills[0].dataset.tag);
 }
 
-console.log('\n3. Project Focus disappears once nothing is left to focus on');
+console.log('\n3. Projects disappear once nothing is left to focus on; Tags never do');
 {
   const a = boot({ todos: [mkTask()], activeTab: 'tasks' });
+  check('the heading reads "Projects"',
+    a.$('projectFocusBlock').querySelector('h3').textContent.trim() === 'Projects',
+    a.$('projectFocusBlock').querySelector('h3').textContent);
   check('shown while work is open', !a.$('projectFocusBlock').classList.contains('hidden'));
-  check('Active Tags shown too', !a.$('activeTagsBlock').classList.contains('hidden'));
+  check('tags section shown too', !a.$('activeTagsBlock').classList.contains('hidden'));
+
   a.t.toggleTodoDone(a.t.todos[0], true);
-  check('hidden once every task is done', a.$('projectFocusBlock').classList.contains('hidden'));
-  check('Active Tags hidden as well', a.$('activeTagsBlock').classList.contains('hidden'));
+  check('projects hidden once every task is done', a.$('projectFocusBlock').classList.contains('hidden'));
+  // Hiding this half made the whole filter look like it had been removed.
+  check('the tags section survives', !a.$('activeTagsBlock').classList.contains('hidden'));
+  check('and explains why it is empty rather than vanishing',
+    /No tags on open tasks/.test(a.$('tagCloudTags').textContent), a.$('tagCloudTags').textContent);
+
   a.t.toggleTodoDone(a.t.todos[0], false);
-  check('and back when work reopens', !a.$('projectFocusBlock').classList.contains('hidden'));
+  check('projects come back when work reopens', !a.$('projectFocusBlock').classList.contains('hidden'));
+  check('and the tag pill returns with it',
+    !!a.$('tagCloudTags').querySelector('.tag-pill'), a.$('tagCloudTags').innerHTML);
   check('no errors', a.errors.length === 0, a.errors);
 }
 
@@ -100,7 +110,7 @@ console.log('\n4. A completed-only tag stays visible while it is the active filt
   const a = boot({ todos: [mkTask()], activeTab: 'tasks' });
   a.t.filterByTag('project:work');
   a.t.toggleTodoDone(a.t.todos[0], true);
-  check('Project Focus still shown', !a.$('projectFocusBlock').classList.contains('hidden'));
+  check('the Projects section still shows', !a.$('projectFocusBlock').classList.contains('hidden'));
   check('the selected pill is still there', !!a.$('tagCloudSidebar').querySelector('.tag-pill.active'));
   check('and the clear button with it', !a.$('tagFilterClear').classList.contains('hidden'));
 }

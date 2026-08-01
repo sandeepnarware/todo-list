@@ -1602,6 +1602,12 @@ select:-webkit-autofill {
   font-variation-settings: 'FILL' 1, 'wght' 700;
 }
 
+.tag-cloud-empty {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  opacity: 0.55;
+}
+
 .tag-filter-clear {
   display: flex;
   align-items: center;
