@@ -214,6 +214,24 @@ body {
 
 .px-container-padding { padding-left: 24px; padding-right: 24px; }
 
+/* ===== PAGE WIDTH =====
+   One width for every tab, so switching between them doesn't shift the content
+   sideways. Wide enough to earn a large display, capped so a line of text never
+   gets unreadably long. Tune here, not per section. */
+.app-wide {
+  width: 100%;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Gutters grow with the viewport. Without this the content runs almost to the
+   bezel between roughly 1024px and the cap, which is what makes a full-width
+   layout feel cramped rather than generous. */
+.tab-pad { padding-left: 16px; padding-right: 16px; }
+@media (min-width: 768px) { .tab-pad { padding-left: 24px; padding-right: 24px; } }
+@media (min-width: 1280px) { .tab-pad { padding-left: 40px; padding-right: 40px; } }
+
 /* ===== SCROLLBAR ===== */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -779,11 +797,14 @@ input.subtask-input:focus {
 .calendar-nav button:hover { background: var(--surface-container-high); }
 .calendar-nav span { font-weight: 700; font-size: 16px; }
 
+/* Sized to the chart column it now sits in. The cell cap matters as much as the
+   container one: with cells pinned at 84px the grid stopped growing at ~620px
+   however wide the page got. */
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  max-width: 620px;
+  gap: 8px;
+  max-width: 840px;
   margin: 0 auto;
 }
 .calendar-grid .day-header {
@@ -798,7 +819,7 @@ input.subtask-input:focus {
 }
 .calendar-grid .day-cell {
   aspect-ratio: 1;
-  max-width: 84px;
+  max-width: 112px;
   display: flex;
   flex-direction: column;
   align-items: center;

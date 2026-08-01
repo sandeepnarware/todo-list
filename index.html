@@ -172,11 +172,14 @@
     <div class="flex-1 overflow-y-auto custom-scrollbar pb-36">
 
       <!-- ===== DASHBOARD TAB ===== -->
-      <section id="dashboardSection" class="px-4 pt-6 md:pt-8" data-tab="dashboard">
-        <div class="max-w-[1200px] mx-auto">
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4" style="gap:16px">
-            <!-- Left: Stats + Golden -->
-            <div class="lg:col-span-5 flex flex-col gap-4">
+      <section id="dashboardSection" class="tab-pad pt-6 md:pt-8" data-tab="dashboard">
+        <div class="app-wide">
+          <!-- Two columns at lg, three at xl. Widening the existing two would
+               just stretch a 900px timer card; giving Up Next and the quotes a
+               lane of their own is what actually uses the width. -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-6">
+            <!-- A: Stats + Golden -->
+            <div class="lg:col-span-5 xl:col-span-3 flex flex-col gap-4">
               <!-- Stats cards -->
               <div class="grid grid-cols-2 gap-4">
                 <div class="organic-card bg-surface-container p-5 flex flex-col items-center justify-center text-center">
@@ -206,11 +209,9 @@
                   <span id="dashGoldenPomos" class="font-mono text-xs font-bold tracking-wider opacity-60 hidden">EST. 0 POMOS</span>
                 </div>
               </div>
-              <!-- Quotes -->
-              <div id="dashQuotes" class="flex flex-col gap-2"></div>
             </div>
-            <!-- Right: Today's Schedule + Timer + Up Next -->
-            <div class="lg:col-span-7 flex flex-col gap-4">
+            <!-- B: Today's Schedule + Timer -->
+            <div class="lg:col-span-7 xl:col-span-5 flex flex-col gap-4">
               <!-- Today's Schedule — collapses to its header so it can be hidden
                    without losing the way back. State persists in localStorage. -->
               <section id="todaySchedule" class="organic-card bg-surface-container-low p-4 today-schedule">
@@ -262,23 +263,29 @@
                   <p class="font-display text-sm font-semibold truncate mt-1" id="dashActiveTitle">No active task</p>
                 </div>
               </div>
+            </div>
+            <!-- C: Up Next + Quotes. Full width under the other two at lg (split
+                 in half so the quotes don't run to 1200px), its own lane at xl. -->
+            <div class="lg:col-span-12 xl:col-span-4 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 gap-4 items-start">
               <!-- Up Next -->
               <div id="dashUpNext" class="flex flex-col gap-3">
                 <div class="flex items-center justify-between px-1">
                   <h4 class="font-display font-semibold" style="font-size:18px;line-height:28px">Up Next</h4>
                   <button id="dashViewAll" class="font-mono text-xs font-bold tracking-wider text-primary hover:underline" data-tab="tasks">VIEW ALL</button>
                 </div>
-                <div id="dashTaskList" class="space-y-2 max-h-[340px] overflow-y-auto overflow-x-hidden">
+                <div id="dashTaskList" class="space-y-2 max-h-[340px] xl:max-h-[420px] overflow-y-auto overflow-x-hidden">
                   <div class="text-center py-8 text-sm text-on-surface-variant opacity-60">No pending tasks. Add a task to get started!</div>
                 </div>
               </div>
+              <!-- Quotes -->
+              <div id="dashQuotes" class="flex flex-col gap-2"></div>
             </div>
           </div>
         </div>
       </section>
 
       <!-- ===== POMODORO TAB ===== -->
-      <section id="pomodoroSection" class="relative flex flex-col items-center px-4 pt-6 md:pt-8" data-tab="pomodoro">
+      <section id="pomodoroSection" class="relative flex flex-col items-center tab-pad pt-6 md:pt-8" data-tab="pomodoro">
         <div class="mb-8 text-center">
           <div class="inline-flex items-center gap-2 px-4 py-1 bg-primary-container/10 text-primary rounded-full mb-2">
             <span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
@@ -287,7 +294,11 @@
           <h1 class="font-display font-bold" style="font-size:24px;line-height:32px;font-weight:600">Stay Present</h1>
           <p id="pomodoroTaskName" class="font-mono text-xs font-semibold tracking-wider text-primary mt-2">No active task</p>
         </div>
-        <div class="relative w-[320px] h-[320px] md:w-[420px] md:h-[420px] flex items-center justify-center">
+        <!-- Deliberately still centred, not split into columns: this is the focus
+             screen and the empty space around the ring is the point. It scales up
+             on a large display instead, so it commands the space rather than
+             floating in it. -->
+        <div class="relative w-[320px] h-[320px] md:w-[420px] md:h-[420px] xl:w-[500px] xl:h-[500px] flex items-center justify-center">
           <div class="absolute inset-0 organic-patch bg-primary/5 pulse-slow"></div>
           <svg class="w-full h-full timer-ring" viewBox="0 0 120 120">
             <circle class="text-surface-container-high" cx="60" cy="60" fill="none" r="50" stroke="currentColor" stroke-width="6"></circle>
@@ -299,7 +310,7 @@
           </div>
         </div>
         <!-- Active Task Card -->
-        <div id="currentTaskDisplay" class="mt-12 w-full max-w-md bg-surface-container-low rounded-lg p-6 shadow-sm relative overflow-hidden">
+        <div id="currentTaskDisplay" class="mt-12 w-full max-w-md xl:max-w-2xl bg-surface-container-low rounded-lg p-6 shadow-sm relative overflow-hidden">
           <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
           <div class="flex justify-between items-start mb-4">
             <div>
@@ -337,11 +348,10 @@
       </section>
 
       <!-- ===== TASKS TAB ===== -->
-      <section class="px-4 pt-6 md:pt-8" data-tab="tasks">
+      <section class="tab-pad pt-6 md:pt-8" data-tab="tasks">
         <!-- The task list is the point of this tab, so it takes the full width the
-             viewport offers (capped only so lines don't get unreadably long on
-             ultrawide displays). The sidebar drops below it under lg. -->
-        <div class="flex flex-col lg:flex-row gap-4 w-full" style="max-width:1600px;margin:0 auto">
+             page allows. The sidebar drops below it under lg. -->
+        <div class="app-wide flex flex-col lg:flex-row gap-4 xl:gap-6">
           <!-- Task List -->
           <div class="flex-1 min-w-0">
             <!-- Quick Add -->
@@ -421,8 +431,8 @@
       </section>
 
       <!-- ===== STATS TAB ===== -->
-      <section class="px-4 pt-6 md:pt-8" data-tab="stats">
-        <div class="max-w-[1000px] mx-auto">
+      <section class="tab-pad pt-6 md:pt-8" data-tab="stats">
+        <div class="app-wide">
           <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
               <h2 class="font-display font-bold" style="font-size:32px;line-height:40px">Analytics Journey</h2>
@@ -433,56 +443,64 @@
               EXPORT JSON
             </button>
           </div>
-          <!-- Bento Summary -->
-          <div id="statsBento" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bento-card p-6 bg-primary-container/20 rounded-xl shadow-sm border border-primary-container/30 flex flex-col justify-between">
-              <div class="flex items-center justify-between mb-2">
-                <span class="font-mono text-xs font-bold tracking-wider text-primary">FOCUS TIME</span>
-                <span class="material-symbols-outlined text-primary">schedule</span>
+          <!-- At xl the summary tiles stack into a side rail and the charts take
+               the rest. Three tiles stretched across 1600px would be mostly
+               empty card, and the charts are what benefit from the width. -->
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 xl:gap-6">
+            <!-- Summary rail -->
+            <div class="xl:col-span-3 flex flex-col gap-4">
+              <div id="statsBento" class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-1 gap-4">
+                <div class="bento-card p-6 bg-primary-container/20 rounded-xl shadow-sm border border-primary-container/30 flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-mono text-xs font-bold tracking-wider text-primary">FOCUS TIME</span>
+                    <span class="material-symbols-outlined text-primary">schedule</span>
+                  </div>
+                  <div>
+                    <p class="font-display font-bold text-primary" id="statsFocusTime" style="font-size:48px;line-height:1">0h</p>
+                    <p class="text-xs mt-1 opacity-60 font-body" id="statsFocusSub">No sessions yet</p>
+                  </div>
+                </div>
+                <div class="bento-card p-6 bg-secondary-container/20 rounded-xl shadow-sm border border-secondary-container/30 flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-mono text-xs font-bold tracking-wider text-secondary">COMPLETED</span>
+                    <span class="material-symbols-outlined text-secondary">check_circle</span>
+                  </div>
+                  <div>
+                    <p class="font-display font-bold text-secondary" id="statsCompleted" style="font-size:48px;line-height:1">0</p>
+                    <p class="text-xs mt-1 opacity-60 font-body" id="statsCompletedSub">Tasks finished</p>
+                  </div>
+                </div>
+                <div class="bento-card p-6 bg-tertiary-fixed/30 rounded-xl shadow-sm border border-tertiary-fixed/40 flex flex-col justify-between">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-mono text-xs font-bold tracking-wider text-tertiary">STREAK</span>
+                    <span class="material-symbols-outlined text-tertiary">local_fire_department</span>
+                  </div>
+                  <div>
+                    <p class="font-display font-bold text-tertiary" id="statsStreak" style="font-size:48px;line-height:1">0</p>
+                    <p class="text-xs mt-1 opacity-60 font-body" id="statsStreakSub">Days of focus</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p class="font-display font-bold text-primary" id="statsFocusTime" style="font-size:48px;line-height:1">0h</p>
-                <p class="text-xs mt-1 opacity-60 font-body" id="statsFocusSub">No sessions yet</p>
-              </div>
+              <div id="weeklyStats" class="text-center text-sm font-mono text-on-surface-variant"></div>
             </div>
-            <div class="bento-card p-6 bg-secondary-container/20 rounded-xl shadow-sm border border-secondary-container/30 flex flex-col justify-between">
-              <div class="flex items-center justify-between mb-2">
-                <span class="font-mono text-xs font-bold tracking-wider text-secondary">COMPLETED</span>
-                <span class="material-symbols-outlined text-secondary">check_circle</span>
+            <!-- Charts. min-w-0 or the trends SVG refuses to shrink and blows the grid out. -->
+            <div class="xl:col-span-9 min-w-0">
+              <div id="viewTabs" class="flex gap-6 mb-5 border-b border-outline-variant/30 px-1 overflow-x-auto whitespace-nowrap view-tabs">
+                <button class="pb-3 font-bold text-sm font-mono transition-all active" data-view="calendar">Heatmap</button>
+                <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="hours">Productivity Peaks</button>
+                <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="projects">Projects Breakdown</button>
+                <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="trends">Trends</button>
+                <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="cloud">Word Cloud</button>
               </div>
-              <div>
-                <p class="font-display font-bold text-secondary" id="statsCompleted" style="font-size:48px;line-height:1">0</p>
-                <p class="text-xs mt-1 opacity-60 font-body" id="statsCompletedSub">Tasks finished</p>
-              </div>
-            </div>
-            <div class="bento-card p-6 bg-tertiary-fixed/30 rounded-xl shadow-sm border border-tertiary-fixed/40 flex flex-col justify-between">
-              <div class="flex items-center justify-between mb-2">
-                <span class="font-mono text-xs font-bold tracking-wider text-tertiary">STREAK</span>
-                <span class="material-symbols-outlined text-tertiary">local_fire_department</span>
-              </div>
-              <div>
-                <p class="font-display font-bold text-tertiary" id="statsStreak" style="font-size:48px;line-height:1">0</p>
-                <p class="text-xs mt-1 opacity-60 font-body" id="statsStreakSub">Days of focus</p>
-              </div>
+              <div id="statsViews"></div>
             </div>
           </div>
-          <!-- Weekly Stats -->
-          <div id="weeklyStats" class="text-center text-sm font-mono text-on-surface-variant mb-4"></div>
-          <!-- Stats Tabs -->
-          <div id="viewTabs" class="flex gap-6 mb-5 border-b border-outline-variant/30 px-1 overflow-x-auto whitespace-nowrap view-tabs">
-            <button class="pb-3 font-bold text-sm font-mono transition-all active" data-view="calendar">Heatmap</button>
-            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="hours">Productivity Peaks</button>
-            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="projects">Projects Breakdown</button>
-            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="trends">Trends</button>
-            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="cloud">Word Cloud</button>
-          </div>
-          <div id="statsViews"></div>
         </div>
       </section>
 
       <!-- ===== GOALS TAB ===== -->
-      <section class="px-4 pt-6 md:pt-8" data-tab="goals">
-        <div class="mx-auto" style="max-width:1200px">
+      <section class="tab-pad pt-6 md:pt-8" data-tab="goals">
+        <div class="app-wide">
           <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
               <h2 class="font-display font-bold" style="font-size:32px;line-height:40px">Active Quarterly Roadmap</h2>
@@ -498,8 +516,8 @@
       </section>
 
       <!-- ===== CALENDAR TAB ===== -->
-      <section class="px-4 pt-6 md:pt-8" data-tab="calendar">
-        <div class="mx-auto" style="max-width:1600px">
+      <section class="tab-pad pt-6 md:pt-8" data-tab="calendar">
+        <div class="app-wide">
           <div class="cal-toolbar">
             <div class="cal-toolbar-group">
               <button id="calPrev" class="cal-nav-btn" aria-label="Previous period">

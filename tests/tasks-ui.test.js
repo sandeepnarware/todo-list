@@ -273,8 +273,6 @@ console.log('\n10. Layout: the task list takes the width, the cards take less he
   check('the gap down to the icon row is tight',
     /margin-top:\s*4px/.test(actions) && /padding-top:\s*3px/.test(actions), actions);
   check('rows sit close together', /id="todoList" class="space-y-1"/.test(html));
-  check('the 1000px cap on the Tasks tab is gone', !/max-width:1000px/.test(html));
-  check('and it now stretches to 1600px', /max-width:1600px/.test(html));
   check('the sidebar still stacks below the list under lg', /flex flex-col lg:flex-row/.test(html));
   check('search and New Task share one height', /\.header-control \{[^}]*height:\s*36px/.test(css));
   const a = boot({});
@@ -284,6 +282,47 @@ console.log('\n10. Layout: the task list takes the width, the cards take less he
   check('the New Task button is one of them', a.$('headerAddBtn').classList.contains('header-control'));
   check('the search box is the other', a.$('headerSearch').closest('.header-control') !== null);
   check('the mobile nav is targetable now that it holds six tabs', /#mobileNav \.tab/.test(css));
+}
+
+console.log('\n10b. Every tab shares one page width and one set of gutters');
+{
+  const a = boot({});
+  // Per-section caps had drifted to 1000 / 1200 / 1600, so switching tabs shifted
+  // the content sideways. One class owns the width now.
+  check('a single width rule exists', /\.app-wide \{[^}]*max-width:\s*1600px/.test(css));
+  check('and nothing sets its own cap any more',
+    !/max-w-\[\d+px\]/.test(html) && !/max-width:\s*1\d{3}px/.test(html),
+    (html.match(/max-w-\[\d+px\]|max-width:\s*1\d{3}px/g) || []));
+
+  const sections = [...a.doc.querySelectorAll('section[data-tab]')];
+  check('all six tabs are present', sections.length === 6, sections.map(s => s.dataset.tab));
+  check('every tab uses the shared gutters',
+    sections.every(s => s.classList.contains('tab-pad')),
+    sections.filter(s => !s.classList.contains('tab-pad')).map(s => s.dataset.tab));
+  check('gutters widen with the viewport rather than staying at 16px',
+    /@media \(min-width: 1280px\) \{ \.tab-pad \{ padding-left: 40px/.test(css));
+
+  // Pomodoro centres its own content, so it is the one tab without a width box.
+  const wide = ['dashboard', 'tasks', 'stats', 'goals', 'calendar'];
+  check('every content tab is inside the shared width box',
+    wide.every(t => !!a.doc.querySelector(`section[data-tab="${t}"] .app-wide`)),
+    wide.filter(t => !a.doc.querySelector(`section[data-tab="${t}"] .app-wide`)));
+
+  check('the dashboard gains a third column at xl instead of just stretching',
+    /xl:col-span-3/.test(html) && /xl:col-span-5/.test(html) && /xl:col-span-4/.test(html));
+  check('Up Next and the quotes share that new lane',
+    (() => {
+      const lane = a.doc.getElementById('dashUpNext').parentElement;
+      return lane.contains(a.doc.getElementById('dashQuotes'));
+    })());
+  check('the stats tiles become a side rail at xl', /xl:grid-cols-1/.test(html));
+  check('the chart column can shrink, or the trends SVG blows the grid out',
+    !!a.doc.querySelector('#statsViews').closest('.min-w-0'));
+  check('the heatmap is no longer pinned at 620px',
+    /\.calendar-grid \{[^}]*max-width:\s*840px/.test(css) &&
+    /\.calendar-grid \.day-cell \{[^}]*max-width:\s*112px/.test(css));
+  check('the pomodoro ring scales up rather than being split into columns',
+    /xl:w-\[500px\]/.test(html));
 }
 
 console.log('\n11. Donate button wears the app\'s styling');
