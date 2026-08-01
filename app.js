@@ -3594,7 +3594,13 @@ function openSupportModal() {
   if (fallbackBtn) fallbackBtn.classList.toggle("hidden", !enabled);
 
   supportModal.classList.remove("hidden");
-  supportMessage.focus();
+  // On a phone this dialog is also the only way to reach the donate widget, so
+  // don't grab the textarea and throw up the keyboard over it. On a wide screen
+  // the composer is what you came for, so focus it.
+  const narrow =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 767px)").matches;
+  if (!narrow) supportMessage.focus();
 }
 
 function closeSupportModal() {
@@ -5122,7 +5128,20 @@ function renderScheduleSurfaces() {
   if (section && !section.classList.contains("tab-hidden")) renderCalendar();
 }
 
-/* ===== Donate ===== */
+/* ===== Donate =====
+   The widget itself lives in the Help & Support dialog so it's reachable on a
+   phone; this is the sidebar's door to it. */
+const sidebarSupportBtn = document.getElementById("sidebarSupportBtn");
+if (sidebarSupportBtn)
+  sidebarSupportBtn.addEventListener("click", () => {
+    openSupportModal();
+    const embed = document.getElementById("donateEmbed");
+    // Arriving via "Support this app" means the payment options are the point,
+    // so they're already open — the pill still collapses them again.
+    if (embed && !embed.classList.contains("open") && donateToggle)
+      donateToggle.click();
+  });
+
 const donateToggle = document.getElementById("donateToggle");
 if (donateToggle) {
   donateToggle.addEventListener("click", () => {

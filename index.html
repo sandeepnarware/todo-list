@@ -119,22 +119,17 @@
           <p id="appVersion" class="text-xs opacity-50 font-mono">v2.0.0</p>
         </div>
       </div>
-      <!-- Donate — Razorpay renders its button into this form. The widget is a
-           cross-origin iframe, so its own styling can't be themed from here;
-           instead an app-styled pill fronts it and reveals it on demand. The
-           embed stays clipped rather than display:none so the iframe still gets
-           laid out (and sized) by Razorpay at load. -->
-      <div class="donate-wrap">
-        <button type="button" id="donateToggle" class="donate-toggle" aria-expanded="false" aria-controls="donateEmbed">
+      <!-- The donate widget itself lives in the Help & Support dialog, which is
+           the one support surface reachable at every width — this sidebar is
+           display:none below md, so anything parked here is unreachable on a
+           phone. Razorpay injects into its form and the embed can't be
+           duplicated, so this is a second door to the same one. -->
+      <div class="sidebar-support">
+        <button type="button" id="sidebarSupportBtn" class="donate-toggle">
           <span class="material-symbols-outlined donate-heart">favorite</span>
           <span class="donate-toggle-label">Support this app</span>
-          <span class="material-symbols-outlined donate-chevron">expand_more</span>
+          <span class="material-symbols-outlined donate-chevron">chevron_right</span>
         </button>
-        <div id="donateEmbed" class="donate-embed">
-          <form>
-            <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
-          </form>
-        </div>
       </div>
     </div>
   </aside>
@@ -164,7 +159,7 @@
         </button>
         <!-- `feedback` (speech bubble + !) rather than a second question-mark glyph,
              so it reads as distinct from the neighbouring `help` button. -->
-        <button id="supportBtn" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Help and support — report a bug, request a feature, or reach out" title="Help &amp; Support">
+        <button id="supportBtn" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Help and support — report a bug, request a feature, support the app, or reach out" title="Help, support &amp; donate">
           <span class="material-symbols-outlined text-lg">feedback</span>
         </button>
         <button id="themeToggle" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all text-on-surface-variant" aria-label="Toggle theme">
@@ -793,6 +788,32 @@
             <button id="supportCopy" class="support-copy-btn" title="Copy email address">
               <span class="material-symbols-outlined">content_copy</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Donate — Razorpay renders its button into this form. The widget is a
+             cross-origin iframe, so its own styling can't be themed from here;
+             an app-styled pill fronts it and reveals it on demand. The embed is
+             clipped rather than display:none so the iframe still gets laid out
+             (and sized) by Razorpay. It sits in this dialog rather than the
+             sidebar so it is reachable on a phone. -->
+        <div class="support-donate">
+          <h3 class="support-donate-title">
+            <span class="material-symbols-outlined">favorite</span>
+            Support this app
+          </h3>
+          <p class="support-hint">PomoDone is free, offline-first and has no ads or tracking. If it earns its place in your day, a small contribution keeps it going.</p>
+          <div class="donate-wrap">
+            <button type="button" id="donateToggle" class="donate-toggle" aria-expanded="false" aria-controls="donateEmbed">
+              <span class="material-symbols-outlined donate-heart">favorite</span>
+              <span class="donate-toggle-label">Show payment options</span>
+              <span class="material-symbols-outlined donate-chevron">expand_more</span>
+            </button>
+            <div id="donateEmbed" class="donate-embed">
+              <form>
+                <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
+              </form>
+            </div>
           </div>
         </div>
       </div>
