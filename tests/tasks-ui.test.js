@@ -438,8 +438,8 @@ console.log('\n10b. Every tab shares one page width and one set of gutters');
   check('and are not stacked into a rail', !/xl:grid-cols-1/.test(html));
 
   check('the heatmap is no longer pinned at 620px',
-    /\.calendar-grid \{[^}]*max-width:\s*840px/.test(css) &&
-    /\.calendar-grid \.day-cell \{[^}]*max-width:\s*112px/.test(css));
+    /\.heatmap-grid \{[^}]*max-width:\s*840px/.test(css) &&
+    /\.heatmap-grid \.day-cell \{[^}]*max-width:\s*112px/.test(css));
   check('the pomodoro ring scales up rather than being split into columns',
     /xl:w-\[500px\]/.test(html));
 }

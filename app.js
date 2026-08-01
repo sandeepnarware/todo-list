@@ -25,8 +25,6 @@ const sessionCountEl = document.getElementById("sessionCount");
 const progressFg = document.querySelector(".timer-ring .fg");
 const circumference = 314;
 
-const pomSection = document.getElementById("pomodoroSection");
-
 /* ===== Audio ===== */
 let audioCtx = null;
 
@@ -488,7 +486,6 @@ const modalCancel = document.getElementById("modalCancel");
 const modalClose = document.getElementById("modalClose");
 
 const taskSearch = document.getElementById("headerSearch");
-const taskStatBar = document.getElementById("taskStatBar");
 const toast = document.getElementById("toast");
 const toastMsg = document.getElementById("toastMsg");
 const toastUndo = document.getElementById("toastUndo");
@@ -721,7 +718,7 @@ function calcNextDue(dueDate, frequency) {
   else if (frequency === "weekly") d.setDate(d.getDate() + 7);
   else if (frequency === "monthly") d.setMonth(d.getMonth() + 1);
   else if (frequency === "yearly") d.setFullYear(d.getFullYear() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return localDateKey(d);
 }
 
 function getTagColorMap() {
@@ -737,8 +734,7 @@ function getTagColorMap() {
 
 function parseDueInfo(todo) {
   if (!todo.dueDate) return null;
-  const p = todo.dueDate.split("-");
-  const due = new Date(+p[0], +p[1] - 1, +p[2]);
+  const due = calParseKey(todo.dueDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
@@ -833,11 +829,11 @@ function migrateTodo(old) {
     const raw = dueMatch[1].toLowerCase();
     if (raw === "today") {
       const d = new Date();
-      dueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      dueDate = localDateKey(d);
     } else if (raw === "tomorrow") {
       const d = new Date();
       d.setDate(d.getDate() + 1);
-      dueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      dueDate = localDateKey(d);
     } else {
       const p = raw.split("/");
       const d = new Date(
@@ -845,7 +841,7 @@ function migrateTodo(old) {
         +p[1] - 1,
         +p[0],
       );
-      dueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      dueDate = localDateKey(d);
     }
     text = text.replace(dueMatch[0], "").trim();
   }
@@ -1189,113 +1185,59 @@ function toggleTodoDone(todo, done) {
   updateCurrentTaskDisplay();
 }
 
-function renderTodoItem(todo, tagColors, showCompleted) {
-  const origIndex = todos.indexOf(todo);
-  const li = document.createElement("li");
-  if (todo.done) li.classList.add("completed");
-  if (!todo.done && todo.id === goldenTaskId) li.classList.add("golden");
-
-  const cb = document.createElement("input");
-  cb.type = "checkbox";
-  cb.checked = todo.done;
-  cb.addEventListener("change", () => {
-    toggleTodoDone(todos[origIndex], cb.checked);
-  });
-
-  const content = document.createElement("div");
-  content.className = "task-content";
-
-  const titleRow = document.createElement("div");
-  titleRow.className = "task-title-row";
-
-  const titleSpan = document.createElement("span");
-  titleSpan.className = "task-text";
-  titleSpan.textContent = todo.title;
-  titleRow.appendChild(titleSpan);
-
+/* The pill row beside a task's title: priority, project, recurrence, subtask
+   progress, due date, and — in the completed list — when it was finished. Returns
+   the container; the caller decides whether it's worth appending. */
+function buildTaskBadges(todo, showCompleted) {
   const badges = document.createElement("div");
   badges.className = "task-badges";
+  const add = (cls, text) => {
+    const el = document.createElement("span");
+    el.className = cls;
+    el.textContent = text;
+    badges.appendChild(el);
+    return el;
+  };
 
-  if (todo.priority && todo.priority !== "none") {
-    const pBadge = document.createElement("span");
-    pBadge.className = `priority-badge ${todo.priority}`;
-    pBadge.textContent = todo.priority;
-    badges.appendChild(pBadge);
-  }
+  if (todo.priority && todo.priority !== "none")
+    add(`priority-badge ${todo.priority}`, todo.priority);
+  if (todo.project) add("project-badge", todo.project);
+  if (todo.frequency && todo.frequency !== "none")
+    add("freq-badge", "🔄 " + todo.frequency);
 
-  if (todo.project) {
-    const projBadge = document.createElement("span");
-    projBadge.className = "project-badge";
-    projBadge.textContent = todo.project;
-    badges.appendChild(projBadge);
-  }
-
-  if (todo.frequency && todo.frequency !== "none") {
-    const freqBadge = document.createElement("span");
-    freqBadge.className = "freq-badge";
-    freqBadge.textContent = "🔄 " + todo.frequency;
-    badges.appendChild(freqBadge);
-  }
-
-  const subProgress = subtaskProgress(todo);
-  if (subProgress.total > 0) {
-    const stBadge = document.createElement("button");
-    const allDone = subProgress.done === subProgress.total;
-    stBadge.className = "subtask-badge" + (allDone ? " complete" : "");
-    stBadge.textContent = `☑ ${subProgress.done}/${subProgress.total}`;
-    stBadge.setAttribute("aria-label", "Show subtasks");
-    stBadge.setAttribute(
-      "aria-expanded",
-      expandedSubtasks.has(todo.id) ? "true" : "false",
-    );
-    stBadge.addEventListener("click", (e) => {
+  // The only interactive badge: a shortcut to the same panel the ☑ button opens.
+  const { done, total } = subtaskProgress(todo);
+  if (total > 0) {
+    const st = document.createElement("button");
+    st.className = "subtask-badge" + (done === total ? " complete" : "");
+    st.textContent = `☑ ${done}/${total}`;
+    st.setAttribute("aria-label", "Show subtasks");
+    st.setAttribute("aria-expanded", expandedSubtasks.has(todo.id) ? "true" : "false");
+    st.addEventListener("click", (e) => {
       e.stopPropagation();
       toggleSubtaskPanel(todo.id);
     });
-    badges.appendChild(stBadge);
+    badges.appendChild(st);
   }
 
   const dueInfo = parseDueInfo(todo);
-  if (dueInfo) {
-    const badge = document.createElement("span");
-    badge.className =
-      "due-badge" + (dueInfo.overdue && !todo.done ? " overdue" : "");
-    badge.textContent = "📅 " + dueInfo.label;
-    badges.appendChild(badge);
-  }
+  if (dueInfo)
+    add(
+      "due-badge" + (dueInfo.overdue && !todo.done ? " overdue" : ""),
+      "📅 " + dueInfo.label,
+    );
 
-  if (showCompleted && todo.completedAt) {
-    const completedBadge = document.createElement("span");
-    completedBadge.className = "completed-badge";
-    const d = new Date(todo.completedAt);
-    completedBadge.textContent = "✓ " + d.toLocaleDateString();
-    badges.appendChild(completedBadge);
-  }
+  if (showCompleted && todo.completedAt)
+    add("completed-badge", "✓ " + new Date(todo.completedAt).toLocaleDateString());
 
-  if (badges.children.length > 0) {
-    titleRow.appendChild(badges);
-  }
+  return badges;
+}
 
-  content.appendChild(titleRow);
-
-  if (todo.tags && todo.tags.length > 0) {
-    const tagsRow = document.createElement("div");
-    tagsRow.className = "task-tags-row";
-    tagsRow.innerHTML = renderTagsList(todo.tags, tagColors);
-    content.appendChild(tagsRow);
-  }
-
-  if (todo.description) {
-    const desc = document.createElement("div");
-    desc.className = "task-desc";
-    desc.textContent = todo.description;
-    content.appendChild(desc);
-  }
-
-  if (expandedSubtasks.has(todo.id)) {
-    content.appendChild(buildSubtaskPanel(todo));
-  }
-
+/* The control strip under a task: golden star, focus, subtask toggle, pomodoro
+   count, edit and delete. Both destructive-ish actions (switching golden task or
+   focus) confirm first, and delete offers an undo that restores the task to its
+   original index along with its golden/active status. */
+function buildTaskActions(todo, origIndex) {
   const actionsRow = document.createElement("div");
   actionsRow.className = "task-actions-row";
 
@@ -1347,7 +1289,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     "subtask-toggle-btn" + (expandedSubtasks.has(todo.id) ? " active" : "");
   subBtn.textContent = "☑";
   subBtn.setAttribute("aria-label", "Subtasks");
-  subBtn.title = subProgress.total > 0 ? "Subtasks" : "Add subtasks";
+  subBtn.title = subtaskProgress(todo).total > 0 ? "Subtasks" : "Add subtasks";
   subBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleSubtaskPanel(todo.id);
@@ -1397,8 +1339,60 @@ function renderTodoItem(todo, tagColors, showCompleted) {
     renderTodos();
   });
   actionsRow.appendChild(del);
+  return actionsRow;
+}
 
-  content.appendChild(actionsRow);
+function renderTodoItem(todo, tagColors, showCompleted) {
+  const origIndex = todos.indexOf(todo);
+  const li = document.createElement("li");
+  if (todo.done) li.classList.add("completed");
+  if (!todo.done && todo.id === goldenTaskId) li.classList.add("golden");
+
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = todo.done;
+  cb.addEventListener("change", () => {
+    toggleTodoDone(todos[origIndex], cb.checked);
+  });
+
+  const content = document.createElement("div");
+  content.className = "task-content";
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "task-title-row";
+
+  const titleSpan = document.createElement("span");
+  titleSpan.className = "task-text";
+  titleSpan.textContent = todo.title;
+  titleRow.appendChild(titleSpan);
+
+  const badges = buildTaskBadges(todo, showCompleted);
+
+  if (badges.children.length > 0) {
+    titleRow.appendChild(badges);
+  }
+
+  content.appendChild(titleRow);
+
+  if (todo.tags && todo.tags.length > 0) {
+    const tagsRow = document.createElement("div");
+    tagsRow.className = "task-tags-row";
+    tagsRow.innerHTML = renderTagsList(todo.tags, tagColors);
+    content.appendChild(tagsRow);
+  }
+
+  if (todo.description) {
+    const desc = document.createElement("div");
+    desc.className = "task-desc";
+    desc.textContent = todo.description;
+    content.appendChild(desc);
+  }
+
+  if (expandedSubtasks.has(todo.id)) {
+    content.appendChild(buildSubtaskPanel(todo));
+  }
+
+  content.appendChild(buildTaskActions(todo, origIndex));
 
   const grip = document.createElement("span");
   grip.className = "drag-handle";
@@ -1525,8 +1519,7 @@ function buildSubtaskPanel(todo) {
 
 function getDueGroup(todo) {
   if (!todo.dueDate) return "none";
-  const p = todo.dueDate.split("-");
-  const due = new Date(+p[0], +p[1] - 1, +p[2]);
+  const due = calParseKey(todo.dueDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
@@ -1536,6 +1529,42 @@ function getDueGroup(todo) {
   if (diff === 1) return "tomorrow";
   if (diff <= 7) return "week";
   return "later";
+}
+
+/* Orders the pending list in place for the active sort. The golden task is pinned
+   to the top in every mode, which is why each comparator opens the same way. */
+const TASK_PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+
+function sortPendingTasks(pending) {
+  const goldenFirst = (a, b) => {
+    if (a.id === goldenTaskId) return -1;
+    if (b.id === goldenTaskId) return 1;
+    return 0;
+  };
+  const then = (cmp) => (a, b) => goldenFirst(a, b) || cmp(a, b);
+
+  if (sortBy === "date") {
+    pending.sort(
+      then((a, b) => {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1; // undated sinks below anything with a date
+        if (!b.dueDate) return -1;
+        return a.dueDate < b.dueDate ? -1 : 1;
+      }),
+    );
+  } else if (sortBy === "priority") {
+    pending.sort(
+      then(
+        (a, b) =>
+          (TASK_PRIORITY_ORDER[a.priority] ?? 4) -
+          (TASK_PRIORITY_ORDER[b.priority] ?? 4),
+      ),
+    );
+  } else if (sortBy === "title") {
+    pending.sort(then((a, b) => a.title.localeCompare(b.title)));
+  } else {
+    pending.sort(goldenFirst); // "custom" — manual drag order, golden still first
+  }
 }
 
 function renderTodos() {
@@ -1555,97 +1584,10 @@ function renderTodos() {
 
   const tagColors = getTagColorMap();
 
-  const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
-
-  if (sortBy === "custom") {
-    pending.sort((a, b) => {
-      if (a.id === goldenTaskId) return -1;
-      if (b.id === goldenTaskId) return 1;
-      return 0;
-    });
-  } else if (sortBy === "date") {
-    pending.sort((a, b) => {
-      if (a.id === goldenTaskId) return -1;
-      if (b.id === goldenTaskId) return 1;
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return a.dueDate < b.dueDate ? -1 : 1;
-    });
-  } else if (sortBy === "priority") {
-    pending.sort((a, b) => {
-      if (a.id === goldenTaskId) return -1;
-      if (b.id === goldenTaskId) return 1;
-      const pa = priorityOrder[a.priority] ?? 4;
-      const pb = priorityOrder[b.priority] ?? 4;
-      return pa - pb;
-    });
-  } else if (sortBy === "title") {
-    pending.sort((a, b) => {
-      if (a.id === goldenTaskId) return -1;
-      if (b.id === goldenTaskId) return 1;
-      return a.title.localeCompare(b.title);
-    });
-  }
-
-  const canDrag = !tagFilter && !q && sortBy === "custom";
+  sortPendingTasks(pending);
 
   todoList.innerHTML = "";
-
-  // stat bar
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  let overdueCount = 0,
-    todayCount = 0;
-  pending.forEach((t) => {
-    if (!t.dueDate) return;
-    const p = t.dueDate.split("-");
-    const due = new Date(+p[0], +p[1] - 1, +p[2]);
-    due.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((due - now) / 86400000);
-    if (diff < 0) overdueCount++;
-    if (diff === 0) todayCount++;
-  });
-  const statHtml = [];
-  if (overdueCount > 0)
-    statHtml.push(
-      `<span class="task-stat overdue" data-filter="overdue">⚠ ${overdueCount} overdue</span>`,
-    );
-  if (todayCount > 0)
-    statHtml.push(
-      `<span class="task-stat" data-filter="today">📅 ${todayCount} today</span>`,
-    );
-  statHtml.push(
-    `<span class="task-stat" data-filter="all">${pending.length} total</span>`,
-  );
-  if (taskStatBar) {
-    taskStatBar.innerHTML = statHtml.join("");
-    taskStatBar.querySelectorAll(".task-stat").forEach((el) => {
-      el.addEventListener("click", () => {
-        const f = el.dataset.filter;
-        if (f === "overdue") {
-          const now2 = new Date();
-          now2.setHours(0, 0, 0, 0);
-          const ov = pending.filter((t) => {
-            if (!t.dueDate) return false;
-            const p2 = t.dueDate.split("-");
-            const d2 = new Date(+p2[0], +p2[1] - 1, +p2[2]);
-            d2.setHours(0, 0, 0, 0);
-            return d2 < now2;
-          });
-          todoList.innerHTML = "";
-          ov.forEach((t) => renderTodoItem(t, tagColors, false));
-          return;
-        }
-        renderTodos();
-      });
-    });
-  }
-
-  const remaining = pending.length;
-  taskCount.textContent = remaining;
-
-  let needsSeparator = false;
+  taskCount.textContent = pending.length;
 
   function addSection(label, items, cls) {
     if (items.length === 0) return;
@@ -2422,8 +2364,8 @@ function saveHistory(history) {
 const statsViews = document.getElementById("statsViews");
 const viewTabs = document.getElementById("viewTabs");
 let currentView = "calendar";
-let calendarDate = new Date();
-calendarDate.setDate(1);
+let heatmapMonth = new Date();
+heatmapMonth.setDate(1);
 let trendsRange = 30;
 let _trendsMeta = null;
 
@@ -2493,7 +2435,7 @@ function renderStats() {
           ? "Day of focus"
           : `${streak} day streak`;
   // Stats views
-  if (currentView === "calendar") statsViews.innerHTML = renderCalendarHTML();
+  if (currentView === "calendar") statsViews.innerHTML = renderHeatmapHTML();
   else if (currentView === "hours") statsViews.innerHTML = renderHoursHTML();
   else if (currentView === "projects")
     statsViews.innerHTML = renderProjectsHTML();
@@ -2507,10 +2449,10 @@ function renderStats() {
       switchTab("tasks");
     });
   });
-  statsViews.querySelectorAll("[data-cal-nav]").forEach((btn) => {
+  statsViews.querySelectorAll("[data-heatmap-nav]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      calendarDate.setMonth(
-        calendarDate.getMonth() + (btn.dataset.calNav === "next" ? 1 : -1),
+      heatmapMonth.setMonth(
+        heatmapMonth.getMonth() + (btn.dataset.heatmapNav === "next" ? 1 : -1),
       );
       renderStats();
     });
@@ -2524,23 +2466,24 @@ function renderStats() {
   if (currentView === "trends") setupTrendsInteraction();
 }
 
-/* ===== Calendar ===== */
+/* ===== Stats: contribution heatmap =====
+   Not the Calendar tab — that is further down, under "Calendar tab". */
 function getGoldenDays(year, month) {
   const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
   const golden = {};
   todos.forEach((t) => {
     if (t.wasGolden && t.completedAt) {
       const d = new Date(t.completedAt);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const dateStr = localDateKey(d);
       if (dateStr.startsWith(prefix)) golden[dateStr] = true;
     }
   });
   return golden;
 }
 
-function renderCalendarHTML() {
-  const year = calendarDate.getFullYear();
-  const month = calendarDate.getMonth();
+function renderHeatmapHTML() {
+  const year = heatmapMonth.getFullYear();
+  const month = heatmapMonth.getMonth();
   const history = loadHistory();
 
   const firstDay = new Date(year, month, 1).getDay();
@@ -2571,12 +2514,12 @@ function renderCalendarHTML() {
   ];
 
   let html = `
-    <div class="calendar-nav">
-      <button data-cal-nav="prev">←</button>
+    <div class="heatmap-nav">
+      <button data-heatmap-nav="prev">←</button>
       <span>${monthNames[month]} ${year}</span>
-      <button data-cal-nav="next">→</button>
+      <button data-heatmap-nav="next">→</button>
     </div>
-    <div class="calendar-grid">
+    <div class="heatmap-grid">
       <div class="day-header">Sun</div><div class="day-header">Mon</div><div class="day-header">Tue</div>
       <div class="day-header">Wed</div><div class="day-header">Thu</div><div class="day-header">Fri</div>
       <div class="day-header">Sat</div>
@@ -2602,7 +2545,7 @@ function renderCalendarHTML() {
   }
 
   html += "</div>";
-  html += `<p class="calendar-legend">🍅 = pomodoros completed that day</p>`;
+  html += `<p class="heatmap-legend">🍅 = pomodoros completed that day</p>`;
   return html;
 }
 
@@ -2836,10 +2779,13 @@ function localDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function renderTrendsHTML() {
-  const days = trendsRange;
+/* Buckets the last `days` days of pomodoro sessions and task completions into
+   the three stacked series the chart draws. Returns the day list alongside them so
+   the axis labels and the tooltip agree on the same dates. */
+function buildTrendSeries(days) {
+  // Loaded here, not passed in: without its own binding, `history` silently
+  // resolved to window.history and failed deep inside the bucketing loop.
   const history = loadHistory();
-
   // Build an ordered list of the last `days` day-buckets ending today.
   const today = new Date();
   const keys = [];
@@ -2898,6 +2844,33 @@ function renderTrendsHTML() {
       color: "var(--trend-3)",
     },
   ];
+  return { keys, dates, series };
+}
+
+/* The same numbers as a real table, in a <details>. This is what makes the chart
+   usable with a screen reader, so it is not optional decoration. */
+function trendsTableHtml(days, dates, series, stackTotals) {
+  const [pomos, tasksDone, startedDone] = series.map((s) => s.data);
+  // Accessible data table
+  let table =
+    '<details class="trends-table-details"><summary>View data table</summary><div class="trends-table-scroll"><table class="trends-table"><thead><tr><th>Date</th>';
+  series.forEach((s) => {
+    table += `<th>${s.short}</th>`;
+  });
+  table += "<th>Stack</th></tr></thead><tbody>";
+  for (let i = 0; i < days; i++) {
+    const d = dates[i];
+    table += `<tr><td>${d.getMonth() + 1}/${d.getDate()}</td><td>${pomos[i]}</td><td>${tasksDone[i]}</td><td>${startedDone[i]}</td><td>${stackTotals[i]}</td></tr>`;
+  }
+  table += "</tbody></table></div></details>";
+
+  return table;
+}
+
+function renderTrendsHTML() {
+  const days = trendsRange;
+
+  const { keys, dates, series } = buildTrendSeries(days);
 
   const ranges = [7, 30, 90];
   const rangeBtns = ranges
@@ -2920,9 +2893,7 @@ function renderTrendsHTML() {
     </div>`;
 
   const grandTotal =
-    pomos.reduce((a, b) => a + b, 0) +
-    tasksDone.reduce((a, b) => a + b, 0) +
-    startedDone.reduce((a, b) => a + b, 0);
+    series.reduce((sum, s) => sum + s.data.reduce((a, b) => a + b, 0), 0);
   if (grandTotal === 0) {
     _trendsMeta = null;
     return (
@@ -3017,19 +2988,7 @@ function renderTrendsHTML() {
       ${bars}
     </svg>`;
 
-  // Accessible data table
-  let table =
-    '<details class="trends-table-details"><summary>View data table</summary><div class="trends-table-scroll"><table class="trends-table"><thead><tr><th>Date</th>';
-  series.forEach((s) => {
-    table += `<th>${s.short}</th>`;
-  });
-  table += "<th>Stack</th></tr></thead><tbody>";
-  for (let i = 0; i < days; i++) {
-    const d = dates[i];
-    table += `<tr><td>${d.getMonth() + 1}/${d.getDate()}</td><td>${pomos[i]}</td><td>${tasksDone[i]}</td><td>${startedDone[i]}</td><td>${stackTotals[i]}</td></tr>`;
-  }
-  table += "</tbody></table></div></details>";
-
+  const table = trendsTableHtml(days, dates, series, stackTotals);
   _trendsMeta = {
     W,
     padL,
@@ -3221,6 +3180,160 @@ function formatMonthLabel(key) {
    months you were browsing isn't worth persisting. */
 const expandedArchive = new Set();
 
+/* The Archive section: one collapsed row per finished month, each expanding to
+   what was planned, what got ticked off, and what else happened that month.
+   Returns HTML rather than appending, so the caller owns the document order. */
+function goalArchiveHtml(pastKeys, allGoals) {
+  let html = "";
+  // Archive — every month before this one, newest first, each expandable to what
+  // was planned and what actually got done.
+  const history = loadHistory();
+  html += '<section class="mb-6">';
+  html += '<div class="flex items-center gap-4 mb-5">';
+  html +=
+    '<h3 class="font-display font-semibold text-on-surface-variant" style="font-size:16px;line-height:24px">Archive</h3>';
+  html += '<div class="h-px flex-1 bg-outline-variant opacity-30"></div>';
+  html += "</div>";
+  if (pastKeys.length > 0) {
+    html += '<div class="qg-archive">';
+    pastKeys.forEach((k) => {
+      const items = allGoals[k] || [];
+      const doneCount = items.filter((i) => i.done).length;
+      const totalCount = items.length;
+      const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+      const allDone = totalCount > 0 && doneCount === totalCount;
+      const open = expandedArchive.has(k);
+      // What else happened that month, from the task list and session history.
+      const tasksDone = todos.filter(
+        (t) =>
+          t.done &&
+          t.completedAt &&
+          localDateKey(new Date(t.completedAt)).startsWith(k),
+      ).length;
+      const pomos = history.filter((s) => s.date && s.date.startsWith(k)).length;
+
+      const itemsHtml =
+        totalCount === 0
+          ? '<li class="qg-archive-empty">No goals were set that month.</li>'
+          : items
+              .map(
+                (item) => `
+            <li class="qg-archive-item ${item.done ? "done" : "open"}">
+              <span class="material-symbols-outlined">${item.done ? "check_circle" : "radio_button_unchecked"}</span>
+              <span class="qg-archive-item-text">${escapeHtml(item.text)}</span>
+            </li>`,
+              )
+              .join("");
+
+      html += `
+        <div class="qg-archive-card${open ? " open" : ""}">
+          <button class="qg-archive-head" data-archive="${k}" aria-expanded="${open}" aria-controls="qg-archive-body-${k}">
+            <span class="material-symbols-outlined qg-archive-icon ${allDone ? "all-done" : ""}">${allDone ? "verified" : "history"}</span>
+            <span class="qg-archive-title">${escapeHtml(formatMonthLabel(k))}</span>
+            <span class="qg-archive-meta">${totalCount > 0 ? `${doneCount}/${totalCount} goals · ${pct}%` : "no goals"}</span>
+            <span class="material-symbols-outlined qg-archive-chevron">expand_more</span>
+          </button>
+          <div class="qg-archive-body" id="qg-archive-body-${k}">
+            ${totalCount > 0 ? `<div class="qg-archive-bar"><div class="qg-archive-bar-fill" style="width:${pct}%"></div></div>` : ""}
+            <ul class="qg-archive-list">${itemsHtml}</ul>
+            <p class="qg-archive-stats">
+              <span><strong>${tasksDone}</strong> task${tasksDone === 1 ? "" : "s"} completed</span>
+              <span><strong>${pomos}</strong> pomodoro${pomos === 1 ? "" : "s"}</span>
+            </p>
+          </div>
+        </div>`;
+    });
+    html += "</div>";
+  } else {
+    html +=
+      '<p class="text-xs text-on-surface-variant opacity-50">Nothing archived yet. Once this month is behind you it will show up here.</p>';
+  }
+  html += "</section>";
+  return html;
+}
+
+/* Rebinds every control in the freshly-rendered goals markup. Called after each
+   render because the whole section is replaced wholesale. */
+function bindQuarterlyGoalHandlers() {
+  document
+    .querySelectorAll("#quarterlyGoalsContent .stitch-checkbox")
+    .forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const key = cb.dataset.key;
+        const idx = parseInt(cb.dataset.idx);
+        const goals = loadQuarterlyGoals();
+        if (goals[key] && goals[key][idx]) {
+          goals[key][idx].done = cb.checked;
+          saveQuarterlyGoals(goals);
+          renderQuarterlyGoals();
+        }
+      });
+    });
+
+  document
+    .querySelectorAll("#quarterlyGoalsContent .qg-item-del")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.key;
+        const idx = parseInt(btn.dataset.idx);
+        const goals = loadQuarterlyGoals();
+        if (goals[key]) {
+          goals[key].splice(idx, 1);
+          if (goals[key].length === 0) delete goals[key];
+          saveQuarterlyGoals(goals);
+          renderQuarterlyGoals();
+        }
+      });
+    });
+
+  document
+    .querySelectorAll("#quarterlyGoalsContent [data-archive]")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.archive;
+        if (expandedArchive.has(key)) expandedArchive.delete(key);
+        else expandedArchive.add(key);
+        renderQuarterlyGoals();
+      });
+    });
+
+  document
+    .querySelectorAll("#quarterlyGoalsContent .qg-add-btn")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.key;
+        const input = btn.parentElement.querySelector("input");
+        const text = input.value.trim();
+        if (!text) return;
+        const goals = loadQuarterlyGoals();
+        if (!goals[key]) goals[key] = [];
+        goals[key].push({ id: crypto.randomUUID(), text, done: false });
+        saveQuarterlyGoals(goals);
+        renderQuarterlyGoals();
+      });
+    });
+
+  document
+    .querySelectorAll(
+      "#quarterlyGoalsContent .qg-add-row input, #quarterlyGoalsContent input[data-key]",
+    )
+    .forEach((input) => {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const key = input.dataset.key;
+          const text = input.value.trim();
+          if (!text) return;
+          const goals = loadQuarterlyGoals();
+          if (!goals[key]) goals[key] = [];
+          goals[key].push({ id: crypto.randomUUID(), text, done: false });
+          saveQuarterlyGoals(goals);
+          renderQuarterlyGoals();
+        }
+      });
+    });
+}
+
 function renderQuarterlyGoals() {
   const now = new Date();
   const currentKey = getMonthKey(now);
@@ -3372,152 +3485,11 @@ function renderQuarterlyGoals() {
       `${totalDone}/${totalItems} goals completed across these three months</div>`;
   }
 
-  // Archive — every month before this one, newest first, each expandable to what
-  // was planned and what actually got done.
-  const history = loadHistory();
-  html += '<section class="mb-6">';
-  html += '<div class="flex items-center gap-4 mb-5">';
-  html +=
-    '<h3 class="font-display font-semibold text-on-surface-variant" style="font-size:16px;line-height:24px">Archive</h3>';
-  html += '<div class="h-px flex-1 bg-outline-variant opacity-30"></div>';
-  html += "</div>";
-  if (pastKeys.length > 0) {
-    html += '<div class="qg-archive">';
-    pastKeys.forEach((k) => {
-      const items = allGoals[k] || [];
-      const doneCount = items.filter((i) => i.done).length;
-      const totalCount = items.length;
-      const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-      const allDone = totalCount > 0 && doneCount === totalCount;
-      const open = expandedArchive.has(k);
-      // What else happened that month, from the task list and session history.
-      const tasksDone = todos.filter(
-        (t) =>
-          t.done &&
-          t.completedAt &&
-          localDateKey(new Date(t.completedAt)).startsWith(k),
-      ).length;
-      const pomos = history.filter((s) => s.date && s.date.startsWith(k)).length;
-
-      const itemsHtml =
-        totalCount === 0
-          ? '<li class="qg-archive-empty">No goals were set that month.</li>'
-          : items
-              .map(
-                (item) => `
-            <li class="qg-archive-item ${item.done ? "done" : "open"}">
-              <span class="material-symbols-outlined">${item.done ? "check_circle" : "radio_button_unchecked"}</span>
-              <span class="qg-archive-item-text">${escapeHtml(item.text)}</span>
-            </li>`,
-              )
-              .join("");
-
-      html += `
-        <div class="qg-archive-card${open ? " open" : ""}">
-          <button class="qg-archive-head" data-archive="${k}" aria-expanded="${open}" aria-controls="qg-archive-body-${k}">
-            <span class="material-symbols-outlined qg-archive-icon ${allDone ? "all-done" : ""}">${allDone ? "verified" : "history"}</span>
-            <span class="qg-archive-title">${escapeHtml(formatMonthLabel(k))}</span>
-            <span class="qg-archive-meta">${totalCount > 0 ? `${doneCount}/${totalCount} goals · ${pct}%` : "no goals"}</span>
-            <span class="material-symbols-outlined qg-archive-chevron">expand_more</span>
-          </button>
-          <div class="qg-archive-body" id="qg-archive-body-${k}">
-            ${totalCount > 0 ? `<div class="qg-archive-bar"><div class="qg-archive-bar-fill" style="width:${pct}%"></div></div>` : ""}
-            <ul class="qg-archive-list">${itemsHtml}</ul>
-            <p class="qg-archive-stats">
-              <span><strong>${tasksDone}</strong> task${tasksDone === 1 ? "" : "s"} completed</span>
-              <span><strong>${pomos}</strong> pomodoro${pomos === 1 ? "" : "s"}</span>
-            </p>
-          </div>
-        </div>`;
-    });
-    html += "</div>";
-  } else {
-    html +=
-      '<p class="text-xs text-on-surface-variant opacity-50">Nothing archived yet. Once this month is behind you it will show up here.</p>';
-  }
-  html += "</section>";
-
+  html += goalArchiveHtml(pastKeys, allGoals);
   document.getElementById("quarterlyGoalsContent").innerHTML = html;
-
-  // Event handlers
-  document
-    .querySelectorAll("#quarterlyGoalsContent .stitch-checkbox")
-    .forEach((cb) => {
-      cb.addEventListener("change", () => {
-        const key = cb.dataset.key;
-        const idx = parseInt(cb.dataset.idx);
-        const goals = loadQuarterlyGoals();
-        if (goals[key] && goals[key][idx]) {
-          goals[key][idx].done = cb.checked;
-          saveQuarterlyGoals(goals);
-          renderQuarterlyGoals();
-        }
-      });
-    });
-
-  document
-    .querySelectorAll("#quarterlyGoalsContent .qg-item-del")
-    .forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const key = btn.dataset.key;
-        const idx = parseInt(btn.dataset.idx);
-        const goals = loadQuarterlyGoals();
-        if (goals[key]) {
-          goals[key].splice(idx, 1);
-          if (goals[key].length === 0) delete goals[key];
-          saveQuarterlyGoals(goals);
-          renderQuarterlyGoals();
-        }
-      });
-    });
-
-  document
-    .querySelectorAll("#quarterlyGoalsContent [data-archive]")
-    .forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const key = btn.dataset.archive;
-        if (expandedArchive.has(key)) expandedArchive.delete(key);
-        else expandedArchive.add(key);
-        renderQuarterlyGoals();
-      });
-    });
-
-  document
-    .querySelectorAll("#quarterlyGoalsContent .qg-add-btn")
-    .forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const key = btn.dataset.key;
-        const input = btn.parentElement.querySelector("input");
-        const text = input.value.trim();
-        if (!text) return;
-        const goals = loadQuarterlyGoals();
-        if (!goals[key]) goals[key] = [];
-        goals[key].push({ id: crypto.randomUUID(), text, done: false });
-        saveQuarterlyGoals(goals);
-        renderQuarterlyGoals();
-      });
-    });
-
-  document
-    .querySelectorAll(
-      "#quarterlyGoalsContent .qg-add-row input, #quarterlyGoalsContent input[data-key]",
-    )
-    .forEach((input) => {
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          const key = input.dataset.key;
-          const text = input.value.trim();
-          if (!text) return;
-          const goals = loadQuarterlyGoals();
-          if (!goals[key]) goals[key] = [];
-          goals[key].push({ id: crypto.randomUUID(), text, done: false });
-          saveQuarterlyGoals(goals);
-          renderQuarterlyGoals();
-        }
-      });
-    });
+  bindQuarterlyGoalHandlers();
 }
+
 
 /* ===== App Version =====
    version.json is the single source of truth. major/minor are hand-edited;
@@ -4191,7 +4163,7 @@ function setupDashDragDrop(container) {
   container.addEventListener("drop", onDrop);
 }
 
-/* ===== Calendar =====
+/* ===== Calendar tab =====
    A task owns its time blocks (`schedule: [{ id, date, start, end }]`), and the
    calendar is nothing but a view over the flattened set of them. Storing blocks
    on the task rather than per-day means deleting or completing a task can't leave

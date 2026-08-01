@@ -126,8 +126,6 @@
 .dark .text-on-primary { color: var(--on-primary) !important; }
 .dark .text-on-primary-container { color: var(--on-primary-container) !important; }
 .dark .text-on-secondary-container { color: var(--on-secondary-container) !important; }
-.dark .text-on-error { color: var(--on-error) !important; }
-.dark .text-on-background { color: var(--on-background) !important; }
 .dark .border-surface-container { border-color: var(--surface-container) !important; }
 .dark .border-outline-variant { border-color: var(--outline-variant) !important; }
 .dark .border-primary { border-color: var(--primary) !important; }
@@ -135,8 +133,6 @@
 .dark .bg-primary-container\/10 { background: color-mix(in srgb, var(--primary-container) 10%, transparent) !important; }
 .dark .bg-secondary-container\/30 { background: color-mix(in srgb, var(--secondary-container) 30%, transparent) !important; }
 .dark .bg-surface-container\/80 { background: color-mix(in srgb, var(--surface-container) 80%, transparent) !important; }
-.dark .bg-on-primary-container { background: var(--on-primary-container) !important; }
-.dark .bg-on-primary-container\/20 { background: color-mix(in srgb, var(--on-primary-container) 20%, transparent) !important; }
 .dark .bg-tertiary-fixed\/15 { background: color-mix(in srgb, var(--tertiary-fixed) 15%, transparent) !important; }
 .dark .bg-surface-container-low\/80 { background: color-mix(in srgb, var(--surface-container-low) 80%, transparent) !important; }
 
@@ -275,9 +271,12 @@ section[data-tab].tab-hidden { display: none !important; }
 
 /* ===== POMODORO ===== */
 #pomodoroSection { min-height: calc(100vh - 200px); }
-.progress-ring { transform: rotate(-90deg); }
-.progress-ring circle { transition: stroke-dashoffset 0.5s ease-in-out; }
-.progress-ring .fg { transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.3s ease; }
+/* These target the class the markup actually carries. They used to say
+   `.progress-ring`, which nothing has had for a long time — so the ring started
+   at 3 o'clock instead of 12 and jumped a step per second instead of sweeping. */
+.timer-ring { transform: rotate(-90deg); }
+.timer-ring circle { transition: stroke-dashoffset 0.5s ease-in-out; }
+.timer-ring .fg { transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.3s ease; }
 .pulse-slow { animation: pulse-ring 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 @keyframes pulse-ring {
   0%, 100% { opacity: 0.1; transform: scale(1); }
@@ -413,7 +412,6 @@ section[data-tab].tab-hidden { display: none !important; }
 
 /* Est. pomo badge */
 .task-pomo-count { font-size: 11px; color: var(--on-surface-variant); white-space: nowrap; display: flex; align-items: center; gap: 2px; }
-.est-pomo-badge { font-size: 11px; color: var(--outline); white-space: nowrap; }
 .est-pomo-done { color: var(--secondary-text); font-weight: 700; }
 .est-pomo-sep { color: var(--outline); }
 
@@ -666,22 +664,6 @@ input.subtask-input:focus {
 #tagCloud .tag-pill.active { border-color: currentColor; font-weight: 700; }
 #tagCloud .tag-pill .count { margin-left: 4px; font-size: 10px; opacity: 0.6; font-family: 'JetBrains Mono', monospace; }
 
-/* ===== STAT BAR ===== */
-.task-stat {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: 600;
-  background: var(--surface-container);
-  color: var(--on-surface-variant);
-  font-family: 'JetBrains Mono', monospace;
-}
-.task-stat:hover { background: var(--surface-container-high); }
-.task-stat.active { background: var(--primary-container); color: var(--on-primary-container); }
-.task-stat.overdue { color: var(--error); }
-
 /* ===== SORT CONTROLS ===== */
 .sort-btn {
   background: transparent;
@@ -781,9 +763,10 @@ input.subtask-input:focus {
 .view-tabs button.active { color: var(--primary-text); font-weight: 700; border-bottom: 2px solid var(--primary); }
 .view-tabs button:hover:not(.active) { color: var(--on-surface); }
 
-/* ===== CALENDAR ===== */
-.calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.calendar-nav button {
+/* ===== STATS: CONTRIBUTION HEATMAP =====
+   Distinct from the Calendar tab, whose rules are namespaced .cal-*. */
+.heatmap-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.heatmap-nav button {
   background: var(--surface-container);
   border: none;
   color: var(--on-surface);
@@ -794,20 +777,20 @@ input.subtask-input:focus {
   transition: background 0.2s;
   font-weight: 600;
 }
-.calendar-nav button:hover { background: var(--surface-container-high); }
-.calendar-nav span { font-weight: 700; font-size: 16px; }
+.heatmap-nav button:hover { background: var(--surface-container-high); }
+.heatmap-nav span { font-weight: 700; font-size: 16px; }
 
 /* Sized to the chart column it now sits in. The cell cap matters as much as the
    container one: with cells pinned at 84px the grid stopped growing at ~620px
    however wide the page got. */
-.calendar-grid {
+.heatmap-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   max-width: 840px;
   margin: 0 auto;
 }
-.calendar-grid .day-header {
+.heatmap-grid .day-header {
   text-align: center;
   font-size: 10px;
   color: var(--on-surface-variant);
@@ -817,7 +800,7 @@ input.subtask-input:focus {
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
 }
-.calendar-grid .day-cell {
+.heatmap-grid .day-cell {
   aspect-ratio: 1;
   max-width: 112px;
   display: flex;
@@ -829,13 +812,13 @@ input.subtask-input:focus {
   position: relative;
   transition: transform 0.2s;
 }
-.calendar-grid .day-cell:hover { transform: scale(1.1); z-index: 2; }
-.calendar-grid .day-cell.empty { background: none; }
-.calendar-grid .day-cell .day-num { font-weight: 600; line-height: 1.1; }
-.calendar-grid .day-cell .day-star { font-size: 11px; line-height: 1; }
+.heatmap-grid .day-cell:hover { transform: scale(1.1); z-index: 2; }
+.heatmap-grid .day-cell.empty { background: none; }
+.heatmap-grid .day-cell .day-num { font-weight: 600; line-height: 1.1; }
+.heatmap-grid .day-cell .day-star { font-size: 11px; line-height: 1; }
 /* Pomodoros completed that day — inherit the cell's text colour so it stays
    legible on both empty and filled (coloured) cells. */
-.calendar-grid .day-cell .day-count {
+.heatmap-grid .day-cell .day-count {
   display: inline-flex;
   align-items: center;
   gap: 1px;
@@ -847,8 +830,8 @@ input.subtask-input:focus {
   line-height: 1;
   font-family: 'JetBrains Mono', monospace;
 }
-.calendar-grid .day-cell.level-0 .day-count { color: var(--primary-text); opacity: 1; }
-.calendar-legend {
+.heatmap-grid .day-cell.level-0 .day-count { color: var(--primary-text); opacity: 1; }
+.heatmap-legend {
   text-align: center;
   font-size: 11px;
   color: var(--on-surface-variant);
@@ -857,19 +840,19 @@ input.subtask-input:focus {
   font-family: 'JetBrains Mono', monospace;
 }
 
-.calendar-grid .day-cell.level-0 { background: var(--surface-container); }
-.calendar-grid .day-cell.level-1 { background: #ffe0e0; color: #410006; }
-.calendar-grid .day-cell.level-2 { background: #ffc0c0; color: #410006; }
-.calendar-grid .day-cell.level-3 { background: #ff6b6b; color: #ffffff; }
-.calendar-grid .day-cell.level-4 { background: var(--primary); color: var(--on-primary); }
-.calendar-grid .day-cell.level-5 { background: #6d0010; color: #ffffff; }
+.heatmap-grid .day-cell.level-0 { background: var(--surface-container); }
+.heatmap-grid .day-cell.level-1 { background: #ffe0e0; color: #410006; }
+.heatmap-grid .day-cell.level-2 { background: #ffc0c0; color: #410006; }
+.heatmap-grid .day-cell.level-3 { background: #ff6b6b; color: #ffffff; }
+.heatmap-grid .day-cell.level-4 { background: var(--primary); color: var(--on-primary); }
+.heatmap-grid .day-cell.level-5 { background: #6d0010; color: #ffffff; }
 
-.dark .calendar-grid .day-cell.level-0 { background: var(--surface-container); }
-.dark .calendar-grid .day-cell.level-1 { background: #2d1520; color: #e7e1de; }
-.dark .calendar-grid .day-cell.level-2 { background: #4a1c30; color: #e7e1de; }
-.dark .calendar-grid .day-cell.level-3 { background: #8c1520; color: #ffdad8; }
-.dark .calendar-grid .day-cell.level-4 { background: var(--primary); color: var(--on-primary); }
-.dark .calendar-grid .day-cell.level-5 { background: #410006; color: #ffdad8; }
+.dark .heatmap-grid .day-cell.level-0 { background: var(--surface-container); }
+.dark .heatmap-grid .day-cell.level-1 { background: #2d1520; color: #e7e1de; }
+.dark .heatmap-grid .day-cell.level-2 { background: #4a1c30; color: #e7e1de; }
+.dark .heatmap-grid .day-cell.level-3 { background: #8c1520; color: #ffdad8; }
+.dark .heatmap-grid .day-cell.level-4 { background: var(--primary); color: var(--on-primary); }
+.dark .heatmap-grid .day-cell.level-5 { background: #410006; color: #ffdad8; }
 
 /* ===== HOURS CHART ===== */
 .hours-chart { display: flex; flex-direction: column; gap: 4px; }
@@ -879,30 +862,6 @@ input.subtask-input:focus {
 .hours-row .hour-bar { height: 100%; border-radius: 999px; transition: width 0.3s ease; min-width: 2px; background: var(--primary); }
 .dark .hours-row .hour-bar { background: var(--primary-container); }
 .hours-row .hour-val { width: 28px; text-align: left; color: var(--on-surface-variant); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
-
-/* ===== TIME SLOTS ===== */
-.slots-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.slot-card {
-  background: var(--surface-container-lowest);
-  border-radius: 16px;
-  padding: 16px;
-  text-align: center;
-  box-shadow: 0 4px 12px -4px var(--shadow-color);
-  border: 1px solid var(--surface-container);
-}
-.slot-card .slot-name { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--on-surface-variant); margin-bottom: 8px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.slot-card .slot-count { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
-.slot-card .slot-bar-bg { height: 6px; background: var(--surface-container); border-radius: 999px; overflow: hidden; }
-.slot-card .slot-bar { height: 100%; border-radius: 999px; transition: width 0.3s ease; min-width: 2px; }
-.slot-card .slot-pct { font-size: 11px; color: var(--on-surface-variant); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
-.slot-card.morning .slot-count { color: #f9ca24; }
-.slot-card.morning .slot-bar { background: #f9ca24; }
-.slot-card.afternoon .slot-count { color: #f0932b; }
-.slot-card.afternoon .slot-bar { background: #f0932b; }
-.slot-card.evening .slot-count { color: #6c5ce7; }
-.slot-card.evening .slot-bar { background: #6c5ce7; }
-.slot-card.night .slot-count { color: #0984e3; }
-.slot-card.night .slot-bar { background: #0984e3; }
 
 .no-data { text-align: center; color: var(--on-surface-variant); font-size: 14px; padding: 40px 0; opacity: 0.6; }
 
@@ -949,83 +908,6 @@ input.subtask-input:focus {
 .trends-table th { color: var(--on-surface-variant); position: sticky; top: 0; background: var(--surface-container-low); }
 
 /* ===== QUARTERLY GOALS ===== */
-.qg-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-
-@media (min-width: 640px) { .qg-grid { grid-template-columns: 1fr 1fr; } }
-@media (min-width: 1024px) { .qg-grid { grid-template-columns: 1fr 1fr; } }
-
-.qg-card {
-  background: var(--surface-container-lowest);
-  border-radius: 16px;
-  padding: 20px;
-  text-align: left;
-  box-shadow: 0 8px 20px -4px var(--shadow-color);
-  border: 1px solid var(--surface-container);
-  border-left: 4px solid var(--primary-container);
-  transition: transform 0.2s ease;
-}
-.qg-card:hover { transform: translateY(-2px); }
-.qg-card.past { opacity: 0.7; border-left-color: var(--outline-variant); }
-.qg-card.past:hover { opacity: 1; }
-
-.qg-card .qg-month { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--on-surface-variant); margin-bottom: 12px; font-family: 'JetBrains Mono', monospace; }
-
-.qg-progress { margin-bottom: 12px; }
-.qg-progress-text { font-size: 11px; color: var(--on-surface-variant); margin-bottom: 4px; font-weight: 600; }
-.qg-progress-bar { height: 6px; background: var(--surface-container); border-radius: 999px; overflow: hidden; }
-.qg-progress-fill { height: 100%; background: var(--secondary-container); border-radius: 999px; transition: width 0.3s ease; }
-
-.qg-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 6px 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-.qg-item input[type="checkbox"] {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px dashed var(--outline);
-  border-radius: 50%;
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-top: 2px;
-  transition: all 0.25s ease;
-}
-.qg-item input[type="checkbox"]:checked {
-  background: var(--secondary);
-  border: 2px solid var(--secondary);
-  transform: scale(1.1);
-}
-.qg-item input[type="checkbox"]:checked::after {
-  content: 'check';
-  font-family: 'Material Symbols Outlined';
-  font-size: 12px;
-  color: white;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-.qg-item .qg-item-text { flex: 1; word-break: break-word; font-weight: 500; }
-.qg-item.done .qg-item-text { text-decoration: line-through; opacity: 0.5; }
-
-.qg-item-del {
-  background: none;
-  border: none;
-  color: var(--outline);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0;
-  line-height: 1;
-  opacity: 0;
-  transition: opacity 0.2s;
-  flex-shrink: 0;
-}
-.qg-card:hover .qg-item-del { opacity: 0.6; }
-.qg-item-del:hover { opacity: 1 !important; color: var(--error); }
 
 .qg-add-row {
   display: flex;
@@ -1149,28 +1031,6 @@ input.subtask-input:focus {
   color: var(--on-surface-variant);
 }
 .qg-archive-stats strong { color: var(--primary-text); }
-
-.qg-past-header {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--on-surface-variant);
-  padding: 20px 0 12px;
-  margin-top: 16px;
-  border-top: 1px solid var(--surface-container);
-  font-family: 'JetBrains Mono', monospace;
-}
-.qg-empty { text-align: center; color: var(--on-surface-variant); font-size: 13px; padding: 16px 0; opacity: 0.6; font-style: italic; }
-.qg-summary { text-align: center; font-size: 13px; color: var(--on-surface-variant); margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--surface-container); font-weight: 600; }
-
-/* ===== WEEKLY STATS ===== */
-.weekly-stats { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 20px; text-align: center; font-family: 'JetBrains Mono', monospace; }
-.weekly-stats strong { color: var(--primary-text); }
-
-/* ===== EXPORT BUTTON ===== */
-.export-btn { background: var(--surface-container-high); border: none; border-radius: 999px; color: var(--on-surface-variant); cursor: pointer; font-size: 14px; padding: 8px; transition: all 0.2s; }
-.export-btn:hover { background: var(--surface-container-highest); }
 
 /* ===== MODAL OVERLAY ===== */
 .modal-overlay {
@@ -1413,19 +1273,6 @@ select:-webkit-autofill {
   border-radius: 16px;
 }
 .bento-card:hover { transform: translateY(-2px); }
-
-.bento-focus {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
-}
-.bento-completed {
-  background: color-mix(in srgb, var(--secondary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--secondary) 20%, transparent);
-}
-.bento-streak {
-  background: color-mix(in srgb, var(--tertiary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tertiary) 15%, transparent);
-}
 
 .stitch-border {
   border: 1.5px solid var(--outline-variant);
@@ -2373,8 +2220,6 @@ input.sched-radio:checked::after {
 @media (max-width: 639px) {
   .px-container-padding { padding-left: 16px; padding-right: 16px; }
   .form-row { flex-direction: column; }
-  .sort-controls { width: 100%; justify-content: center; }
-  .slots-container { grid-template-columns: 1fr; }
   .view-tabs { width: 100%; justify-content: center; }
 
   /* A native date input has a wide intrinsic minimum, so on a narrow modal it
@@ -2385,12 +2230,12 @@ input.sched-radio:checked::after {
 
 /* ===== DARK MODE OVERRIDES ===== */
 .dark body, .dark .modal, .dark .help-modal, .dark .toast,
-.dark #todoList > li, .dark .qg-card, .dark .slot-card,
+.dark #todoList > li,
 .dark .bg-surface-container-lowest { background-color: var(--surface-container-lowest); }
 .dark #todoList > li.completed { background: var(--surface-container-low); }
 
 .dark .sort-btn:not(.active) { border-color: var(--outline-variant); }
-.dark .progress-ring .text-surface-container-high { color: var(--surface-container-high); }
+.dark .timer-ring .text-surface-container-high { color: var(--surface-container-high); }
 
 /* ===== PICTURE-IN-PICTURE BUTTONS ===== */
 #pipBtn.active, #dashPipBtn.active {
@@ -2436,7 +2281,7 @@ input.stitch-checkbox:checked::after {
 /* ===== MOBILE ADJUSTMENTS ===== */
 @media (max-width: 767px) {
   #ambientBg .absolute { width: 200px; height: 200px; }
-  .calendar-grid .day-cell { font-size: 11px; }
+  .heatmap-grid .day-cell { font-size: 11px; }
 
   /* Six tabs now share the bottom bar, so they need to give up their padding.
      Targeted by id rather than the `md:hidden` utility, which can't be written
@@ -2461,9 +2306,6 @@ input.stitch-checkbox:checked::after {
 
   .today-time { min-width: 48px; }
 }
-
-/* ===== POMODORO HELPER ===== */
-.pomodoro-compact-bar { display: none; }
 
 /* ===== PRESS EFFECT ===== */
 .press-effect:active { transform: scale(0.95); }
