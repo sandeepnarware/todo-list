@@ -308,16 +308,29 @@ console.log('\n10b. Every tab shares one page width and one set of gutters');
     wide.every(t => !!a.doc.querySelector(`section[data-tab="${t}"] .app-wide`)),
     wide.filter(t => !a.doc.querySelector(`section[data-tab="${t}"] .app-wide`)));
 
-  check('the dashboard gains a third column at xl instead of just stretching',
-    /xl:col-span-3/.test(html) && /xl:col-span-5/.test(html) && /xl:col-span-4/.test(html));
-  check('Up Next and the quotes share that new lane',
-    (() => {
-      const lane = a.doc.getElementById('dashUpNext').parentElement;
-      return lane.contains(a.doc.getElementById('dashQuotes'));
-    })());
-  check('the stats tiles become a side rail at xl', /xl:grid-cols-1/.test(html));
-  check('the chart column can shrink, or the trends SVG blows the grid out',
-    !!a.doc.querySelector('#statsViews').closest('.min-w-0'));
+  // The extra width goes into the existing widgets. Splitting a row into more
+  // columns was explicitly not wanted, so the arrangement is pinned here.
+  const lanes = [...a.doc.querySelector('#dashboardSection .grid').children];
+  check('the dashboard keeps its two columns', lanes.length === 2,
+    lanes.map(l => l.className));
+  check('stats tiles, golden task and quotes share the left column',
+    lanes[0].contains(a.doc.getElementById('dashGolden')) &&
+    lanes[0].contains(a.doc.getElementById('dashQuotes')));
+  check('schedule, timer and Up Next share the right column',
+    lanes[1].contains(a.doc.getElementById('todaySchedule')) &&
+    lanes[1].contains(a.doc.getElementById('dashTimer')) &&
+    lanes[1].contains(a.doc.getElementById('dashUpNext')));
+  check('no third lane sneaks back in at xl', !/xl:col-span-/.test(html),
+    (html.match(/xl:col-span-\d+/g) || []));
+
+  check('the stats tiles stay one full-width row above the charts', (() => {
+    const bento = a.doc.getElementById('statsBento');
+    const views = a.doc.getElementById('statsViews');
+    return bento.parentElement === views.parentElement &&
+      !!(bento.compareDocumentPosition(views) & a.w.Node.DOCUMENT_POSITION_FOLLOWING);
+  })());
+  check('and are not stacked into a rail', !/xl:grid-cols-1/.test(html));
+
   check('the heatmap is no longer pinned at 620px',
     /\.calendar-grid \{[^}]*max-width:\s*840px/.test(css) &&
     /\.calendar-grid \.day-cell \{[^}]*max-width:\s*112px/.test(css));
