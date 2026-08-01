@@ -5181,6 +5181,41 @@ function renderScheduleSurfaces() {
   if (section && !section.classList.contains("tab-hidden")) renderCalendar();
 }
 
+/* ===== Donate =====
+   App-themed buttons front the Razorpay widget, which opens in its own dialog.
+   The embed is left exactly as Razorpay ships it and is never moved — relocating
+   an iframe reloads it — so both buttons open the same one. */
+const donateModal = document.getElementById("donateModal");
+
+function openDonateModal() {
+  if (!donateModal) return;
+  donateModal.classList.remove("hidden");
+  const close = document.getElementById("donateClose");
+  if (close) close.focus();
+}
+
+function closeDonateModal() {
+  if (donateModal) donateModal.classList.add("hidden");
+}
+
+if (donateModal) {
+  const donateBtn = document.getElementById("donateBtn");
+  if (donateBtn) donateBtn.addEventListener("click", openDonateModal);
+  // From Help & Support: swap dialogs rather than stacking two overlays.
+  const supportDonateBtn = document.getElementById("supportDonateBtn");
+  if (supportDonateBtn)
+    supportDonateBtn.addEventListener("click", () => {
+      closeSupportModal();
+      openDonateModal();
+    });
+  document
+    .getElementById("donateClose")
+    .addEventListener("click", closeDonateModal);
+  donateModal.addEventListener("click", (e) => {
+    if (e.target === donateModal) closeDonateModal();
+  });
+}
+
 /* ===== Init ===== */
 // Runs here rather than beside `let goldenTaskId`, because dropping a stale id
 // triggers a render and a render reads state declared further down the file.
@@ -5225,6 +5260,7 @@ const DIALOGS = [
   { id: "taskModal", close: () => closeModal() },
   { id: "scheduleModal", close: () => closeScheduleModal() },
   { id: "supportModal", close: () => closeSupportModal() },
+  { id: "donateModal", close: () => closeDonateModal() },
   { id: "helpOverlay", close: () => helpOverlay.classList.add("hidden") },
 ];
 

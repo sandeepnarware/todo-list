@@ -119,22 +119,14 @@
           <p id="appVersion" class="text-xs opacity-50 font-mono">v2.0.0</p>
         </div>
       </div>
-      <!-- Donate — Razorpay renders its button into this form. Shown inline and
-           uncovered: it's a small ask that shouldn't need hunting for. The
-           widget is a cross-origin iframe so its own styling can't be reached
-           from here; the label and framing around it carry the app's look.
-           Note this sidebar is display:none below md, so the widget is
-           desktop-only. -->
+      <!-- An app-themed button; the Razorpay widget itself opens in a dialog.
+           Rendering it here squeezed it into ~200px of profile card, which is
+           narrower than its own button and why it looked broken. -->
       <div class="sidebar-support">
-        <p class="sidebar-support-label">
+        <button type="button" id="donateBtn" class="donate-btn">
           <span class="material-symbols-outlined">favorite</span>
-          Support this app
-        </p>
-        <div class="donate-wrap">
-          <form>
-            <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
-          </form>
-        </div>
+          <span>Support this app</span>
+        </button>
       </div>
     </div>
   </aside>
@@ -661,6 +653,34 @@
     </div>
   </div>
 
+  <!-- ===== DONATE MODAL =====
+       The Razorpay embed, kept exactly as their docs give it: one <form> holding
+       their script tag with the payment button id. It lives here rather than in
+       the sidebar because their button needs more width than a 256px rail can
+       give it. Nothing else goes inside the form — Razorpay injects its button
+       there, and a stray control would submit it. -->
+  <div id="donateModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="donateTitle">
+    <div class="modal max-w-sm w-full mx-4">
+      <div class="modal-header">
+        <h2 id="donateTitle" class="font-display font-bold text-lg">Support this app</h2>
+        <button id="donateClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all" aria-label="Close">
+          <span class="material-symbols-outlined text-sm">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-on-surface-variant leading-relaxed mb-4">
+          PomoDone is free, works offline, and has no ads or tracking. If it earns its place in your day, a small contribution keeps it going.
+        </p>
+        <div class="donate-wrap">
+          <form>
+            <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
+          </form>
+        </div>
+        <p class="donate-note">Payments are handled by Razorpay. Nothing about your tasks leaves this device.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== QUICK SCHEDULE MODAL =====
        Reached from the Calendar tab: pick (or create) a task and give it one time
        block. Editing every block of a task at once lives in the task modal. -->
@@ -803,6 +823,12 @@
               <span class="material-symbols-outlined">content_copy</span>
             </button>
           </div>
+          <!-- The sidebar button is desktop-only, so this is the way in on a
+               phone. It swaps dialogs rather than stacking them. -->
+          <button type="button" id="supportDonateBtn" class="donate-btn donate-btn-inline">
+            <span class="material-symbols-outlined">favorite</span>
+            <span>Support this app</span>
+          </button>
         </div>
       </div>
     </div>

@@ -351,7 +351,7 @@ console.log('\n10b. Every tab shares one page width and one set of gutters');
     /xl:w-\[500px\]/.test(html));
 }
 
-console.log('\n11. Donate sits inline, framed in the app\'s styling');
+console.log('\n11. A themed button fronts the Razorpay widget');
 {
   const a = boot({});
   const wrap = a.doc.querySelector('.donate-wrap');
@@ -359,16 +359,17 @@ console.log('\n11. Donate sits inline, framed in the app\'s styling');
     !!wrap.querySelector('form script[src*="checkout.razorpay.com"]'));
   check('its form holds nothing else that could hijack submit',
     wrap.querySelector('form').querySelectorAll('input,button,select,textarea').length === 0);
-  // Only the label and frame can be themed — the button itself is a
-  // cross-origin iframe.
-  check('the label is themed from tokens, not razorpay branding',
-    /\.sidebar-support-label \{[^}]*var\(--on-surface-variant\)/.test(css));
-  check('the block is separated from the profile details',
+  // Razorpay's own button is a cross-origin iframe, so the themed button in
+  // front of it is the only part that can carry the app's look.
+  check('the themed button uses theme tokens', /\.donate-btn \{[^}]*var\(--primary-fixed\)/.test(css));
+  check('the sidebar block is separated from the profile details',
     /\.sidebar-support \{[^}]*border-top/.test(css));
-  check('the injected iframe is capped to the sidebar width',
-    /\.donate-wrap iframe \{[^}]*max-width:\s*100%/.test(css));
-  check('shown outright, with nothing to expand first',
-    !a.$('donateToggle') && !a.$('donateEmbed'));
+  check('the dialog reserves room so it does not jump as the widget loads',
+    /\.donate-wrap \{[^}]*min-height/.test(css));
+  check('clicking the themed button opens the widget', (() => {
+    click(a, a.$('donateBtn'));
+    return !a.$('donateModal').classList.contains('hidden');
+  })());
 }
 
 console.log(fails === 0 ? '\nALL CHECKS PASSED' : `\n${fails} CHECK(S) FAILED`);

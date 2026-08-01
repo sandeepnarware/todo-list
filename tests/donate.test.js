@@ -57,39 +57,68 @@ check('parent element is a form', rzp.parentElement && rzp.parentElement.tagName
 check('the form has no other controls that could hijack submit',
   rzp.parentElement.querySelectorAll('input,button,select,textarea').length === 0);
 
-console.log('\n3. Placement: inline in the sidebar profile card, below the version');
+console.log('\n3. Placement: in its own dialog, which is wide enough for the widget');
+// Rendered in the sidebar profile card the iframe had ~200px to work with —
+// narrower than Razorpay's own button, which is what looked broken. The dialog
+// gives it room. The embed is never moved between containers, because
+// relocating an iframe reloads it.
 const wrap = doc.querySelector('.donate-wrap');
 check('donate-wrap exists', !!wrap);
-const version0 = doc.getElementById('appVersion');
-const card = version0.closest('.rounded-organic');
-check('donate form lives in the profile card', card && card.contains(rzp));
-check('it comes AFTER the version number in document order',
-  !!(version0.compareDocumentPosition(wrap) & w.Node.DOCUMENT_POSITION_FOLLOWING));
-check('as its own row, not squeezed into the name column',
-  wrap.closest('.sidebar-support').parentElement === card &&
-  version0.parentElement !== wrap.parentElement);
-check('with a label carrying the app styling',
-  /Support this app/.test(doc.querySelector('.sidebar-support-label').textContent));
+const donateModal = doc.getElementById('donateModal');
+check('the embed lives in the donate dialog', donateModal.contains(rzp));
+check('the dialog starts closed', donateModal.classList.contains('hidden'));
+check('exactly one embed in the whole document',
+  doc.querySelectorAll('script[src*="checkout.razorpay.com"]').length === 1);
+check('nothing donate-related is left in the sidebar',
+  !doc.querySelector('aside').contains(rzp));
+check('the widget is not squeezed by a narrow rail',
+  /\.donate-wrap iframe \{[^}]*max-width:\s*100%/.test(css));
 
-console.log('\n4. The widget is uncovered — no toggle to click through');
-// It was briefly fronted by a collapsing pill; showing it outright was preferred.
-check('no donate toggle button', !doc.getElementById('donateToggle'));
-check('no collapsing embed wrapper', !doc.getElementById('donateEmbed'));
-check('nothing hides the wrap', !/(^|\s)hidden(\s|$)/.test(wrap.className), wrap.className);
-check('and no rule collapses it to zero height',
-  !/\.donate-wrap \{[^}]*max-height:\s*0/.test(css));
-check('the Help & Support dialog no longer carries a copy',
-  !doc.getElementById('supportModal').querySelector('script[src*="razorpay"]'));
+console.log('\n4. An app-themed button fronts it');
+const donateBtn = doc.getElementById('donateBtn');
+check('sidebar has a themed button', !!donateBtn);
+check('it is styled from theme tokens, not razorpay branding',
+  /\.donate-btn \{[^}]*var\(--primary-fixed\)/.test(css));
+check('it says what it does', /Support this app/.test(donateBtn.textContent));
+check('it sits in the profile card below the version', (() => {
+  const version = doc.getElementById('appVersion');
+  const card = version.closest('.rounded-organic');
+  return card.contains(donateBtn) &&
+    !!(version.compareDocumentPosition(donateBtn) & w.Node.DOCUMENT_POSITION_FOLLOWING);
+})());
+check('it is NOT inside the razorpay form (it would hijack submit)',
+  donateBtn.closest('form') === null);
+check('clicking it reveals the razorpay button', (() => {
+  donateBtn.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  return !donateModal.classList.contains('hidden');
+})());
+check('and the embed is inside what just opened', donateModal.contains(rzp));
+check('closing works', (() => {
+  doc.getElementById('donateClose').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  return donateModal.classList.contains('hidden');
+})());
+check('Escape closes it too', (() => {
+  donateBtn.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  return donateModal.classList.contains('hidden');
+})());
 
-console.log('\n5. Known limit: the sidebar is desktop-only');
-// Recorded deliberately rather than asserted away. The sidebar is display:none
-// below md, so the widget does not exist on a phone. That is the accepted
-// trade-off for showing it inline; if mobile access is wanted back, this is the
-// assertion that has to change.
+console.log('\n5. Reachable on a phone, where the sidebar does not exist');
 const aside = doc.querySelector('aside');
-check('the sidebar is hidden below md', /(^|\s)hidden(\s|$)/.test(aside.className) && /md:flex/.test(aside.className),
-  aside.className);
-check('so the only donate surface is desktop-only', aside.contains(rzp));
+check('the sidebar is still desktop-only',
+  /(^|\s)hidden(\s|$)/.test(aside.className) && /md:flex/.test(aside.className), aside.className);
+const supportBtn = doc.getElementById('supportBtn');
+check('the header support button is visible at every width',
+  !/(^|\s)(hidden|sm:hidden|md:hidden|lg:hidden)(\s|$)/.test(supportBtn.className), supportBtn.className);
+const supportDonateBtn = doc.getElementById('supportDonateBtn');
+check('Help & Support offers the same themed button', !!supportDonateBtn);
+check('which swaps dialogs rather than stacking two overlays', (() => {
+  supportBtn.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  supportDonateBtn.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  return doc.getElementById('supportModal').classList.contains('hidden') &&
+    !donateModal.classList.contains('hidden');
+})());
+doc.getElementById('donateClose').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
 
 console.log('\n6. Existing sidebar content intact');
 const version = doc.getElementById('appVersion');
