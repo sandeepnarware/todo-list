@@ -1812,6 +1812,11 @@ function saveModal() {
     return;
   }
 
+  // A tag typed into the field but never committed with Enter used to be thrown
+  // away without a word. Nobody reliably presses Enter before hitting Save, and
+  // this was the main reason tags "didn't work".
+  commitPendingTag();
+
   const dueDate = taskDue.value || null;
   const data = {
     title,
@@ -1857,6 +1862,14 @@ function addTag(tag) {
     tagsList.push(t);
     renderTagChips();
   }
+}
+
+/* Turns whatever is sitting in the tag field into a chip. Called on blur and
+   again on save, so a tag can't be lost by not pressing Enter. */
+function commitPendingTag() {
+  if (!taskTags || !taskTags.value.trim()) return;
+  addTag(taskTags.value);
+  taskTags.value = "";
 }
 
 function removeTag(tag) {
@@ -2125,12 +2138,32 @@ addTaskBtn.addEventListener("click", openAddModal);
 const headerAddBtn = document.getElementById("headerAddBtn");
 if (headerAddBtn) headerAddBtn.addEventListener("click", openAddModal);
 
+/* Pulls #hashtags out of quick-add text. The old pre-id storage format encoded
+   tags this way and migrateTodo still parses it, so "#tag" was a habit the app
+   taught and then quietly stopped honouring — typing it just left the hash in
+   the title.
+   A tag has to start at a word boundary and contain a letter, so "C#" keeps its
+   suffix and "Fix issue #42" keeps its number. */
+function parseQuickAddTags(raw) {
+  const tags = [];
+  const title = raw
+    .replace(/(^|\s)#([\w-]*[a-zA-Z][\w-]*)/g, (_m, pre, tag) => {
+      tags.push(tag);
+      return pre;
+    })
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  // All hashtags and nothing else isn't a task — keep the text as typed.
+  if (!title) return { title: raw, tags: [] };
+  return { title, tags };
+}
+
 function quickAddTask() {
   const input = document.getElementById("quickAddInput");
-  const title = input.value.trim();
-  if (!title) return;
-  const todo = makeTodo({ title });
-  todos.push(todo);
+  const raw = input.value.trim();
+  if (!raw) return;
+  const { title, tags } = parseQuickAddTags(raw);
+  todos.push(makeTodo({ title, tags }));
   saveTodos();
   renderTagCloud();
   renderTodos();
@@ -2156,13 +2189,12 @@ modalSave.addEventListener("click", saveModal);
 taskTags.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === ",") {
     e.preventDefault();
-    const val = taskTags.value.trim();
-    if (val) {
-      addTag(val);
-      taskTags.value = "";
-    }
+    commitPendingTag();
   }
 });
+// Clicking straight from the field to Save should still keep the tag, and turning
+// it into a chip on blur makes that visible rather than magical.
+taskTags.addEventListener("blur", commitPendingTag);
 
 document.addEventListener("keydown", (e) => {
   if (

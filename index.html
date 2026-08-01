@@ -364,6 +364,12 @@
                 </div>
               </div>
             </div>
+            <!-- Compact filter row for narrow screens. The Projects/Tags sidebar
+                 is lg-only, so below that there was no way to filter at all.
+                 renderTagCloud already fills #tagCloud (with counts) and the
+                 click handler is already bound to it — the element was simply
+                 never added to the markup. -->
+            <div id="tagCloud" class="lg:hidden flex flex-wrap gap-2 mb-3"></div>
             <!-- Sort/Filter Bar -->
             <div class="flex items-center justify-between py-2 border-b border-surface-container mb-3">
               <div class="flex gap-4 text-sm font-mono overflow-x-auto">
@@ -868,7 +874,7 @@
       <div class="help-body">
         <h3>Tasks</h3>
         <ul>
-          <li><strong>Add</strong> — Type in quick-add and press Enter, or click "Details" for the full form.</li>
+          <li><strong>Add</strong> — Type in quick-add and press Enter, or click "Details" for the full form. Anything you write as <code>#tag</code> in quick-add becomes a tag.</li>
           <li><strong>Complete</strong> — Check the checkbox.</li>
           <li><strong>Edit</strong> — Click ✏ to edit all fields.</li>
           <li><strong>Delete</strong> — Click ✕ (undo available via toast).</li>

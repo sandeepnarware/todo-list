@@ -40,6 +40,7 @@ function boot(seed) {
     get tagFilter() { return tagFilter; },
     set currentView(v) { currentView = v; },
     switchTab, renderStats, toggleTodoDone, toggleSubtaskPanel, filterByTag, buildTagWeights,
+    openAddModal, parseQuickAddTags,
   };`;
   const s = w.document.createElement('script');
   s.textContent = appJs + bridge;
@@ -141,6 +142,98 @@ console.log('\n5. Selecting a tag or project is visibly indicated');
   check('Enter selects', a.t.tagFilter === 'api', a.t.tagFilter);
   key(a, a.$('tagCloudTags').querySelector('.tag-pill'), ' ');
   check('Space toggles it back off', a.t.tagFilter === null, a.t.tagFilter);
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n5b. Tags actually get created, and can be filtered on');
+{
+  // Reported as "tags don't show and I can't filter by tag". Rendering and
+  // filtering were fine — tags were never being created in the first place.
+  const a = boot({ activeTab: 'tasks' });
+  const tagPills = () => [...a.$('tagCloudTags').querySelectorAll('.tag-pill')].map(p => p.dataset.tag);
+
+  // The field says "press Enter", but nobody reliably does before hitting Save.
+  a.t.openAddModal();
+  a.$('taskTitle').value = 'Water plants';
+  a.$('taskTags').value = 'garden';
+  click(a, a.$('modalSave'));
+  check('a tag typed but not Entered is still saved',
+    a.t.todos[0].tags.join(',') === 'garden', a.t.todos[0].tags);
+  check('and it appears as a pill', tagPills().includes('garden'), tagPills());
+
+  // Blur commits too, so the chip shows up rather than the value vanishing.
+  a.t.openAddModal();
+  a.$('taskTitle').value = 'Another';
+  a.$('taskTags').value = 'chores';
+  a.$('taskTags').dispatchEvent(new a.w.Event('blur'));
+  check('leaving the field turns the text into a chip',
+    a.$('tagsContainer').querySelectorAll('.tag-chip').length === 1,
+    a.$('tagsContainer').innerHTML);
+  check('and the field is cleared', a.$('taskTags').value === '');
+  click(a, a.$('modalSave'));
+  check('saved from the chip', a.t.todos[1].tags.join(',') === 'chores', a.t.todos[1].tags);
+
+  // Filtering end to end.
+  const pill = [...a.$('tagCloudTags').querySelectorAll('.tag-pill')].find(p => p.dataset.tag === 'garden');
+  click(a, pill);
+  check('clicking a tag filters the list', a.t.tagFilter === 'garden', a.t.tagFilter);
+  const shown = [...a.$('todoList').querySelectorAll('li')].map(li => li.textContent);
+  check('only the matching task is listed',
+    shown.length === 1 && /Water plants/.test(shown[0]), shown.map(s => s.slice(0, 30)));
+  click(a, [...a.$('tagCloudTags').querySelectorAll('.tag-pill')].find(p => p.dataset.tag === 'garden'));
+  check('clicking it again clears the filter', a.t.tagFilter === null, a.t.tagFilter);
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n5c. Quick-add understands #hashtags');
+{
+  const a = boot({ activeTab: 'tasks' });
+  const add = (text) => { a.$('quickAddInput').value = text; click(a, a.$('quickAddBtn')); };
+
+  add('Call plumber #home');
+  check('the tag is lifted out of the title', a.t.todos[0].title === 'Call plumber', a.t.todos[0].title);
+  check('and stored as a tag', a.t.todos[0].tags.join(',') === 'home', a.t.todos[0].tags);
+
+  add('Plan trip #travel #family');
+  check('several tags at once', a.t.todos[1].tags.join(',') === 'travel,family', a.t.todos[1].tags);
+  check('title left clean', a.t.todos[1].title === 'Plan trip', a.t.todos[1].title);
+
+  // A hash that isn't a tag must survive untouched.
+  add('Learn C# basics');
+  check('a trailing # on a word is not a tag',
+    a.t.todos[2].title === 'Learn C# basics' && a.t.todos[2].tags.length === 0,
+    [a.t.todos[2].title, a.t.todos[2].tags]);
+  add('Fix issue #42');
+  check('a bare number is left in the title',
+    a.t.todos[3].title === 'Fix issue #42' && a.t.todos[3].tags.length === 0,
+    [a.t.todos[3].title, a.t.todos[3].tags]);
+  add('#onlyatag');
+  check('nothing but a tag stays as the title rather than making an empty task',
+    a.t.todos[4].title === '#onlyatag', a.t.todos[4].title);
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n5d. The filter is reachable below lg, where the sidebar is not');
+{
+  const a = boot({
+    activeTab: 'tasks',
+    todos: [mkTask({ tags: ['api'], project: 'Work' })],
+  });
+  const aside = a.$('tagCloudTags').closest('aside');
+  check('the sidebar really is lg-only', /(^|\s)hidden(\s|$)/.test(aside.className), aside.className);
+  const row = a.$('tagCloud');
+  check('a compact filter row exists for narrow screens', !!row);
+  check('and it is the mirror image — hidden at lg and up',
+    /lg:hidden/.test(row.className), row.className);
+  check('it sits above the task list',
+    !!(row.compareDocumentPosition(a.$('todoList')) & a.w.Node.DOCUMENT_POSITION_FOLLOWING));
+  const keys = [...row.querySelectorAll('.tag-pill')].map(p => p.dataset.tag);
+  check('it carries both projects and tags', keys.includes('project:work') && keys.includes('api'), keys);
+  check('with counts, since there is no sidebar to give context',
+    row.querySelectorAll('.tag-pill .count').length === keys.length);
+  click(a, [...row.querySelectorAll('.tag-pill')].find(p => p.dataset.tag === 'api'));
+  check('clicking one filters', a.t.tagFilter === 'api', a.t.tagFilter);
+  check('and it shows as selected', !!row.querySelector('.tag-pill.active'));
   check('no errors', a.errors.length === 0, a.errors);
 }
 
