@@ -688,6 +688,41 @@
             <input type="time" id="schedEnd" value="10:00">
           </div>
         </div>
+        <div class="form-group">
+          <label for="schedRepeat">Repeat</label>
+          <select id="schedRepeat">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekdays">Every weekday (Mon–Fri)</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Annually</option>
+          </select>
+        </div>
+        <p id="schedRepeatLocked" class="sched-locked-note hidden">The repeat rule belongs to the whole series — choose "The entire series" below to change it.</p>
+        <div id="schedRepeatDetail" class="hidden">
+          <div class="form-row">
+            <div class="form-group" id="schedIntervalGroup">
+              <label for="schedInterval">Repeat every</label>
+              <div class="sched-interval-row">
+                <input type="number" id="schedInterval" min="1" max="99" value="1">
+                <span id="schedIntervalUnit" class="sched-interval-unit"></span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="schedUntil">Ends on <span class="sched-optional">optional</span></label>
+              <input type="date" id="schedUntil">
+            </div>
+          </div>
+          <p id="schedRepeatSummary" class="sched-repeat-summary"></p>
+        </div>
+        <!-- Only shown when editing an occurrence of a series. Governs both Save
+             and Unschedule, so there's one answer to "which ones?" -->
+        <fieldset id="schedScope" class="sched-scope hidden">
+          <legend>This block repeats — apply to</legend>
+          <label><input type="radio" class="sched-radio" name="schedScope" value="one" checked> Just this occurrence</label>
+          <label><input type="radio" class="sched-radio" name="schedScope" value="all"> The entire series</label>
+        </fieldset>
         <p id="schedError" class="support-status error hidden" role="status" aria-live="polite"></p>
         <div class="modal-actions">
           <button id="scheduleDelete" class="btn-danger hidden">Unschedule</button>
@@ -811,6 +846,11 @@
         <p>The share of every task you've ever created that is now finished: <code>completed ÷ (completed + still open) × 100</code>. Ticking a task off raises it; adding a new one lowers it until you finish it. Tasks only — pomodoros and subtasks don't count.</p>
         <h3>Calendar</h3>
         <p>Give a task one or more time blocks (in the task form, or by clicking an empty slot on the Calendar tab) and it appears in Month, Week and Day views. Today's blocks also show at the top of the Dashboard, where the chevron collapses the panel out of the way.</p>
+        <ul>
+          <li><strong>Repeat</strong> — a block can repeat daily, every weekday, weekly, monthly or annually, every <em>n</em> of those, and optionally stop on a date. Repeating blocks are marked ↻.</li>
+          <li><strong>Changing one, or all</strong> — open a repeating block and pick "Just this occurrence" or "The entire series". The ✕ on the grid always skips just that one day, so you can't wipe a series by accident.</li>
+          <li><strong>Two kinds of repeat</strong> — this is the calendar's, and it repeats a <em>time slot</em>. The <strong>Repeat</strong> field in the task form is separate: it recreates the whole <em>task</em> with a new due date when you complete it.</li>
+        </ul>
         <h3>Due Dates &amp; Repeat</h3>
         <p>Set a due date and optional repeat frequency. Recurring tasks auto-recreate on completion.</p>
         <h3>Golden Task</h3>

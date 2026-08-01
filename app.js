@@ -1825,12 +1825,17 @@ function saveModal() {
     subtasks: subtasksDraft
       .map((s) => ({ ...s, title: s.title.trim() }))
       .filter((s) => s.title),
-    // Half-filled rows are dropped rather than saved as broken blocks.
-    schedule: scheduleDraft.filter(isValidBlock).sort(
-      (a, b) =>
-        (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
-        (calMinutes(a.start) ?? 0) - (calMinutes(b.start) ?? 0),
-    ),
+    // Half-filled rows are dropped rather than saved as broken blocks. An end
+    // date left behind the start date would silently yield no occurrences at all,
+    // so it's cleared rather than kept.
+    schedule: scheduleDraft
+      .filter(isValidBlock)
+      .map((b) => (b.until && b.until < b.date ? { ...b, until: null } : b))
+      .sort(
+        (a, b) =>
+          (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+          (calMinutes(a.start) ?? 0) - (calMinutes(b.start) ?? 0),
+      ),
   };
 
   const editIdx = editId.value;
@@ -1975,7 +1980,37 @@ function renderModalSchedule() {
     sep.className = "modal-schedule-sep";
     sep.textContent = "→";
 
-    row.append(date, start, sep, end, del);
+    // Recurrence is editable here as well as on the calendar. Interval and end
+    // date stay where they were set — this select never silently discards them.
+    const repeat = document.createElement("select");
+    repeat.className = "modal-schedule-repeat";
+    repeat.setAttribute("aria-label", "Repeat");
+    CAL_REPEATS.forEach((value) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = CAL_REPEAT_LABELS[value];
+      repeat.appendChild(opt);
+    });
+    repeat.value = blockRepeat(block);
+    repeat.addEventListener("change", () => {
+      scheduleDraft[i].repeat = repeat.value;
+      if (repeat.value === "none") {
+        scheduleDraft[i].until = null;
+        scheduleDraft[i].exdates = [];
+      }
+      renderModalSchedule();
+    });
+
+    row.append(date, start, sep, end, del, repeat);
+
+    const rule = describeRepeat(block);
+    if (rule) {
+      const caption = document.createElement("p");
+      caption.className = "modal-schedule-rule";
+      caption.textContent = rule;
+      row.appendChild(caption);
+    }
+
     modalScheduleList.appendChild(row);
   });
 }
@@ -4149,8 +4184,18 @@ function taskSchedule(todo) {
   return todo.schedule;
 }
 
-function makeScheduleBlock(date, start, end) {
-  return { id: crypto.randomUUID(), date, start, end };
+function makeScheduleBlock(date, start, end, extra) {
+  return {
+    id: crypto.randomUUID(),
+    date, // for a repeating block this is the first occurrence
+    start,
+    end,
+    repeat: "none",
+    interval: 1,
+    until: null, // inclusive last date, or null for "forever"
+    exdates: [], // occurrences deleted or overridden individually
+    ...extra,
+  };
 }
 
 function isValidBlock(b) {
@@ -4160,12 +4205,111 @@ function isValidBlock(b) {
   return s !== null && e !== null && e > s;
 }
 
-/* Every block landing on one local day, earliest first. */
+/* ===== Recurrence =====
+   A repeating block stores a rule instead of one row per occurrence, so the
+   series stays a single editable thing and can run forever without filling
+   storage. Occurrences are computed per rendered day. Deleting or re-timing one
+   occurrence records its date in `exdates` — the same trick a calendar server
+   uses — which is what lets "just this one" coexist with "the whole series". */
+const CAL_REPEATS = ["none", "daily", "weekdays", "weekly", "monthly", "yearly"];
+const CAL_REPEAT_LABELS = {
+  none: "Does not repeat",
+  daily: "Daily",
+  weekdays: "Every weekday",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  yearly: "Annually",
+};
+
+function blockExdates(block) {
+  if (!Array.isArray(block.exdates)) block.exdates = [];
+  return block.exdates;
+}
+
+/* Read defensively: blocks written before recurrence existed have no `repeat`. */
+function blockRepeat(block) {
+  return CAL_REPEATS.includes(block.repeat) ? block.repeat : "none";
+}
+
+function blockInterval(block) {
+  const n = parseInt(block.interval, 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 99) : 1;
+}
+
+/* Whole days between two date keys. Rounded, not floored: these are local
+   midnights, so a span crossing a DST change is 167 or 169 hours rather than a
+   clean multiple of 24, and flooring would drift the whole series by a day. */
+function calDayDiff(fromKey, toKey) {
+  return Math.round((calParseKey(toKey) - calParseKey(fromKey)) / 86400000);
+}
+
+function blockOccursOn(block, dateKey) {
+  const repeat = blockRepeat(block);
+  if (repeat === "none") return block.date === dateKey;
+  if (dateKey < block.date) return false;
+  if (block.until && dateKey > block.until) return false;
+  if (Array.isArray(block.exdates) && block.exdates.includes(dateKey))
+    return false;
+
+  const start = calParseKey(block.date);
+  const day = calParseKey(dateKey);
+  const step = blockInterval(block);
+
+  if (repeat === "daily") return calDayDiff(block.date, dateKey) % step === 0;
+  // Mon–Fri, and the interval doesn't apply — matching Google's "every weekday".
+  if (repeat === "weekdays") return day.getDay() >= 1 && day.getDay() <= 5;
+  if (repeat === "weekly") {
+    if (day.getDay() !== start.getDay()) return false;
+    return (calDayDiff(block.date, dateKey) / 7) % step === 0;
+  }
+  if (repeat === "monthly") {
+    // A series on the 31st simply skips shorter months rather than sliding to
+    // the 1st of the next one, which is what Google does too.
+    if (day.getDate() !== start.getDate()) return false;
+    const months =
+      (day.getFullYear() - start.getFullYear()) * 12 +
+      (day.getMonth() - start.getMonth());
+    return months % step === 0;
+  }
+  if (repeat === "yearly") {
+    if (day.getDate() !== start.getDate() || day.getMonth() !== start.getMonth())
+      return false;
+    return (day.getFullYear() - start.getFullYear()) % step === 0;
+  }
+  return false;
+}
+
+/* Human-readable rule, for the chips and the modal caption. */
+function describeRepeat(block) {
+  const repeat = blockRepeat(block);
+  if (repeat === "none") return "";
+  const step = blockInterval(block);
+  const start = calParseKey(block.date);
+  const dayName = start.toLocaleDateString(undefined, { weekday: "long" });
+  const every = step === 1 ? "" : `${step} `;
+  let text;
+  if (repeat === "daily") text = step === 1 ? "Daily" : `Every ${step} days`;
+  else if (repeat === "weekdays") text = "Every weekday (Mon–Fri)";
+  else if (repeat === "weekly")
+    text = `Every ${every}week${step === 1 ? "" : "s"} on ${dayName}`;
+  else if (repeat === "monthly")
+    text = `Every ${every}month${step === 1 ? "" : "s"} on day ${start.getDate()}`;
+  else
+    text = `Every ${every}year${step === 1 ? "" : "s"} on ${start.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+  if (block.until)
+    text += `, until ${calParseKey(block.until).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+  return text;
+}
+
+/* Every occurrence landing on one local day, earliest first. `date` is the
+   occurrence's own date, which is not the block's date once it repeats — callers
+   must use it when they need to act on the occurrence the user clicked. */
 function blocksForDate(dateKey) {
   const out = [];
   todos.forEach((t) => {
     taskSchedule(t).forEach((b) => {
-      if (b && b.date === dateKey) out.push({ task: t, block: b });
+      if (b && blockOccursOn(b, dateKey))
+        out.push({ task: t, block: b, date: dateKey });
     });
   });
   out.sort(
@@ -4183,7 +4327,15 @@ function layoutDayBlocks(entries) {
     let end = calMinutes(e.block.end);
     // A missing or inverted end still needs a box big enough to click.
     if (end === null || end <= s) end = s + 30;
-    return { task: e.task, block: e.block, start: s, end: Math.min(end, 24 * 60) };
+    // `date` rides along: for a repeating block it is the occurrence's date, and
+    // the click handler needs it to know which occurrence was hit.
+    return {
+      task: e.task,
+      block: e.block,
+      date: e.date,
+      start: s,
+      end: Math.min(end, 24 * 60),
+    };
   });
 
   const clusters = [];
@@ -4238,26 +4390,29 @@ function calLabelText() {
 }
 
 function calBlockHtml(entry) {
-  const { task, block, start, end, lane, lanes } = entry;
+  const { task, block, date, start, end, lane, lanes } = entry;
   const top = (start / 60) * CAL_HOUR_PX;
   const height = Math.max(18, ((end - start) / 60) * CAL_HOUR_PX);
   const width = 100 / lanes;
   const range = `${calFormatTime(block.start)} – ${calFormatTime(block.end)}`;
+  const rule = describeRepeat(block);
   const cls = [
     "cal-block",
     task.done ? "done" : "",
     task.id === goldenTaskId ? "golden" : "",
     task.id === activeTaskId ? "active" : "",
+    rule ? "repeating" : "",
   ]
     .filter(Boolean)
     .join(" ");
+  const tip = `${range} — ${task.title}${rule ? ` (${rule})` : ""}`;
   return `<div class="${cls}" style="top:${top}px;height:${height}px;left:${lane * width}%;width:calc(${width}% - 3px)"
-      data-task-id="${task.id}" data-block-id="${block.id}"
-      title="${escapeHtml(`${range} — ${task.title}`)}" role="button" tabindex="0">
-      <span class="cal-block-time">${escapeHtml(range)}</span>
+      data-task-id="${task.id}" data-block-id="${block.id}" data-date="${date}"
+      title="${escapeHtml(tip)}" role="button" tabindex="0">
+      <span class="cal-block-time">${escapeHtml(range)}${rule ? '<span class="cal-repeat-mark" aria-label="Repeating">↻</span>' : ""}</span>
       <span class="cal-block-title">${escapeHtml(task.title)}</span>
       ${task.project ? `<span class="cal-block-project">${escapeHtml(task.project)}</span>` : ""}
-      <button class="cal-block-del" data-task-id="${task.id}" data-block-id="${block.id}" aria-label="Unschedule this block" title="Unschedule">&times;</button>
+      <button class="cal-block-del" data-task-id="${task.id}" data-block-id="${block.id}" data-date="${date}" aria-label="Unschedule this block" title="Unschedule">&times;</button>
     </div>`;
 }
 
@@ -4339,13 +4494,15 @@ function renderCalMonthHTML() {
     const entries = blocksForDate(key);
     const chips = entries
       .slice(0, MAX_CHIPS)
-      .map(
-        ({ task, block }) =>
-          `<button class="cal-chip${task.done ? " done" : ""}" data-task-id="${task.id}" data-block-id="${block.id}" title="${escapeHtml(`${calFormatTime(block.start)} – ${calFormatTime(block.end)} — ${task.title}`)}">
+      .map(({ task, block }) => {
+        const rule = describeRepeat(block);
+        const tip = `${calFormatTime(block.start)} – ${calFormatTime(block.end)} — ${task.title}${rule ? ` (${rule})` : ""}`;
+        return `<button class="cal-chip${task.done ? " done" : ""}${rule ? " repeating" : ""}" data-task-id="${task.id}" data-block-id="${block.id}" data-date="${key}" title="${escapeHtml(tip)}">
             <span class="cal-chip-time">${escapeHtml(calFormatTime(block.start))}</span>
             <span class="cal-chip-title">${escapeHtml(task.title)}</span>
-          </button>`,
-      )
+            ${rule ? '<span class="cal-repeat-mark" aria-label="Repeating">↻</span>' : ""}
+          </button>`;
+      })
       .join("");
     const more =
       entries.length > MAX_CHIPS
@@ -4451,7 +4608,20 @@ const schedEnd = document.getElementById("schedEnd");
 const schedTaskIdField = document.getElementById("schedTaskId");
 const schedBlockIdField = document.getElementById("schedBlockId");
 const schedError = document.getElementById("schedError");
+const schedRepeat = document.getElementById("schedRepeat");
+const schedInterval = document.getElementById("schedInterval");
+const schedUntil = document.getElementById("schedUntil");
 const NEW_TASK_OPTION = "__new__";
+// Which occurrence the modal was opened for. schedDate.value starts out equal to
+// it but the user can move it, and "just this occurrence" has to exclude the date
+// that was clicked, not the one that was typed.
+let schedOccurrenceDate = null;
+const CAL_INTERVAL_UNITS = {
+  daily: "day(s)",
+  weekly: "week(s)",
+  monthly: "month(s)",
+  yearly: "year(s)",
+};
 
 function setSchedError(msg) {
   if (!schedError) return;
@@ -4488,20 +4658,98 @@ function syncSchedNewTitle() {
   );
 }
 
+/* The rule as the form currently describes it — used for the live summary line
+   and as the source of truth when saving. */
+function schedRepeatDraft() {
+  return {
+    date: schedDate.value,
+    repeat: schedRepeat ? schedRepeat.value : "none",
+    interval: schedInterval ? parseInt(schedInterval.value, 10) || 1 : 1,
+    until: schedUntil && schedUntil.value ? schedUntil.value : null,
+  };
+}
+
+function syncSchedRepeatUI() {
+  if (!schedRepeat) return;
+  const repeat = schedRepeat.value;
+  const detail = document.getElementById("schedRepeatDetail");
+  if (detail) detail.classList.toggle("hidden", repeat === "none");
+  // "Every weekday" is already a fixed pattern; an interval on top of it would
+  // mean nothing.
+  const intervalGroup = document.getElementById("schedIntervalGroup");
+  if (intervalGroup)
+    intervalGroup.classList.toggle("hidden", repeat === "weekdays");
+  const unit = document.getElementById("schedIntervalUnit");
+  if (unit) unit.textContent = CAL_INTERVAL_UNITS[repeat] || "";
+  const summary = document.getElementById("schedRepeatSummary");
+  if (summary) {
+    const draft = schedRepeatDraft();
+    summary.textContent =
+      repeat === "none" || !draft.date ? "" : describeRepeat(draft);
+  }
+}
+
+function schedScopeValue() {
+  const checked = document.querySelector(
+    '#schedScope input[name="schedScope"]:checked',
+  );
+  return checked ? checked.value : "all";
+}
+
+/* True when the form is editing one occurrence pulled out of a series. */
+function schedEditingOneOccurrence() {
+  const scope = document.getElementById("schedScope");
+  return (
+    !!scope && !scope.classList.contains("hidden") && schedScopeValue() === "one"
+  );
+}
+
+/* The rule describes the series, so it can't be redefined from a single
+   occurrence — the fields lock rather than silently applying to everything. */
+function syncSchedScopeUI() {
+  const one = schedEditingOneOccurrence();
+  [schedRepeat, schedInterval, schedUntil].forEach((el) => {
+    if (el) el.disabled = one;
+  });
+  const note = document.getElementById("schedRepeatLocked");
+  if (note) note.classList.toggle("hidden", !one);
+}
+
+function setSchedScopeVisible(visible) {
+  const scope = document.getElementById("schedScope");
+  if (!scope) return;
+  scope.classList.toggle("hidden", !visible);
+  if (visible) {
+    // Default to the narrow choice, the way a calendar app does — changing one
+    // occurrence is far more common, and less destructive, than the series.
+    const one = scope.querySelector('input[value="one"]');
+    if (one) one.checked = true;
+  }
+}
+
 function openScheduleModal(opts = {}) {
   if (!scheduleModal) return;
   const startMins = calMinutes(opts.start) ?? calMinutes(CAL_DEFAULT_START);
   const endMins = calMinutes(opts.end) ?? startMins + CAL_DEFAULT_MINUTES;
   schedTaskIdField.value = opts.taskId || "";
   schedBlockIdField.value = opts.blockId || "";
+  schedOccurrenceDate = opts.date || null;
   schedDate.value = opts.date || localDateKey(new Date());
   schedStart.value = calHHMM(startMins);
   schedEnd.value = calHHMM(Math.min(endMins, 24 * 60 - 1));
   if (schedNewTitle) schedNewTitle.value = "";
+  if (schedRepeat) schedRepeat.value = opts.repeat || "none";
+  if (schedInterval) schedInterval.value = opts.interval || 1;
+  if (schedUntil) schedUntil.value = opts.until || "";
+  syncSchedRepeatUI();
   populateSchedTaskOptions(opts.taskId);
   // The task of an existing block is fixed — moving a block between tasks would
   // be an unexpected side effect of editing its time.
   schedTaskSelect.disabled = !!opts.blockId;
+  // Editing one occurrence of a series needs the "which ones?" question asked
+  // up front, so Save and Unschedule both have an answer already.
+  setSchedScopeVisible(!!opts.blockId && (opts.repeat || "none") !== "none");
+  syncSchedScopeUI();
   const title = document.getElementById("scheduleModalTitle");
   if (title)
     title.textContent = opts.blockId ? "Edit time block" : "Schedule a task";
@@ -4527,6 +4775,16 @@ function saveScheduleModal() {
     return setSchedError("Give the block a start and an end time.");
   if (e <= s) return setSchedError("The end time has to be after the start.");
 
+  // A single occurrence being pulled out of a series carries no rule of its own,
+  // so the series' end date isn't its business — it may legitimately be moved
+  // past it.
+  const justThisOne = schedEditingOneOccurrence();
+  const rule = schedRepeatDraft();
+  if (!justThisOne && rule.repeat !== "none" && rule.until && rule.until < date)
+    return setSchedError(
+      "The repeat can't end before the first occurrence — clear the end date or move it later.",
+    );
+
   let task;
   const blockId = schedBlockIdField.value;
   if (blockId) {
@@ -4548,10 +4806,27 @@ function saveScheduleModal() {
 
   const blocks = taskSchedule(task);
   const existing = blockId ? blocks.find((b) => b.id === blockId) : null;
-  if (existing) {
-    Object.assign(existing, { date, start, end });
-  } else {
+  const fields = {
+    date,
+    start,
+    end,
+    repeat: rule.repeat,
+    interval: rule.interval,
+    until: rule.until,
+  };
+  if (!existing) {
+    blocks.push(makeScheduleBlock(date, start, end, fields));
+  } else if (justThisOne) {
+    // One occurrence pulled out of the series: exclude the original date and add
+    // a standalone block in its place. This is how a calendar server records an
+    // overridden occurrence, and it keeps the rest of the series untouched.
+    const originalDate = schedOccurrenceDate || existing.date;
+    blockExdates(existing).push(originalDate);
     blocks.push(makeScheduleBlock(date, start, end));
+  } else {
+    Object.assign(existing, fields);
+    // A series that stops repeating has no exceptions left to honour.
+    if (fields.repeat === "none") existing.exdates = [];
   }
   blocks.sort(
     (a, b) =>
@@ -4567,6 +4842,7 @@ function saveScheduleModal() {
   renderTodos();
 }
 
+/* Drops the whole block — the single date for a one-off, every date for a series. */
 function unscheduleBlock(taskId, blockId) {
   const task = todos.find((t) => t.id === taskId);
   if (!task) return;
@@ -4574,10 +4850,40 @@ function unscheduleBlock(taskId, blockId) {
   const idx = blocks.findIndex((b) => b.id === blockId);
   if (idx === -1) return;
   const [removed] = blocks.splice(idx, 1);
+  const repeating = blockRepeat(removed) !== "none";
   saveTodos();
   renderTodos();
-  showToast(`Unscheduled "${task.title}"`, () => {
-    taskSchedule(task).splice(idx, 0, removed);
+  showToast(
+    repeating
+      ? `Removed the whole series for "${task.title}"`
+      : `Unscheduled "${task.title}"`,
+    () => {
+      taskSchedule(task).splice(idx, 0, removed);
+      saveTodos();
+      renderTodos();
+    },
+  );
+}
+
+/* Drops one date out of a series, leaving the rest of it alone. */
+function unscheduleOccurrence(taskId, blockId, dateKey) {
+  const task = todos.find((t) => t.id === taskId);
+  if (!task) return;
+  const block = taskSchedule(task).find((b) => b.id === blockId);
+  if (!block || !dateKey) return;
+  const exdates = blockExdates(block);
+  if (exdates.includes(dateKey)) return;
+  exdates.push(dateKey);
+  saveTodos();
+  renderTodos();
+  const when = calParseKey(dateKey).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  showToast(`Skipped ${when} for "${task.title}"`, () => {
+    const list = blockExdates(block);
+    const i = list.indexOf(dateKey);
+    if (i !== -1) list.splice(i, 1);
     saveTodos();
     renderTodos();
   });
@@ -4596,14 +4902,26 @@ if (scheduleModal) {
   document.getElementById("scheduleDelete").addEventListener("click", () => {
     const taskId = schedTaskIdField.value;
     const blockId = schedBlockIdField.value;
+    const occurrence = schedOccurrenceDate;
+    const justThisOne = schedEditingOneOccurrence();
     closeScheduleModal();
-    unscheduleBlock(taskId, blockId);
+    if (justThisOne) unscheduleOccurrence(taskId, blockId, occurrence);
+    else unscheduleBlock(taskId, blockId);
   });
   scheduleModal.addEventListener("click", (e) => {
     if (e.target === scheduleModal) closeScheduleModal();
   });
   if (schedTaskSelect)
     schedTaskSelect.addEventListener("change", syncSchedNewTitle);
+  // The summary line reads back the rule in words, so "every 2 weeks on Tuesday
+  // until 1 Dec" is checkable before saving.
+  [schedRepeat, schedInterval, schedUntil, schedDate].forEach((el) => {
+    if (el) el.addEventListener("change", syncSchedRepeatUI);
+    if (el) el.addEventListener("input", syncSchedRepeatUI);
+  });
+  document
+    .querySelectorAll('#schedScope input[name="schedScope"]')
+    .forEach((radio) => radio.addEventListener("change", syncSchedScopeUI));
   // Keep the block length steady when the start time moves, the way a calendar
   // app does, instead of leaving an inverted range behind.
   if (schedStart)
@@ -4661,7 +4979,15 @@ if (calendarContentEl) {
     const del = e.target.closest(".cal-block-del");
     if (del) {
       e.stopPropagation();
-      unscheduleBlock(del.dataset.taskId, del.dataset.blockId);
+      // On the grid, ✕ means "not this one" — the least destructive reading.
+      // Removing a whole series is deliberate, via the block's own dialog.
+      const task = todos.find((t) => t.id === del.dataset.taskId);
+      const block = task
+        ? taskSchedule(task).find((b) => b.id === del.dataset.blockId)
+        : null;
+      if (block && blockRepeat(block) !== "none")
+        unscheduleOccurrence(task.id, block.id, del.dataset.date);
+      else unscheduleBlock(del.dataset.taskId, del.dataset.blockId);
       return;
     }
     const goto = e.target.closest("[data-goto-day]");
@@ -4680,9 +5006,13 @@ if (calendarContentEl) {
         openScheduleModal({
           taskId: task.id,
           blockId: block.id,
-          date: block.date,
+          // The occurrence that was clicked, which for a series is not block.date.
+          date: chip.dataset.date || block.date,
           start: block.start,
           end: block.end,
+          repeat: blockRepeat(block),
+          interval: blockInterval(block),
+          until: block.until,
         });
       return;
     }
@@ -4735,8 +5065,10 @@ function renderTodaySchedule() {
       else if (nowMins >= s && nowMins < e) state = "now";
       else if (e <= nowMins) state = "past";
       const isActive = task.id === activeTaskId;
-      return `<div class="today-row ${state}">
+      const rule = describeRepeat(block);
+      return `<div class="today-row ${state}"${rule ? ` title="${escapeHtml(rule)}"` : ""}>
         <span class="today-time">${escapeHtml(calFormatTime(block.start))}<span class="today-time-end">${escapeHtml(calFormatTime(block.end))}</span></span>
+        ${rule ? '<span class="cal-repeat-mark today-repeat" aria-label="Repeating">↻</span>' : ""}
         <button class="dash-task-check material-symbols-outlined today-check" data-task-id="${task.id}" aria-label="${task.done ? "Mark task not done" : "Mark task complete"}">${task.done ? "check_circle" : "radio_button_unchecked"}</button>
         <span class="today-title">${escapeHtml(task.title)}${task.project ? `<span class="today-project">${escapeHtml(task.project)}</span>` : ""}</span>
         ${state === "now" ? '<span class="today-now-badge">NOW</span>' : ""}
