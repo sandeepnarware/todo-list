@@ -3185,15 +3185,22 @@ function formatMonthLabel(key) {
   return date.toLocaleDateString("default", { month: "long", year: "numeric" });
 }
 
+/* Archive months the user has opened. Kept in memory rather than storage — which
+   months you were browsing isn't worth persisting. */
+const expandedArchive = new Set();
+
 function renderQuarterlyGoals() {
   const now = new Date();
   const currentKey = getMonthKey(now);
 
-  const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+  // A rolling three months from today, not the calendar quarter. Anchoring to the
+  // quarter meant that in the back half of one (August, say) the roadmap led with
+  // a month that had already finished — and that month then also showed up in the
+  // archive, so the same goals appeared twice. Month + i handles the year
+  // rollover for us, so Nov gives Nov/Dec/Jan.
   const upcoming = [];
   for (let i = 0; i < 3; i++) {
-    const d = new Date(now.getFullYear(), quarterStart + i, 1);
-    upcoming.push(getMonthKey(d));
+    upcoming.push(getMonthKey(new Date(now.getFullYear(), now.getMonth() + i, 1)));
   }
 
   const allGoals = loadQuarterlyGoals();
@@ -3239,15 +3246,19 @@ function renderQuarterlyGoals() {
     const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
     const barPct = pct > 0 ? pct : totalCount > 0 ? 2 : 2;
     const [y, m] = key.split("-");
-    const monthLabel = monthNames[parseInt(m) - 1];
+    // The year is only worth showing when the window straddles one, which a
+    // rolling three months does every November.
+    const monthLabel =
+      monthNames[parseInt(m) - 1] +
+      (+y === now.getFullYear() ? "" : " " + y);
     const isCurrent = key === currentKey;
 
     const lastDay = new Date(+y, parseInt(m), 0).getDate();
     const todayNum = now.getDate();
-    const dayInMonth =
-      parseInt(key.split("-")[1]) === now.getMonth() + 1 ? todayNum : 0;
     const daysLeft = lastDay - (isCurrent ? todayNum : 0);
-    const showDaysLeft = parseInt(key.split("-")[1]) >= now.getMonth() + 1;
+    // Compared as YYYY-MM strings, not month numbers: January of next year is
+    // ahead of August of this one, and a numeric compare said otherwise.
+    const showDaysLeft = key >= currentKey;
 
     const itemsHtml =
       items.length === 0
@@ -3313,13 +3324,12 @@ function renderQuarterlyGoals() {
   html += "</div>";
   html += "</section>";
 
-  // Summary
-  const allSummaryKeys = [...upcoming, ...pastKeys];
+  // Summary — the three months on screen only. It used to fold the archive in
+  // while calling the total "this quarter", so it drifted upward forever.
   let totalDone = 0,
     totalItems = 0;
-  allSummaryKeys.forEach((k) => {
-    const items = allGoals[k] || [];
-    items.forEach((i) => {
+  upcoming.forEach((k) => {
+    (allGoals[k] || []).forEach((i) => {
       totalItems++;
       if (i.done) totalDone++;
     });
@@ -3327,42 +3337,72 @@ function renderQuarterlyGoals() {
   if (totalItems > 0) {
     html +=
       '<div class="text-center text-sm font-mono text-on-surface-variant opacity-70 mb-5">' +
-      totalDone +
-      "/" +
-      totalItems +
-      " goals completed this quarter</div>";
+      `${totalDone}/${totalItems} goals completed across these three months</div>`;
   }
 
-  // Past Months
+  // Archive — every month before this one, newest first, each expandable to what
+  // was planned and what actually got done.
+  const history = loadHistory();
   html += '<section class="mb-6">';
   html += '<div class="flex items-center gap-4 mb-5">';
   html +=
-    '<h3 class="font-display font-semibold text-on-surface-variant" style="font-size:16px;line-height:24px">Past Months</h3>';
+    '<h3 class="font-display font-semibold text-on-surface-variant" style="font-size:16px;line-height:24px">Archive</h3>';
   html += '<div class="h-px flex-1 bg-outline-variant opacity-30"></div>';
   html += "</div>";
-  html += '<div class="flex flex-wrap gap-3">';
   if (pastKeys.length > 0) {
+    html += '<div class="qg-archive">';
     pastKeys.forEach((k) => {
       const items = allGoals[k] || [];
       const doneCount = items.filter((i) => i.done).length;
       const totalCount = items.length;
-      const [y, m] = k.split("-");
-      const monthLabel = monthNames[parseInt(m) - 1];
+      const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
       const allDone = totalCount > 0 && doneCount === totalCount;
+      const open = expandedArchive.has(k);
+      // What else happened that month, from the task list and session history.
+      const tasksDone = todos.filter(
+        (t) =>
+          t.done &&
+          t.completedAt &&
+          localDateKey(new Date(t.completedAt)).startsWith(k),
+      ).length;
+      const pomos = history.filter((s) => s.date && s.date.startsWith(k)).length;
+
+      const itemsHtml =
+        totalCount === 0
+          ? '<li class="qg-archive-empty">No goals were set that month.</li>'
+          : items
+              .map(
+                (item) => `
+            <li class="qg-archive-item ${item.done ? "done" : "open"}">
+              <span class="material-symbols-outlined">${item.done ? "check_circle" : "radio_button_unchecked"}</span>
+              <span class="qg-archive-item-text">${escapeHtml(item.text)}</span>
+            </li>`,
+              )
+              .join("");
+
       html += `
-        <div class="px-5 py-3 bg-surface-container-low rounded-xl border-2 border-dashed border-outline-variant flex items-center gap-3 opacity-70 hover:opacity-100 hover:grayscale-0 transition-all cursor-pointer">
-          <span class="material-symbols-outlined ${allDone ? "text-secondary" : "text-outline"}">${allDone ? "verified" : "radio_button_unchecked"}</span>
-          <div>
-            <p class="font-bold text-sm">${monthLabel}</p>
-            <p class="text-[11px] font-mono text-on-surface-variant">${doneCount}/${totalCount} Goals Completed</p>
+        <div class="qg-archive-card${open ? " open" : ""}">
+          <button class="qg-archive-head" data-archive="${k}" aria-expanded="${open}" aria-controls="qg-archive-body-${k}">
+            <span class="material-symbols-outlined qg-archive-icon ${allDone ? "all-done" : ""}">${allDone ? "verified" : "history"}</span>
+            <span class="qg-archive-title">${escapeHtml(formatMonthLabel(k))}</span>
+            <span class="qg-archive-meta">${totalCount > 0 ? `${doneCount}/${totalCount} goals · ${pct}%` : "no goals"}</span>
+            <span class="material-symbols-outlined qg-archive-chevron">expand_more</span>
+          </button>
+          <div class="qg-archive-body" id="qg-archive-body-${k}">
+            ${totalCount > 0 ? `<div class="qg-archive-bar"><div class="qg-archive-bar-fill" style="width:${pct}%"></div></div>` : ""}
+            <ul class="qg-archive-list">${itemsHtml}</ul>
+            <p class="qg-archive-stats">
+              <span><strong>${tasksDone}</strong> task${tasksDone === 1 ? "" : "s"} completed</span>
+              <span><strong>${pomos}</strong> pomodoro${pomos === 1 ? "" : "s"}</span>
+            </p>
           </div>
         </div>`;
     });
+    html += "</div>";
   } else {
     html +=
-      '<p class="text-xs text-on-surface-variant opacity-50">No past months recorded yet. Start adding goals to see your history.</p>';
+      '<p class="text-xs text-on-surface-variant opacity-50">Nothing archived yet. Once this month is behind you it will show up here.</p>';
   }
-  html += "</div>";
   html += "</section>";
 
   document.getElementById("quarterlyGoalsContent").innerHTML = html;
@@ -3396,6 +3436,17 @@ function renderQuarterlyGoals() {
           saveQuarterlyGoals(goals);
           renderQuarterlyGoals();
         }
+      });
+    });
+
+  document
+    .querySelectorAll("#quarterlyGoalsContent [data-archive]")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.archive;
+        if (expandedArchive.has(key)) expandedArchive.delete(key);
+        else expandedArchive.add(key);
+        renderQuarterlyGoals();
       });
     });
 

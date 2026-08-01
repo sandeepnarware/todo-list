@@ -1061,6 +1061,95 @@ input.subtask-input:focus {
 }
 .qg-add-btn:hover { opacity: 0.9; }
 
+/* ===== GOALS ARCHIVE =====
+   One collapsed row per finished month, expanding to what was planned, what got
+   ticked off, and what else happened that month. Read-only on purpose: an
+   archive you can edit by mis-clicking isn't a record of anything. */
+.qg-archive { display: flex; flex-direction: column; gap: 8px; }
+.qg-archive-card {
+  background: var(--surface-container-low);
+  border: 1px solid var(--surface-container);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.qg-archive-card.open { border-color: var(--outline-variant); }
+
+.qg-archive-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--on-surface);
+  transition: background 0.15s;
+}
+.qg-archive-head:hover { background: var(--surface-container); }
+.qg-archive-icon { font-size: 20px; color: var(--outline); flex-shrink: 0; }
+.qg-archive-icon.all-done { color: var(--secondary-text); font-variation-settings: 'FILL' 1; }
+.qg-archive-title {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qg-archive-meta {
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+.qg-archive-chevron {
+  font-size: 20px;
+  flex-shrink: 0;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+  transition: transform 0.2s;
+}
+.qg-archive-card.open .qg-archive-chevron { transform: rotate(180deg); }
+
+.qg-archive-body { display: none; padding: 0 14px 14px; }
+.qg-archive-card.open .qg-archive-body { display: block; }
+
+.qg-archive-bar {
+  height: 5px;
+  background: var(--surface-container-high);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.qg-archive-bar-fill { height: 100%; border-radius: 999px; background: var(--secondary); }
+
+.qg-archive-list { list-style: none; display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; }
+.qg-archive-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; }
+.qg-archive-item .material-symbols-outlined { font-size: 16px; margin-top: 2px; flex-shrink: 0; }
+.qg-archive-item.done .material-symbols-outlined { color: var(--secondary-text); font-variation-settings: 'FILL' 1; }
+.qg-archive-item.open .material-symbols-outlined { color: var(--outline); }
+.qg-archive-item-text { min-width: 0; word-break: break-word; }
+.qg-archive-item.done .qg-archive-item-text { text-decoration: line-through; opacity: 0.6; }
+.qg-archive-empty { font-size: 12px; color: var(--on-surface-variant); opacity: 0.6; font-style: italic; list-style: none; }
+
+.qg-archive-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-container);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+.qg-archive-stats strong { color: var(--primary-text); }
+
 .qg-past-header {
   font-size: 11px;
   font-weight: 700;
