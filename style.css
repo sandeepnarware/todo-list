@@ -1531,89 +1531,38 @@ select:-webkit-autofill {
 .support-copy-btn .material-symbols-outlined { font-size: 16px; }
 
 /* Donate (Razorpay) — the widget is a cross-origin iframe, so it can't be themed
-   from here. An app-styled pill fronts it instead and reveals it on demand. The
-   embed is clipped rather than display:none so Razorpay can still measure and
-   size its iframe at load. */
-/* Layout of pill + embed only. The separator belongs to whichever container is
-   hosting it — the sidebar door or the dialog's donate section. */
+   from here. It sits uncovered in the sidebar's profile card, with only the
+   label and the framing around it carrying the app's look. Note the sidebar is
+   display:none below md, so this is a desktop-only surface. */
 .donate-wrap {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+  justify-content: center;
 }
+.donate-wrap form { max-width: 100%; }
+.donate-wrap iframe { max-width: 100% !important; border: 0; }
+
 .sidebar-support {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--outline-variant);
 }
-.support-donate {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--outline-variant);
-}
-.support-donate-title {
+.sidebar-support-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 14px;
+  margin-bottom: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
   font-weight: 700;
-  color: var(--on-surface);
-}
-.support-donate-title .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--primary-text);
-  font-variation-settings: 'FILL' 1;
-}
-.support-donate .support-hint { margin-top: 0; margin-bottom: 10px; }
-.donate-wrap form { max-width: 100%; }
-.donate-wrap iframe { max-width: 100% !important; border: 0; }
-
-.donate-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: var(--surface-container-high);
-  color: var(--on-surface);
-  border: 1.5px solid var(--outline-variant);
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
-}
-.donate-toggle:hover { border-color: var(--primary); background: var(--primary-fixed); }
-.donate-toggle:active { transform: scale(0.97); }
-.donate-toggle.open { background: var(--primary-fixed); border-color: var(--primary); }
-.donate-toggle .donate-heart {
-  font-size: 16px;
-  color: var(--primary-text);
-  font-variation-settings: 'FILL' 1;
-  flex-shrink: 0;
-}
-.donate-toggle .donate-toggle-label { flex: 1; text-align: left; }
-.donate-toggle .donate-chevron {
-  font-size: 18px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   color: var(--on-surface-variant);
-  flex-shrink: 0;
-  transition: transform 0.2s;
 }
-.donate-toggle.open .donate-chevron { transform: rotate(180deg); }
-
-.donate-embed {
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.25s ease, opacity 0.2s ease;
-  display: flex;
-  justify-content: center;
+.sidebar-support-label .material-symbols-outlined {
+  font-size: 14px;
+  color: var(--primary-text);
+  font-variation-settings: 'FILL' 1;
 }
-.donate-embed.open { max-height: 260px; opacity: 1; }
 
 /* Quote topic chip — every dashboard quote is tagged time / success / hard work */
 .quote-topic {

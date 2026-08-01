@@ -3645,9 +3645,9 @@ function openSupportModal() {
   if (fallbackBtn) fallbackBtn.classList.toggle("hidden", !enabled);
 
   supportModal.classList.remove("hidden");
-  // On a phone this dialog is also the only way to reach the donate widget, so
-  // don't grab the textarea and throw up the keyboard over it. On a wide screen
-  // the composer is what you came for, so focus it.
+  // Don't grab the textarea on a phone: the keyboard springs up and covers the
+  // dialog before the user has read what it's for. On a wide screen the composer
+  // is what you came for, so focus it.
   const narrow =
     typeof window.matchMedia === "function" &&
     window.matchMedia("(max-width: 767px)").matches;
@@ -5179,33 +5179,6 @@ function renderScheduleSurfaces() {
   renderTodaySchedule();
   const section = document.querySelector('section[data-tab="calendar"]');
   if (section && !section.classList.contains("tab-hidden")) renderCalendar();
-}
-
-/* ===== Donate =====
-   The widget itself lives in the Help & Support dialog so it's reachable on a
-   phone; this is the sidebar's door to it. */
-const sidebarSupportBtn = document.getElementById("sidebarSupportBtn");
-if (sidebarSupportBtn)
-  sidebarSupportBtn.addEventListener("click", () => {
-    openSupportModal();
-    const embed = document.getElementById("donateEmbed");
-    // Arriving via "Support this app" means the payment options are the point,
-    // so they're already open — the pill still collapses them again.
-    if (embed && !embed.classList.contains("open") && donateToggle)
-      donateToggle.click();
-  });
-
-const donateToggle = document.getElementById("donateToggle");
-if (donateToggle) {
-  donateToggle.addEventListener("click", () => {
-    const embed = document.getElementById("donateEmbed");
-    if (!embed) return;
-    const open = embed.classList.toggle("open");
-    donateToggle.setAttribute("aria-expanded", open ? "true" : "false");
-    donateToggle.classList.toggle("open", open);
-    const label = donateToggle.querySelector(".donate-toggle-label");
-    if (label) label.textContent = open ? "Maybe later" : "Support this app";
-  });
 }
 
 /* ===== Init ===== */

@@ -351,25 +351,24 @@ console.log('\n10b. Every tab shares one page width and one set of gutters');
     /xl:w-\[500px\]/.test(html));
 }
 
-console.log('\n11. Donate button wears the app\'s styling');
+console.log('\n11. Donate sits inline, framed in the app\'s styling');
 {
   const a = boot({});
-  const embed = a.$('donateEmbed');
+  const wrap = a.doc.querySelector('.donate-wrap');
   check('the official embed is untouched inside it',
-    !!embed.querySelector('form script[src*="checkout.razorpay.com"]'));
-  check('the app-styled pill is NOT inside the razorpay form (it would hijack submit)',
-    a.$('donateToggle').closest('form') === null);
-  check('the pill is themed from tokens, not razorpay branding',
-    /\.donate-toggle \{[^}]*var\(--surface-container-high\)/.test(css));
-  check('collapsed to start', !embed.classList.contains('open'));
-  click(a, a.$('donateToggle'));
-  check('opens on click', embed.classList.contains('open'));
-  check('aria-expanded set', a.$('donateToggle').getAttribute('aria-expanded') === 'true');
-  check('the label flips', /Maybe later/.test(a.$('donateToggle').textContent), a.$('donateToggle').textContent);
-  click(a, a.$('donateToggle'));
-  check('and closes again', !embed.classList.contains('open'));
-  check('the embed is clipped rather than display:none, so razorpay can still size its iframe',
-    /\.donate-embed \{[^}]*max-height:\s*0/.test(css) && !/\.donate-embed \{[^}]*display:\s*none/.test(css));
+    !!wrap.querySelector('form script[src*="checkout.razorpay.com"]'));
+  check('its form holds nothing else that could hijack submit',
+    wrap.querySelector('form').querySelectorAll('input,button,select,textarea').length === 0);
+  // Only the label and frame can be themed — the button itself is a
+  // cross-origin iframe.
+  check('the label is themed from tokens, not razorpay branding',
+    /\.sidebar-support-label \{[^}]*var\(--on-surface-variant\)/.test(css));
+  check('the block is separated from the profile details',
+    /\.sidebar-support \{[^}]*border-top/.test(css));
+  check('the injected iframe is capped to the sidebar width',
+    /\.donate-wrap iframe \{[^}]*max-width:\s*100%/.test(css));
+  check('shown outright, with nothing to expand first',
+    !a.$('donateToggle') && !a.$('donateEmbed'));
 }
 
 console.log(fails === 0 ? '\nALL CHECKS PASSED' : `\n${fails} CHECK(S) FAILED`);
