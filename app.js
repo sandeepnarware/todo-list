@@ -3774,7 +3774,9 @@ if (supportModal) {
    the service worker, so this keeps working offline.
    To add a quote, append an entry to quotes.json with a matching topic. */
 const QUOTES_URL = "quotes.json";
-const QUOTES_SHOWN = 3;
+// One quote, not three: the dashboard's left column also carries Today's
+// Schedule now, and three cards crowded it out.
+const QUOTES_SHOWN = 1;
 const QUOTE_TOPIC_LABELS = {
   time: "Time",
   success: "Success",

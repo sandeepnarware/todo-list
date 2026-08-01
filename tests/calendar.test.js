@@ -292,10 +292,15 @@ console.log('\n11. Dashboard: Today\'s Schedule');
   check('only today\'s block is listed', rows.length === 1, a.$('todayScheduleBody').textContent);
   check('it names the task', /Ship feature/.test(rows[0].textContent));
   check('the count is shown', /1 BLOCK/.test(a.$('todayScheduleCount').textContent), a.$('todayScheduleCount').textContent);
-  check('the panel sits above the timer widget', (() => {
-    const timerCard = a.$('dashTimer').closest('.organic-card');
-    return !!(a.$('todaySchedule').compareDocumentPosition(timerCard) & a.w.Node.DOCUMENT_POSITION_FOLLOWING);
+  check('the panel sits in the left column, below the quotes', (() => {
+    const panel = a.$('todaySchedule');
+    const quotes = a.$('dashQuotes');
+    return panel.parentElement === quotes.parentElement &&
+      !!(quotes.compareDocumentPosition(panel) & a.w.Node.DOCUMENT_POSITION_FOLLOWING);
   })());
+  check('a busy day scrolls rather than stretching the column',
+    /\.today-schedule-body \{[^}]*overflow-y:\s*auto/.test(
+      fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8')));
 
   click(a, rows[0].querySelector('.dash-task-check'));
   check('a row can complete its task', a.t.todos[0].done === true);

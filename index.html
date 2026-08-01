@@ -208,13 +208,12 @@
                   <span id="dashGoldenPomos" class="font-mono text-xs font-bold tracking-wider opacity-60 hidden">EST. 0 POMOS</span>
                 </div>
               </div>
-              <!-- Quotes -->
+              <!-- Quotes — a single one, so the schedule below it gets the room -->
               <div id="dashQuotes" class="flex flex-col gap-2"></div>
-            </div>
-            <!-- Right: Today's Schedule + Timer + Up Next -->
-            <div class="lg:col-span-7 flex flex-col gap-4">
               <!-- Today's Schedule — collapses to its header so it can be hidden
-                   without losing the way back. State persists in localStorage. -->
+                   without losing the way back. State persists in localStorage.
+                   The body scrolls once there are more entries than fit, the same
+                   way Up Next does, so a busy day can't push the column long. -->
               <section id="todaySchedule" class="organic-card bg-surface-container-low p-4 today-schedule">
                 <div class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-primary" style="font-size:20px">event_note</span>
@@ -225,8 +224,11 @@
                     <span class="material-symbols-outlined">expand_less</span>
                   </button>
                 </div>
-                <div id="todayScheduleBody" class="today-schedule-body"></div>
+                <div id="todayScheduleBody" class="today-schedule-body custom-scrollbar"></div>
               </section>
+            </div>
+            <!-- Right: Timer + Up Next -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
               <!-- Timer Widget -->
               <div class="organic-card bg-surface-container-highest p-8 flex flex-col items-center justify-center relative">
                 <div class="absolute inset-0 opacity-5 pointer-events-none" style="background:radial-gradient(circle at center, var(--primary-container), transparent 70%)"></div>

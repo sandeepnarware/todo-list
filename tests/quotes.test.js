@@ -109,6 +109,9 @@ w.document.body.appendChild(script);
 
 const T = w.__t;
 const container = w.document.getElementById('dashQuotes');
+// Driven off the app's own constant rather than a hard-coded 3: how many quotes
+// the dashboard shows is a layout decision and has changed once already.
+const N = T.QUOTES_SHOWN;
 
 (async () => {
   await T.loadQuotes();
@@ -122,10 +125,10 @@ const container = w.document.getElementById('dashQuotes');
   check('state is ready', T.quotesState === 'ready', T.quotesState);
   check('labels came from the JSON', T.QUOTE_TOPIC_LABELS.hardwork === 'Hard Work', T.QUOTE_TOPIC_LABELS);
 
-  console.log('\n6. Render: 3 random cards');
+  console.log(`\n6. Render: ${N} random card(s)`);
   const cards = container.querySelectorAll('.organic-card');
-  check('3 cards shown', cards.length === 3, cards.length);
-  check('each card has a topic chip', container.querySelectorAll('.quote-topic').length === 3);
+  check(`${N} card(s) shown`, cards.length === N, cards.length);
+  check('each card has a topic chip', container.querySelectorAll('.quote-topic').length === N);
   check('chips use a known label',
     [...container.querySelectorAll('.quote-topic')].every(c => ['Time', 'Success', 'Hard Work'].includes(c.textContent)),
     [...container.querySelectorAll('.quote-topic')].map(c => c.textContent));
@@ -138,7 +141,7 @@ const container = w.document.getElementById('dashQuotes');
   for (let round = 0; round < 300; round++) {
     T.renderDashboardQuotes();
     const cs = [...container.querySelectorAll('.organic-card')];
-    if (cs.length !== 3) { mismatch.push(['card count', cs.length]); break; }
+    if (cs.length !== N) { mismatch.push(['card count', cs.length]); break; }
     const seenHere = new Set();
     cs.forEach(card => {
       const text = card.querySelector('p').textContent;
@@ -152,7 +155,7 @@ const container = w.document.getElementById('dashQuotes');
       if (!chip.className.includes('quote-topic-' + found.topic)) mismatch.push(['chip class mismatch', found.topic, chip.className]);
     });
   }
-  check('900 rendered cards all came from quotes.json with the right chip', mismatch.length === 0, mismatch.slice(0, 3));
+  check(`${300 * N} rendered cards all came from quotes.json with the right chip`, mismatch.length === 0, mismatch.slice(0, 3));
   check('never repeats a quote inside one render', dupWithinRender === 0, dupWithinRender);
 
   console.log('\n8. Randomization quality');
@@ -190,7 +193,7 @@ const container = w.document.getElementById('dashQuotes');
   T.switchTab('tasks');
   T.switchTab('dashboard');
   check('no extra network call on tab switch', fetchLog.length === before, fetchLog.slice(before));
-  check('still 3 cards after tab switch', container.querySelectorAll('.organic-card').length === 3);
+  check(`still ${N} card(s) after tab switch`, container.querySelectorAll('.organic-card').length === N);
 
   console.log('\n11. Graceful failure if quotes.json cannot be loaded');
   const dom2 = new JSDOM(html, { runScripts: 'dangerously', url: 'https://example.com/', virtualConsole: vc, pretendToBeVisual: true });

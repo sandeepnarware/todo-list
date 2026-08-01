@@ -313,11 +313,14 @@ console.log('\n10b. Every tab shares one page width and one set of gutters');
   const lanes = [...a.doc.querySelector('#dashboardSection .grid').children];
   check('the dashboard keeps its two columns', lanes.length === 2,
     lanes.map(l => l.className));
-  check('stats tiles, golden task and quotes share the left column',
+  check('stats tiles, golden task, quotes and the schedule share the left column',
     lanes[0].contains(a.doc.getElementById('dashGolden')) &&
-    lanes[0].contains(a.doc.getElementById('dashQuotes')));
-  check('schedule, timer and Up Next share the right column',
-    lanes[1].contains(a.doc.getElementById('todaySchedule')) &&
+    lanes[0].contains(a.doc.getElementById('dashQuotes')) &&
+    lanes[0].contains(a.doc.getElementById('todaySchedule')));
+  check('the schedule sits below the quotes',
+    !!(a.doc.getElementById('dashQuotes').compareDocumentPosition(a.doc.getElementById('todaySchedule'))
+      & a.w.Node.DOCUMENT_POSITION_FOLLOWING));
+  check('timer and Up Next share the right column',
     lanes[1].contains(a.doc.getElementById('dashTimer')) &&
     lanes[1].contains(a.doc.getElementById('dashUpNext')));
   check('no third lane sneaks back in at xl', !/xl:col-span-/.test(html),
