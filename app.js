@@ -481,6 +481,8 @@ const taskEstPomodoros = document.getElementById("taskEstPomodoros");
 const taskSubtaskInput = document.getElementById("taskSubtaskInput");
 const taskSubtaskAdd = document.getElementById("taskSubtaskAdd");
 const modalSubtaskList = document.getElementById("modalSubtaskList");
+const modalScheduleList = document.getElementById("modalScheduleList");
+const taskScheduleAdd = document.getElementById("taskScheduleAdd");
 const modalSave = document.getElementById("modalSave");
 const modalCancel = document.getElementById("modalCancel");
 const modalClose = document.getElementById("modalClose");
@@ -493,11 +495,14 @@ const toastUndo = document.getElementById("toastUndo");
 
 let todos = loadTodos();
 let goldenTaskId = loadGoldenTask();
-validateGoldenTask();
+// validateGoldenTask() deliberately runs from the init block, not here: it can
+// clear the id, and clearing renders — which would read tagFilter / sortBy /
+// searchQuery below before they exist and throw on their temporal dead zone.
 let tagFilter = null;
 let draggedIndex = null;
 let tagsList = [];
 let subtasksDraft = [];
+let scheduleDraft = [];
 let showCompleted = false;
 let completedPage = 0;
 let sortBy = "custom";
@@ -790,6 +795,9 @@ function makeTodo(fields = {}) {
     estPomodoros: 0,
     wasGolden: false,
     subtasks: [],
+    // Calendar time blocks: { id, date: 'YYYY-MM-DD', start: 'HH:MM', end: 'HH:MM' }.
+    // A task can carry any number of them; `dueDate` stays the deadline.
+    schedule: [],
     ...fields,
   };
 }
@@ -800,6 +808,7 @@ function migrateTodo(old) {
     if (old.pomodoros === undefined) old.pomodoros = 0;
     if (old.wasGolden === undefined) old.wasGolden = false;
     if (!Array.isArray(old.subtasks)) old.subtasks = [];
+    if (!Array.isArray(old.schedule)) old.schedule = [];
     if (!Array.isArray(old.tags)) old.tags = [];
     if (typeof old.title !== "string") old.title = String(old.title ?? "Untitled");
     old.done = !!old.done;
@@ -925,6 +934,57 @@ function deleteSubtask(todo, subId) {
   });
 }
 
+function renameSubtask(todo, subId, title) {
+  const sub = getSubtasks(todo).find((s) => s.id === subId);
+  if (!sub) return;
+  const next = title.trim().slice(0, 200);
+  if (!next || next === sub.title) return;
+  sub.title = next;
+  afterSubtaskChange();
+}
+
+/* Swaps a subtask's label for a text field in place: Enter or blur commits,
+   Escape restores. Written against a label element rather than a specific list
+   so the task-list checklist and the dashboard's Up Next checklist share it —
+   both re-render wholesale afterwards, which is what removes the input. */
+function beginInlineSubtaskEdit(todo, sub, labelEl) {
+  if (!labelEl || !labelEl.parentNode) return;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "subtask-edit-input";
+  input.value = sub.title;
+  input.maxLength = 200;
+  input.setAttribute("aria-label", "Rename subtask");
+  labelEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  // Enter commits then re-renders, which blurs the input — without this guard
+  // the blur handler would run a second commit against a detached field.
+  let settled = false;
+  const finish = (save) => {
+    if (settled) return;
+    settled = true;
+    const next = input.value.trim().slice(0, 200);
+    // Repaint on every exit, including a no-op edit — otherwise the field is
+    // left sitting there with no label to fall back to.
+    if (save && next && next !== sub.title) renameSubtask(todo, sub.id, next);
+    else afterSubtaskChange();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation(); // don't also close the surrounding dialog/panel
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => finish(true));
+  input.addEventListener("click", (e) => e.stopPropagation());
+}
+
 function renderTagsList(tags, tagColors) {
   return tags
     .map((t) => {
@@ -945,93 +1005,107 @@ function extractTags() {
   return [...set].sort();
 }
 
+/* A tag key is either a plain tag or the internal `project:NAME` form. */
+function isProjectKey(key) {
+  return key.startsWith("project:");
+}
+
+/* What the user sees on a pill. The `project:` prefix is an implementation
+   detail of the filter key, so it never reaches the label. */
+function tagDisplayLabel(key) {
+  return isProjectKey(key) ? key.slice(8) : key;
+}
+
+function tagTaskCount(key, pendingOnly) {
+  return todos.filter((td) => {
+    if (pendingOnly && td.done) return false;
+    return isProjectKey(key)
+      ? !!td.project && td.project.toLowerCase() === key.slice(8)
+      : (td.tags || []).some((tag) => tag.toLowerCase() === key);
+  }).length;
+}
+
+function tagHasPending(key) {
+  return tagTaskCount(key, true) > 0;
+}
+
+/* Pills carry their colour inline (one hue per tag), so the selected state has to
+   be painted inline too — an inline border-color would otherwise outrank any
+   stylesheet rule. `.active` still drives the ✓ and the weight. */
+function tagPillHtml(key, colorMap, showCount) {
+  const c = colorMap[key];
+  const active = tagFilter === key;
+  const label = tagDisplayLabel(key);
+  const style = c
+    ? `style="background:${c}${active ? "38" : "22"};color:${c};border-color:${active ? c : c + "44"}${active ? `;box-shadow:0 0 0 2px ${c}55` : ""}"`
+    : "";
+  const count = showCount
+    ? ` <span class="count">${tagTaskCount(key, false)}</span>`
+    : "";
+  return `<span class="tag-pill${active ? " active" : ""}" data-tag="${escapeHtml(key)}" role="button" tabindex="0" aria-pressed="${active}" title="${active ? "Selected — click to clear" : "Filter by " + escapeHtml(label)}" ${style}>${escapeHtml(label)}${count}</span>`;
+}
+
 function renderTagCloud() {
   const tags = extractTags();
   const colorMap = getTagColorMap();
-  const pillHtml = tags
-    .filter((t) => {
-      const isProject = t.startsWith("project:");
-      const hasPending = isProject
-        ? todos.some(
-            (td) =>
-              !td.done && td.project && td.project.toLowerCase() === t.slice(8),
-          )
-        : todos.some(
-            (td) =>
-              !td.done &&
-              (td.tags || []).some((tag) => tag.toLowerCase() === t),
-          );
-      return hasPending || t === tagFilter;
-    })
-    .map((t) => {
-      const isProject = t.startsWith("project:");
-      const count = isProject
-        ? todos.filter(
-            (td) => td.project && td.project.toLowerCase() === t.slice(8),
-          ).length
-        : todos.filter((td) =>
-            (td.tags || []).some((tag) => tag.toLowerCase() === t),
-          ).length;
-      const active = tagFilter === t ? "active" : "";
-      const c = colorMap[t];
-      const style = c
-        ? `style="background:${c}22;color:${c};border-color:${c}44"`
-        : "";
-      return `<span class="tag-pill ${active}" data-tag="${escapeHtml(t)}" ${style}>${escapeHtml(t)} <span class="count">${count}</span></span>`;
-    })
-    .join("");
+  // Anything with no open work left drops out; the active filter is kept so it
+  // never becomes impossible to see (or clear) what is being filtered on.
+  const live = tags.filter((t) => tagHasPending(t) || t === tagFilter);
+
   const tagCloudEl = document.getElementById("tagCloud");
-  if (tagCloudEl) tagCloudEl.innerHTML = pillHtml;
+  if (tagCloudEl)
+    tagCloudEl.innerHTML = live
+      .map((t) => tagPillHtml(t, colorMap, true))
+      .join("");
 
   // Sidebar tag clouds
   const sidebarCloud = document.getElementById("tagCloudSidebar");
   const sidebarTags = document.getElementById("tagCloudTags");
-  if (sidebarCloud || sidebarTags) {
-    const projectTags = tags.filter((t) => t.startsWith("project:"));
-    const regularTags = tags.filter((t) => !t.startsWith("project:"));
-    const renderSidebarPills = (tagArray) =>
-      tagArray
-        .map((t) => {
-          const c = colorMap[t];
-          const count = t.startsWith("project:")
-            ? todos.filter(
-                (td) => td.project && td.project.toLowerCase() === t.slice(8),
-              ).length
-            : todos.filter((td) =>
-                (td.tags || []).some((tag) => tag.toLowerCase() === t),
-              ).length;
-          const active = tagFilter === t ? "active" : "";
-          const style = c
-            ? `style="background:${c}22;color:${c};border-color:${c}44"`
-            : "";
-          return `<span class="tag-pill ${active}" data-tag="${escapeHtml(t)}" ${style}>${escapeHtml(t)}</span>`;
-        })
-        .join("");
-    if (sidebarCloud)
-      sidebarCloud.innerHTML =
-        renderSidebarPills(projectTags) ||
-        '<span class="text-[11px] opacity-50">No projects yet</span>';
-    if (sidebarTags)
-      sidebarTags.innerHTML =
-        renderSidebarPills(regularTags) ||
-        '<span class="text-[11px] opacity-50">No tags yet</span>';
+  const projectTags = live.filter(isProjectKey);
+  const regularTags = live.filter((t) => !isProjectKey(t));
+  if (sidebarCloud)
+    sidebarCloud.innerHTML = projectTags
+      .map((t) => tagPillHtml(t, colorMap, false))
+      .join("");
+  if (sidebarTags)
+    sidebarTags.innerHTML = regularTags
+      .map((t) => tagPillHtml(t, colorMap, false))
+      .join("");
+  // Once every task of a project is done there is nothing to focus on, so the
+  // whole section goes rather than leaving an empty heading behind.
+  const projectBlock = document.getElementById("projectFocusBlock");
+  if (projectBlock)
+    projectBlock.classList.toggle("hidden", projectTags.length === 0);
+  const tagsBlock = document.getElementById("activeTagsBlock");
+  if (tagsBlock) tagsBlock.classList.toggle("hidden", regularTags.length === 0);
+
+  // Filter read-out — names what's selected and offers the way back out.
+  const clearBtn = document.getElementById("tagFilterClear");
+  if (clearBtn) {
+    clearBtn.classList.toggle("hidden", !tagFilter);
+    const label = document.getElementById("tagFilterClearLabel");
+    if (label && tagFilter)
+      label.textContent = `Clear: ${tagDisplayLabel(tagFilter)}`;
   }
 
   // Focus Score
   const total = todos.filter((t) => !t.done).length;
   const done = todos.filter((t) => t.done).length;
-  const score =
-    total + done > 0 ? Math.round((done / (total + done)) * 100) : 0;
+  const all = total + done;
+  const score = all > 0 ? Math.round((done / all) * 100) : 0;
   const focusPct = document.getElementById("focusScorePct");
   const focusBar = document.getElementById("focusScoreBar");
   const focusText = document.getElementById("focusScoreText");
   if (focusPct) focusPct.textContent = score + "%";
   if (focusBar) focusBar.style.width = score + "%";
+  // Spelling out the two numbers behind the percentage is most of the
+  // explanation; the info button next to the label covers the rest.
   if (focusText)
     focusText.textContent =
-      score >= 80
-        ? "Crushing it! Keep the momentum!"
-        : "Complete tasks to boost your score!";
+      all === 0
+        ? "Add a task to start scoring"
+        : `${done} of ${all} tasks complete` +
+          (score >= 80 ? " — crushing it!" : "");
 }
 
 function clearFilter() {
@@ -1384,6 +1458,20 @@ function buildSubtaskPanel(todo) {
     const text = document.createElement("span");
     text.className = "subtask-text";
     text.textContent = sub.title;
+    text.title = "Click to rename";
+    text.setAttribute("role", "button");
+    text.tabIndex = 0;
+    const edit = (e) => {
+      e.stopPropagation();
+      beginInlineSubtaskEdit(todo, sub, text);
+    };
+    text.addEventListener("click", edit);
+    text.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        edit(e);
+      }
+    });
 
     const del = document.createElement("button");
     del.className = "subtask-del";
@@ -1667,6 +1755,7 @@ function renderTodos() {
   }
   updateDashboardStats();
   renderDashboardUpNext();
+  renderScheduleSurfaces();
 }
 
 /* ===== Modal ===== */
@@ -1684,6 +1773,8 @@ function openAddModal() {
   renderTagChips();
   subtasksDraft = [];
   renderModalSubtasks();
+  scheduleDraft = [];
+  renderModalSchedule();
   taskModal.classList.remove("hidden");
   taskTitle.focus();
 }
@@ -1704,6 +1795,8 @@ function openEditModal(index) {
   renderTagChips();
   subtasksDraft = getSubtasks(todo).map((s) => ({ ...s }));
   renderModalSubtasks();
+  scheduleDraft = taskSchedule(todo).map((b) => ({ ...b }));
+  renderModalSchedule();
   taskModal.classList.remove("hidden");
   taskTitle.focus();
 }
@@ -1732,6 +1825,12 @@ function saveModal() {
     subtasks: subtasksDraft
       .map((s) => ({ ...s, title: s.title.trim() }))
       .filter((s) => s.title),
+    // Half-filled rows are dropped rather than saved as broken blocks.
+    schedule: scheduleDraft.filter(isValidBlock).sort(
+      (a, b) =>
+        (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+        (calMinutes(a.start) ?? 0) - (calMinutes(b.start) ?? 0),
+    ),
   };
 
   const editIdx = editId.value;
@@ -1820,6 +1919,86 @@ function renderModalSubtasks() {
     modalSubtaskList.appendChild(row);
   });
 }
+
+/* ===== Modal Schedule Editor =====
+   The repeatable rows are how a task gets more than one time block; the calendar
+   grid's own modal only ever edits a single block. */
+function renderModalSchedule() {
+  if (!modalScheduleList) return;
+  modalScheduleList.innerHTML = "";
+  if (scheduleDraft.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "subtask-empty";
+    empty.textContent = "Not scheduled yet.";
+    modalScheduleList.appendChild(empty);
+    return;
+  }
+  scheduleDraft.forEach((block, i) => {
+    const row = document.createElement("div");
+    row.className = "modal-schedule-row";
+
+    const date = document.createElement("input");
+    date.type = "date";
+    date.value = block.date || "";
+    date.setAttribute("aria-label", "Scheduled date");
+    date.addEventListener("input", () => {
+      scheduleDraft[i].date = date.value;
+    });
+
+    const start = document.createElement("input");
+    start.type = "time";
+    start.value = block.start || CAL_DEFAULT_START;
+    start.setAttribute("aria-label", "Start time");
+    start.addEventListener("input", () => {
+      scheduleDraft[i].start = start.value;
+    });
+
+    const end = document.createElement("input");
+    end.type = "time";
+    end.value = block.end || "";
+    end.setAttribute("aria-label", "End time");
+    end.addEventListener("input", () => {
+      scheduleDraft[i].end = end.value;
+    });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "subtask-del";
+    del.textContent = "✕";
+    del.setAttribute("aria-label", "Remove this time block");
+    del.addEventListener("click", () => {
+      scheduleDraft.splice(i, 1);
+      renderModalSchedule();
+    });
+
+    const sep = document.createElement("span");
+    sep.className = "modal-schedule-sep";
+    sep.textContent = "→";
+
+    row.append(date, start, sep, end, del);
+    modalScheduleList.appendChild(row);
+  });
+}
+
+function addModalScheduleRow() {
+  // Seeded from the task's due date when it has one, so a deadline and its work
+  // block don't have to be typed twice.
+  const date = taskDue.value || localDateKey(new Date());
+  const last = scheduleDraft[scheduleDraft.length - 1];
+  const start = last && last.end ? last.end : CAL_DEFAULT_START;
+  const startMins = calMinutes(start) ?? calMinutes(CAL_DEFAULT_START);
+  scheduleDraft.push(
+    makeScheduleBlock(
+      date,
+      calHHMM(startMins),
+      calHHMM(Math.min(startMins + CAL_DEFAULT_MINUTES, 24 * 60 - 1)),
+    ),
+  );
+  renderModalSchedule();
+}
+
+if (taskScheduleAdd)
+  taskScheduleAdd.addEventListener("click", addModalScheduleRow);
 
 function addModalSubtask() {
   if (!taskSubtaskInput) return;
@@ -1994,6 +2173,7 @@ function switchTab(tabId) {
     tasks: "Tasks",
     stats: "Statistics",
     goals: "Goals",
+    calendar: "Calendar",
   };
   const pageTitle = document.getElementById("pageTitle");
   if (pageTitle) pageTitle.textContent = titles[tabId] || "Pomodoro";
@@ -2004,11 +2184,13 @@ function switchTab(tabId) {
     renderDashboardUpNext();
     renderDashboardQuotes();
     updateCurrentTaskDisplay();
+    renderTodaySchedule();
   }
   if (tabId === "pomodoro") updateCurrentTaskDisplay();
   if (tabId === "tasks") renderTodos();
   if (tabId === "stats") renderStats();
   if (tabId === "goals") renderQuarterlyGoals();
+  if (tabId === "calendar") renderCalendar();
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -2249,6 +2431,15 @@ function renderStats() {
   else if (currentView === "projects")
     statsViews.innerHTML = renderProjectsHTML();
   else if (currentView === "trends") statsViews.innerHTML = renderTrendsHTML();
+  else if (currentView === "cloud") statsViews.innerHTML = renderWordCloudHTML();
+  // A cloud word is a shortcut into the filtered task list.
+  statsViews.querySelectorAll("[data-cloud-tag]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      tagFilter = btn.dataset.cloudTag;
+      renderTagCloud();
+      switchTab("tasks");
+    });
+  });
   statsViews.querySelectorAll("[data-cal-nav]").forEach((btn) => {
     btn.addEventListener("click", () => {
       calendarDate.setMonth(
@@ -2483,6 +2674,94 @@ function renderProjectsHTML() {
 
   html += "</div>";
   return html;
+}
+
+/* ===== Word Cloud =====
+   Which tags and projects actually absorbed the work. Weight leans on pomodoros
+   logged against tasks carrying the tag, because that is real time spent; task
+   counts only nudge it, so twenty untouched tasks never outrank one long grind. */
+function buildTagWeights() {
+  const map = new Map();
+  const bump = (key, pomos, done) => {
+    const e = map.get(key) || { key, pomos: 0, tasks: 0, done: 0 };
+    e.pomos += pomos;
+    e.tasks += 1;
+    if (done) e.done += 1;
+    map.set(key, e);
+  };
+  todos.forEach((t) => {
+    const pomos = t.pomodoros || 0;
+    if (t.project) bump("project:" + t.project.toLowerCase(), pomos, t.done);
+    (t.tags || []).forEach((tag) => bump(tag.toLowerCase(), pomos, t.done));
+  });
+  const list = [...map.values()];
+  list.forEach((e) => {
+    e.weight = e.pomos * 4 + e.done * 2 + e.tasks;
+  });
+  return list.sort((a, b) => b.weight - a.weight || a.key.localeCompare(b.key));
+}
+
+function renderWordCloudHTML() {
+  const list = buildTagWeights();
+  if (list.length === 0) {
+    return '<div class="no-data">Nothing to cloud yet. Give a task a project or a tag, then log a pomodoro against it.</div>';
+  }
+  const colorMap = getTagColorMap();
+  const max = list[0].weight;
+  const min = list[list.length - 1].weight;
+  // Floor is 15px rather than smaller: below that, bold coloured text stops being
+  // comfortably readable, and the podium below carries the exact figures anyway.
+  const MIN_PX = 15;
+  const MAX_PX = 44;
+  // sqrt compresses the top end, so one dominant tag doesn't shrink the rest
+  // into illegibility.
+  const sizeFor = (w) => {
+    if (max === min) return Math.round((MIN_PX + MAX_PX) / 2);
+    const t = Math.sqrt((w - min) / (max - min));
+    return Math.round(MIN_PX + t * (MAX_PX - MIN_PX));
+  };
+
+  // Heaviest words toward the middle. Deterministic on purpose: renderStats runs
+  // on every task toggle, and a random layout would jump around each time.
+  const arranged = [];
+  list.forEach((e, i) => (i % 2 === 0 ? arranged.push(e) : arranged.unshift(e)));
+
+  const words = arranged
+    .map((e) => {
+      const isProject = isProjectKey(e.key);
+      const label = tagDisplayLabel(e.key);
+      const c = colorMap[e.key] || TAG_COLORS[0];
+      const px = sizeFor(e.weight);
+      const title = `${e.pomos} pomodoro${e.pomos === 1 ? "" : "s"} · ${e.done}/${e.tasks} task${e.tasks === 1 ? "" : "s"} done — click to filter the task list`;
+      return `<button class="cloud-word${isProject ? " is-project" : ""}${tagFilter === e.key ? " active" : ""}" data-cloud-tag="${escapeHtml(e.key)}" style="font-size:${px}px;color:${c}" title="${escapeHtml(title)}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
+
+  const top = list.slice(0, 3);
+  const podium = top
+    .map((e, i) => {
+      const c = colorMap[e.key] || TAG_COLORS[0];
+      return `<div class="cloud-rank">
+        <span class="cloud-rank-pos">${i + 1}</span>
+        <span class="cloud-rank-dot" style="background:${c}"></span>
+        <span class="cloud-rank-name">${escapeHtml(tagDisplayLabel(e.key))}</span>
+        <span class="cloud-rank-meta">${e.pomos} pomo${e.pomos === 1 ? "" : "s"} · ${e.done}/${e.tasks} done</span>
+      </div>`;
+    })
+    .join("");
+
+  const anyPomos = list.some((e) => e.pomos > 0);
+  return `
+    <div class="cloud-legend">
+      <span><span class="cloud-legend-swatch is-project"></span>Projects</span>
+      <span><span class="cloud-legend-swatch"></span>Tags</span>
+      <span class="cloud-legend-note">Bigger = more invested${anyPomos ? " (pomodoros logged, then tasks finished)" : " — log a pomodoro to weight it by time"}</span>
+    </div>
+    <div class="wordcloud">${words}</div>
+    <div class="cloud-podium">
+      <h4 class="cloud-podium-title">Most worked on</h4>
+      ${podium}
+    </div>`;
 }
 
 /* ===== Trends (stacked bar chart) ===== */
@@ -2760,20 +3039,38 @@ function setupTrendsInteraction() {
   svg.addEventListener("mouseleave", onLeave);
 }
 
-const tagCloudEl = document.getElementById("tagCloud");
-if (tagCloudEl)
-  tagCloudEl.addEventListener("click", (e) => {
+/* Pills are focusable (role=button), so Enter/Space has to work as well as a
+   click — otherwise the selection indicator is unreachable by keyboard. */
+["tagCloud", "tagCloudSidebar", "tagCloudTags"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("click", (e) => {
     const pill = e.target.closest(".tag-pill");
     if (pill) filterByTag(pill.dataset.tag);
   });
-["tagCloudSidebar", "tagCloudTags"].forEach((id) => {
-  const el = document.getElementById(id);
-  if (el)
-    el.addEventListener("click", (e) => {
-      const pill = e.target.closest(".tag-pill");
-      if (pill) filterByTag(pill.dataset.tag);
-    });
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const pill = e.target.closest(".tag-pill");
+    if (!pill) return;
+    e.preventDefault();
+    filterByTag(pill.dataset.tag);
+  });
 });
+
+const tagFilterClearBtn = document.getElementById("tagFilterClear");
+if (tagFilterClearBtn) tagFilterClearBtn.addEventListener("click", clearFilter);
+
+/* Focus Score explainer — a title attribute alone is useless on touch, so the
+   copy lives in a panel the button expands. */
+const focusScoreInfo = document.getElementById("focusScoreInfo");
+if (focusScoreInfo) {
+  focusScoreInfo.addEventListener("click", () => {
+    const help = document.getElementById("focusScoreHelp");
+    if (!help) return;
+    const open = help.classList.toggle("hidden");
+    focusScoreInfo.setAttribute("aria-expanded", open ? "false" : "true");
+  });
+}
 
 /* ===== Theme Toggle ===== */
 const themeToggle = document.getElementById("themeToggle");
@@ -3583,7 +3880,7 @@ function renderDashboardUpNext() {
                (s) => `
              <li class="dash-subtask-item${s.done ? " done" : ""}">
                <button class="dash-subtask-check material-symbols-outlined" data-task-id="${t.id}" data-sub-id="${s.id}" aria-label="${s.done ? "Mark subtask not done" : "Mark subtask done"}">${s.done ? "check_circle" : "radio_button_unchecked"}</button>
-               <span class="dash-subtask-text">${escapeHtml(s.title)}</span>
+               <span class="dash-subtask-text" role="button" tabindex="0" title="Click to rename">${escapeHtml(s.title)}</span>
              </li>`,
              )
              .join("")}
@@ -3676,6 +3973,35 @@ document.addEventListener("click", function _dashSubtaskCheckHandler(e) {
   toggleSubtaskDone(todo, sub.id, !sub.done);
 });
 
+/* Dashboard: rename a subtask in place. The task/subtask ids live on the sibling
+   check button, so they're read from there rather than duplicated onto the text. */
+function dashSubtaskFromNode(node) {
+  const item = node.closest(".dash-subtask-item");
+  const check = item && item.querySelector(".dash-subtask-check");
+  if (!check) return null;
+  const todo = todos.find((t) => t.id === check.dataset.taskId);
+  if (!todo) return null;
+  const sub = getSubtasks(todo).find((s) => s.id === check.dataset.subId);
+  return sub ? { todo, sub } : null;
+}
+
+document.addEventListener("click", function _dashSubtaskEditHandler(e) {
+  const el = e.target.closest(".dash-subtask-text");
+  if (!el) return;
+  e.stopPropagation();
+  const found = dashSubtaskFromNode(el);
+  if (found) beginInlineSubtaskEdit(found.todo, found.sub, el);
+});
+
+document.addEventListener("keydown", function _dashSubtaskEditKeyHandler(e) {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const el = e.target.closest && e.target.closest(".dash-subtask-text");
+  if (!el) return;
+  e.preventDefault();
+  const found = dashSubtaskFromNode(el);
+  if (found) beginInlineSubtaskEdit(found.todo, found.sub, el);
+});
+
 /* Bound exactly once. The previous version called removeEventListener with
    freshly created closures — a no-op — so every re-render stacked another set of
    handlers, each holding a stale task list, and one drop spliced the array
@@ -3739,7 +4065,750 @@ function setupDashDragDrop(container) {
   container.addEventListener("drop", onDrop);
 }
 
+/* ===== Calendar =====
+   A task owns its time blocks (`schedule: [{ id, date, start, end }]`), and the
+   calendar is nothing but a view over the flattened set of them. Storing blocks
+   on the task rather than per-day means deleting or completing a task can't leave
+   an orphaned entry behind, and one task can hold as many blocks as it needs. */
+const CAL_HOUR_PX = 44; // rendered height of one hour in the week/day grid
+const CAL_DEFAULT_START = "09:00";
+const CAL_DEFAULT_MINUTES = 60;
+const CAL_MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const CAL_DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+let calView = localStorage.getItem("calView") || "month";
+if (!["month", "week", "day"].includes(calView)) calView = "month";
+let calCursor = calStartOfDay(new Date());
+
+function calStartOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function calAddDays(d, n) {
+  const x = calStartOfDay(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+/* Weeks start Sunday, matching the stats heatmap already in the app. */
+function calStartOfWeek(d) {
+  const x = calStartOfDay(d);
+  return calAddDays(x, -x.getDay());
+}
+
+function calParseKey(key) {
+  const p = String(key).split("-");
+  return new Date(+p[0], +p[1] - 1, +p[2]);
+}
+
+/* 'HH:MM' -> minutes past midnight, or null when it isn't a valid time. */
+function calMinutes(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
+  if (!m) return null;
+  const h = +m[1];
+  const mi = +m[2];
+  if (h > 23 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+function calHHMM(mins) {
+  const m = Math.max(0, Math.min(24 * 60 - 1, Math.round(mins)));
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/* Locale-formatted, so 24h locales get 09:00 and 12h locales get 9:00 AM. */
+function calFormatTime(hhmm) {
+  const mins = calMinutes(hhmm);
+  if (mins === null) return String(hhmm || "");
+  const d = new Date(2000, 0, 1, Math.floor(mins / 60), mins % 60);
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function calFormatHour(hour) {
+  const d = new Date(2000, 0, 1, hour, 0);
+  return d.toLocaleTimeString(undefined, { hour: "numeric" });
+}
+
+function taskSchedule(todo) {
+  if (!Array.isArray(todo.schedule)) todo.schedule = [];
+  return todo.schedule;
+}
+
+function makeScheduleBlock(date, start, end) {
+  return { id: crypto.randomUUID(), date, start, end };
+}
+
+function isValidBlock(b) {
+  if (!b || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ""))) return false;
+  const s = calMinutes(b.start);
+  const e = calMinutes(b.end);
+  return s !== null && e !== null && e > s;
+}
+
+/* Every block landing on one local day, earliest first. */
+function blocksForDate(dateKey) {
+  const out = [];
+  todos.forEach((t) => {
+    taskSchedule(t).forEach((b) => {
+      if (b && b.date === dateKey) out.push({ task: t, block: b });
+    });
+  });
+  out.sort(
+    (a, b) => (calMinutes(a.block.start) ?? 0) - (calMinutes(b.block.start) ?? 0),
+  );
+  return out;
+}
+
+/* Side-by-side placement for overlapping blocks, the way a day column in Google
+   Calendar behaves: overlapping runs form a cluster, each block takes the first
+   free lane, and the cluster's lane count decides how wide everything in it is. */
+function layoutDayBlocks(entries) {
+  const laid = entries.map((e) => {
+    const s = calMinutes(e.block.start) ?? 0;
+    let end = calMinutes(e.block.end);
+    // A missing or inverted end still needs a box big enough to click.
+    if (end === null || end <= s) end = s + 30;
+    return { task: e.task, block: e.block, start: s, end: Math.min(end, 24 * 60) };
+  });
+
+  const clusters = [];
+  let current = [];
+  let clusterEnd = -1;
+  laid.forEach((b) => {
+    if (current.length && b.start >= clusterEnd) {
+      clusters.push(current);
+      current = [];
+      clusterEnd = -1;
+    }
+    current.push(b);
+    clusterEnd = Math.max(clusterEnd, b.end);
+  });
+  if (current.length) clusters.push(current);
+
+  const result = [];
+  clusters.forEach((cluster) => {
+    const laneEnds = [];
+    cluster.forEach((b) => {
+      let lane = laneEnds.findIndex((endAt) => endAt <= b.start);
+      if (lane === -1) {
+        laneEnds.push(b.end);
+        lane = laneEnds.length - 1;
+      } else {
+        laneEnds[lane] = b.end;
+      }
+      b.lane = lane;
+    });
+    cluster.forEach((b) => {
+      b.lanes = laneEnds.length;
+      result.push(b);
+    });
+  });
+  return result;
+}
+
+function calLabelText() {
+  if (calView === "month")
+    return `${CAL_MONTH_NAMES[calCursor.getMonth()]} ${calCursor.getFullYear()}`;
+  if (calView === "day")
+    return calCursor.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  const start = calStartOfWeek(calCursor);
+  const end = calAddDays(start, 6);
+  const opts = { month: "short", day: "numeric" };
+  return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}, ${end.getFullYear()}`;
+}
+
+function calBlockHtml(entry) {
+  const { task, block, start, end, lane, lanes } = entry;
+  const top = (start / 60) * CAL_HOUR_PX;
+  const height = Math.max(18, ((end - start) / 60) * CAL_HOUR_PX);
+  const width = 100 / lanes;
+  const range = `${calFormatTime(block.start)} – ${calFormatTime(block.end)}`;
+  const cls = [
+    "cal-block",
+    task.done ? "done" : "",
+    task.id === goldenTaskId ? "golden" : "",
+    task.id === activeTaskId ? "active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `<div class="${cls}" style="top:${top}px;height:${height}px;left:${lane * width}%;width:calc(${width}% - 3px)"
+      data-task-id="${task.id}" data-block-id="${block.id}"
+      title="${escapeHtml(`${range} — ${task.title}`)}" role="button" tabindex="0">
+      <span class="cal-block-time">${escapeHtml(range)}</span>
+      <span class="cal-block-title">${escapeHtml(task.title)}</span>
+      ${task.project ? `<span class="cal-block-project">${escapeHtml(task.project)}</span>` : ""}
+      <button class="cal-block-del" data-task-id="${task.id}" data-block-id="${block.id}" aria-label="Unschedule this block" title="Unschedule">&times;</button>
+    </div>`;
+}
+
+/* Shared by the week (7 columns) and day (1 column) views. */
+function renderCalTimeGridHTML(dayCount) {
+  const first =
+    dayCount === 7 ? calStartOfWeek(calCursor) : calStartOfDay(calCursor);
+  const days = Array.from({ length: dayCount }, (_, i) => calAddDays(first, i));
+  const todayKey = localDateKey(new Date());
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+  const heads = days
+    .map((d) => {
+      const key = localDateKey(d);
+      return `<div class="cal-day-head${key === todayKey ? " is-today" : ""}" data-date="${key}">
+        <span class="cal-day-name">${CAL_DAY_NAMES[d.getDay()]}</span>
+        <span class="cal-day-num">${d.getDate()}</span>
+      </div>`;
+    })
+    .join("");
+
+  const hourLabels = Array.from(
+    { length: 24 },
+    (_, h) =>
+      `<div class="cal-hour-label" style="height:${CAL_HOUR_PX}px">${h === 0 ? "" : escapeHtml(calFormatHour(h))}</div>`,
+  ).join("");
+
+  const columns = days
+    .map((d) => {
+      const key = localDateKey(d);
+      const slots = Array.from(
+        { length: 24 },
+        (_, h) =>
+          `<div class="cal-slot" data-date="${key}" data-hour="${h}" style="top:${h * CAL_HOUR_PX}px;height:${CAL_HOUR_PX}px"></div>`,
+      ).join("");
+      const blocks = layoutDayBlocks(blocksForDate(key))
+        .map((entry) => calBlockHtml(entry))
+        .join("");
+      const now =
+        key === todayKey
+          ? `<div class="cal-now" style="top:${(nowMinutes / 60) * CAL_HOUR_PX}px"></div>`
+          : "";
+      return `<div class="cal-day-col${key === todayKey ? " is-today" : ""}" data-date="${key}" style="height:${24 * CAL_HOUR_PX}px">${slots}${now}${blocks}</div>`;
+    })
+    .join("");
+
+  // The day headers live inside the scroller (sticky, so they stay on screen)
+  // rather than above it — a week grid scrolls sideways on a narrow screen, and
+  // headers outside the scroller would drift out of line with their columns.
+  return `<div class="cal-grid ${dayCount === 7 ? "is-week" : "is-day"}">
+      <div class="cal-grid-scroll">
+        <div class="cal-grid-inner">
+          <div class="cal-grid-head"><div class="cal-gutter-head"></div>${heads}</div>
+          <div class="cal-grid-body">
+            <div class="cal-gutter">${hourLabels}</div>
+            ${columns}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderCalMonthHTML() {
+  const month = calCursor.getMonth();
+  const gridStart = calStartOfWeek(
+    new Date(calCursor.getFullYear(), month, 1),
+  );
+  const todayKey = localDateKey(new Date());
+  const MAX_CHIPS = 3;
+
+  const heads = CAL_DAY_NAMES.map(
+    (n) => `<div class="cal-month-dayname">${n}</div>`,
+  ).join("");
+
+  let cells = "";
+  for (let i = 0; i < 42; i++) {
+    const d = calAddDays(gridStart, i);
+    const key = localDateKey(d);
+    const entries = blocksForDate(key);
+    const chips = entries
+      .slice(0, MAX_CHIPS)
+      .map(
+        ({ task, block }) =>
+          `<button class="cal-chip${task.done ? " done" : ""}" data-task-id="${task.id}" data-block-id="${block.id}" title="${escapeHtml(`${calFormatTime(block.start)} – ${calFormatTime(block.end)} — ${task.title}`)}">
+            <span class="cal-chip-time">${escapeHtml(calFormatTime(block.start))}</span>
+            <span class="cal-chip-title">${escapeHtml(task.title)}</span>
+          </button>`,
+      )
+      .join("");
+    const more =
+      entries.length > MAX_CHIPS
+        ? `<button class="cal-more" data-goto-day="${key}">+${entries.length - MAX_CHIPS} more</button>`
+        : "";
+    const cls = [
+      "cal-month-cell",
+      d.getMonth() === month ? "" : "other-month",
+      key === todayKey ? "is-today" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    cells += `<div class="${cls}" data-date="${key}">
+        <button class="cal-month-daynum" data-goto-day="${key}" title="Open this day">${d.getDate()}</button>
+        <div class="cal-month-events">${chips}${more}</div>
+      </div>`;
+  }
+
+  return `<div class="cal-month">
+      <div class="cal-month-head">${heads}</div>
+      <div class="cal-month-grid">${cells}</div>
+    </div>`;
+}
+
+// What the grid was last built for. Re-rendering the same view of the same date
+// (a task ticked off elsewhere, say) has to leave the scroll position alone —
+// only a genuine view or date change earns a jump back to the interesting hour.
+let calLastRenderKey = null;
+
+function renderCalendar() {
+  const content = document.getElementById("calendarContent");
+  if (!content) return;
+  const label = document.getElementById("calLabel");
+  if (label) label.textContent = calLabelText();
+  document
+    .querySelectorAll("#calViewSwitch .cal-view-btn")
+    .forEach((b) => b.classList.toggle("active", b.dataset.calView === calView));
+
+  const oldScroller = content.querySelector(".cal-grid-scroll");
+  const prevScroll = oldScroller
+    ? { top: oldScroller.scrollTop, left: oldScroller.scrollLeft }
+    : null;
+  const renderKey = `${calView}|${localDateKey(calCursor)}`;
+
+  content.innerHTML =
+    calView === "month"
+      ? renderCalMonthHTML()
+      : renderCalTimeGridHTML(calView === "week" ? 7 : 1);
+
+  if (calView !== "month") {
+    const scroller = content.querySelector(".cal-grid-scroll");
+    if (scroller && prevScroll && renderKey === calLastRenderKey) {
+      scroller.scrollTop = prevScroll.top;
+      scroller.scrollLeft = prevScroll.left;
+    } else {
+      calScrollToInterestingHour(content);
+    }
+  }
+  calLastRenderKey = renderKey;
+}
+
+/* Open the time grid where the day actually is rather than at midnight: the
+   earliest scheduled block, or the current hour when nothing is scheduled. */
+function calScrollToInterestingHour(content) {
+  const scroller = content.querySelector(".cal-grid-scroll");
+  if (!scroller) return;
+  const blocks = [...content.querySelectorAll(".cal-block")];
+  let top;
+  if (blocks.length) {
+    top = Math.min(...blocks.map((b) => parseFloat(b.style.top) || 0));
+  } else {
+    top = new Date().getHours() * CAL_HOUR_PX;
+  }
+  scroller.scrollTop = Math.max(0, top - CAL_HOUR_PX);
+}
+
+function setCalView(view) {
+  calView = view;
+  localStorage.setItem("calView", view);
+  renderCalendar();
+}
+
+function calShift(direction) {
+  if (calView === "month") {
+    calCursor = new Date(
+      calCursor.getFullYear(),
+      calCursor.getMonth() + direction,
+      1,
+    );
+  } else {
+    calCursor = calAddDays(calCursor, direction * (calView === "week" ? 7 : 1));
+  }
+  renderCalendar();
+}
+
+/* ===== Schedule modal ===== */
+const scheduleModal = document.getElementById("scheduleModal");
+const schedTaskSelect = document.getElementById("schedTask");
+const schedNewTitle = document.getElementById("schedNewTitle");
+const schedDate = document.getElementById("schedDate");
+const schedStart = document.getElementById("schedStart");
+const schedEnd = document.getElementById("schedEnd");
+const schedTaskIdField = document.getElementById("schedTaskId");
+const schedBlockIdField = document.getElementById("schedBlockId");
+const schedError = document.getElementById("schedError");
+const NEW_TASK_OPTION = "__new__";
+
+function setSchedError(msg) {
+  if (!schedError) return;
+  schedError.textContent = msg || "";
+  schedError.classList.toggle("hidden", !msg);
+}
+
+function populateSchedTaskOptions(selectedId) {
+  if (!schedTaskSelect) return;
+  const options = [`<option value="${NEW_TASK_OPTION}">+ New task…</option>`];
+  // Pending tasks are what you normally schedule; a completed one only appears
+  // when an existing block already points at it.
+  todos
+    .filter((t) => !t.done || t.id === selectedId)
+    .forEach((t) => {
+      options.push(
+        `<option value="${t.id}">${escapeHtml(t.title)}${t.done ? " (done)" : ""}</option>`,
+      );
+    });
+  schedTaskSelect.innerHTML = options.join("");
+  schedTaskSelect.value =
+    selectedId && todos.some((t) => t.id === selectedId)
+      ? selectedId
+      : NEW_TASK_OPTION;
+  syncSchedNewTitle();
+}
+
+function syncSchedNewTitle() {
+  const group = document.getElementById("schedNewTitleGroup");
+  if (!group || !schedTaskSelect) return;
+  group.classList.toggle(
+    "hidden",
+    schedTaskSelect.value !== NEW_TASK_OPTION,
+  );
+}
+
+function openScheduleModal(opts = {}) {
+  if (!scheduleModal) return;
+  const startMins = calMinutes(opts.start) ?? calMinutes(CAL_DEFAULT_START);
+  const endMins = calMinutes(opts.end) ?? startMins + CAL_DEFAULT_MINUTES;
+  schedTaskIdField.value = opts.taskId || "";
+  schedBlockIdField.value = opts.blockId || "";
+  schedDate.value = opts.date || localDateKey(new Date());
+  schedStart.value = calHHMM(startMins);
+  schedEnd.value = calHHMM(Math.min(endMins, 24 * 60 - 1));
+  if (schedNewTitle) schedNewTitle.value = "";
+  populateSchedTaskOptions(opts.taskId);
+  // The task of an existing block is fixed — moving a block between tasks would
+  // be an unexpected side effect of editing its time.
+  schedTaskSelect.disabled = !!opts.blockId;
+  const title = document.getElementById("scheduleModalTitle");
+  if (title)
+    title.textContent = opts.blockId ? "Edit time block" : "Schedule a task";
+  const del = document.getElementById("scheduleDelete");
+  if (del) del.classList.toggle("hidden", !opts.blockId);
+  setSchedError("");
+  scheduleModal.classList.remove("hidden");
+  (opts.blockId ? schedStart : schedTaskSelect).focus();
+}
+
+function closeScheduleModal() {
+  if (scheduleModal) scheduleModal.classList.add("hidden");
+}
+
+function saveScheduleModal() {
+  const date = schedDate.value;
+  const start = schedStart.value;
+  const end = schedEnd.value;
+  if (!date) return setSchedError("Pick a date for this block.");
+  const s = calMinutes(start);
+  const e = calMinutes(end);
+  if (s === null || e === null)
+    return setSchedError("Give the block a start and an end time.");
+  if (e <= s) return setSchedError("The end time has to be after the start.");
+
+  let task;
+  const blockId = schedBlockIdField.value;
+  if (blockId) {
+    task = todos.find((t) => t.id === schedTaskIdField.value);
+    if (!task) return setSchedError("That task no longer exists.");
+  } else if (schedTaskSelect.value === NEW_TASK_OPTION) {
+    const title = (schedNewTitle && schedNewTitle.value.trim()) || "";
+    if (!title) {
+      setSchedError("Give the new task a title.");
+      if (schedNewTitle) schedNewTitle.focus();
+      return;
+    }
+    task = makeTodo({ title });
+    todos.push(task);
+  } else {
+    task = todos.find((t) => t.id === schedTaskSelect.value);
+    if (!task) return setSchedError("Pick a task to schedule.");
+  }
+
+  const blocks = taskSchedule(task);
+  const existing = blockId ? blocks.find((b) => b.id === blockId) : null;
+  if (existing) {
+    Object.assign(existing, { date, start, end });
+  } else {
+    blocks.push(makeScheduleBlock(date, start, end));
+  }
+  blocks.sort(
+    (a, b) =>
+      (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+      (calMinutes(a.start) ?? 0) - (calMinutes(b.start) ?? 0),
+  );
+
+  saveTodos();
+  closeScheduleModal();
+  renderTagCloud();
+  // renderTodos ends in renderScheduleSurfaces, which repaints the grid and the
+  // dashboard panel — no separate calendar render needed here.
+  renderTodos();
+}
+
+function unscheduleBlock(taskId, blockId) {
+  const task = todos.find((t) => t.id === taskId);
+  if (!task) return;
+  const blocks = taskSchedule(task);
+  const idx = blocks.findIndex((b) => b.id === blockId);
+  if (idx === -1) return;
+  const [removed] = blocks.splice(idx, 1);
+  saveTodos();
+  renderTodos();
+  showToast(`Unscheduled "${task.title}"`, () => {
+    taskSchedule(task).splice(idx, 0, removed);
+    saveTodos();
+    renderTodos();
+  });
+}
+
+if (scheduleModal) {
+  document
+    .getElementById("scheduleClose")
+    .addEventListener("click", closeScheduleModal);
+  document
+    .getElementById("scheduleCancel")
+    .addEventListener("click", closeScheduleModal);
+  document
+    .getElementById("scheduleSave")
+    .addEventListener("click", saveScheduleModal);
+  document.getElementById("scheduleDelete").addEventListener("click", () => {
+    const taskId = schedTaskIdField.value;
+    const blockId = schedBlockIdField.value;
+    closeScheduleModal();
+    unscheduleBlock(taskId, blockId);
+  });
+  scheduleModal.addEventListener("click", (e) => {
+    if (e.target === scheduleModal) closeScheduleModal();
+  });
+  if (schedTaskSelect)
+    schedTaskSelect.addEventListener("change", syncSchedNewTitle);
+  // Keep the block length steady when the start time moves, the way a calendar
+  // app does, instead of leaving an inverted range behind.
+  if (schedStart)
+    schedStart.addEventListener("change", () => {
+      const s = calMinutes(schedStart.value);
+      const e = calMinutes(schedEnd.value);
+      if (s === null) return;
+      if (e === null || e <= s)
+        schedEnd.value = calHHMM(Math.min(s + CAL_DEFAULT_MINUTES, 24 * 60 - 1));
+    });
+}
+
+/* ===== Calendar toolbar + grid interaction ===== */
+const calPrevBtn = document.getElementById("calPrev");
+if (calPrevBtn) calPrevBtn.addEventListener("click", () => calShift(-1));
+const calNextBtn = document.getElementById("calNext");
+if (calNextBtn) calNextBtn.addEventListener("click", () => calShift(1));
+const calTodayBtn = document.getElementById("calToday");
+if (calTodayBtn)
+  calTodayBtn.addEventListener("click", () => {
+    calCursor = calStartOfDay(new Date());
+    renderCalendar();
+  });
+const calViewSwitch = document.getElementById("calViewSwitch");
+if (calViewSwitch)
+  calViewSwitch.addEventListener("click", (e) => {
+    const btn = e.target.closest(".cal-view-btn");
+    if (btn) setCalView(btn.dataset.calView);
+  });
+/* Prefills the date you're looking at: the cursor day in week/day view, and in
+   month view today if that month is on screen, otherwise the 1st of it — never a
+   date from a month you aren't looking at. */
+function calDefaultDate() {
+  if (calView !== "month") return localDateKey(calCursor);
+  const now = new Date();
+  const sameMonth =
+    now.getFullYear() === calCursor.getFullYear() &&
+    now.getMonth() === calCursor.getMonth();
+  return localDateKey(
+    sameMonth ? now : new Date(calCursor.getFullYear(), calCursor.getMonth(), 1),
+  );
+}
+
+const calAddBtn = document.getElementById("calAddBtn");
+if (calAddBtn)
+  calAddBtn.addEventListener("click", () =>
+    openScheduleModal({ date: calDefaultDate() }),
+  );
+
+/* One delegated handler, bound once — the grid's innerHTML is replaced on every
+   render, so per-element listeners would pile up. */
+const calendarContentEl = document.getElementById("calendarContent");
+if (calendarContentEl) {
+  calendarContentEl.addEventListener("click", (e) => {
+    const del = e.target.closest(".cal-block-del");
+    if (del) {
+      e.stopPropagation();
+      unscheduleBlock(del.dataset.taskId, del.dataset.blockId);
+      return;
+    }
+    const goto = e.target.closest("[data-goto-day]");
+    if (goto) {
+      calCursor = calParseKey(goto.dataset.gotoDay);
+      setCalView("day");
+      return;
+    }
+    const chip = e.target.closest(".cal-chip, .cal-block");
+    if (chip) {
+      const task = todos.find((t) => t.id === chip.dataset.taskId);
+      const block = task
+        ? taskSchedule(task).find((b) => b.id === chip.dataset.blockId)
+        : null;
+      if (task && block)
+        openScheduleModal({
+          taskId: task.id,
+          blockId: block.id,
+          date: block.date,
+          start: block.start,
+          end: block.end,
+        });
+      return;
+    }
+    const slot = e.target.closest(".cal-slot");
+    if (slot) {
+      openScheduleModal({
+        date: slot.dataset.date,
+        start: calHHMM(parseInt(slot.dataset.hour, 10) * 60),
+      });
+      return;
+    }
+    // Empty space in a month cell schedules that day at the default hour.
+    const cell = e.target.closest(".cal-month-cell");
+    if (cell) openScheduleModal({ date: cell.dataset.date });
+  });
+  calendarContentEl.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const block = e.target.closest && e.target.closest(".cal-block");
+    if (!block) return;
+    e.preventDefault();
+    block.click();
+  });
+}
+
+/* ===== Dashboard: Today's Schedule ===== */
+function renderTodaySchedule() {
+  const body = document.getElementById("todayScheduleBody");
+  if (!body) return;
+  const countEl = document.getElementById("todayScheduleCount");
+  const entries = blocksForDate(localDateKey(new Date()));
+  if (countEl)
+    countEl.textContent = entries.length
+      ? `${entries.length} BLOCK${entries.length === 1 ? "" : "S"}`
+      : "";
+
+  if (entries.length === 0) {
+    body.innerHTML = `<p class="today-schedule-empty">Nothing scheduled today.
+      <button class="today-schedule-add">Add a time block</button></p>`;
+    return;
+  }
+
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  body.innerHTML = entries
+    .map(({ task, block }) => {
+      const s = calMinutes(block.start) ?? 0;
+      const e = calMinutes(block.end) ?? s + 30;
+      let state = "";
+      if (task.done) state = "done";
+      else if (nowMins >= s && nowMins < e) state = "now";
+      else if (e <= nowMins) state = "past";
+      const isActive = task.id === activeTaskId;
+      return `<div class="today-row ${state}">
+        <span class="today-time">${escapeHtml(calFormatTime(block.start))}<span class="today-time-end">${escapeHtml(calFormatTime(block.end))}</span></span>
+        <button class="dash-task-check material-symbols-outlined today-check" data-task-id="${task.id}" aria-label="${task.done ? "Mark task not done" : "Mark task complete"}">${task.done ? "check_circle" : "radio_button_unchecked"}</button>
+        <span class="today-title">${escapeHtml(task.title)}${task.project ? `<span class="today-project">${escapeHtml(task.project)}</span>` : ""}</span>
+        ${state === "now" ? '<span class="today-now-badge">NOW</span>' : ""}
+        ${task.done ? "" : `<button class="dash-task-play material-symbols-outlined today-play" data-task-id="${task.id}" aria-label="${isActive ? "Pause" : "Focus on this task"}">${isActive ? "pause_circle" : "play_circle"}</button>`}
+      </div>`;
+    })
+    .join("");
+}
+
+/* Collapses to its header rather than disappearing, so there is always a way
+   back to it. The choice is remembered. */
+function applyTodayScheduleCollapsed(collapsed) {
+  const section = document.getElementById("todaySchedule");
+  const toggle = document.getElementById("todayScheduleToggle");
+  if (!section || !toggle) return;
+  section.classList.toggle("collapsed", collapsed);
+  toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle.title = collapsed ? "Show today's schedule" : "Hide today's schedule";
+  const icon = toggle.querySelector(".material-symbols-outlined");
+  if (icon) icon.textContent = collapsed ? "expand_more" : "expand_less";
+}
+
+const todayScheduleToggle = document.getElementById("todayScheduleToggle");
+if (todayScheduleToggle) {
+  applyTodayScheduleCollapsed(
+    localStorage.getItem("todayScheduleCollapsed") === "1",
+  );
+  todayScheduleToggle.addEventListener("click", () => {
+    const section = document.getElementById("todaySchedule");
+    const collapsed = !section.classList.contains("collapsed");
+    localStorage.setItem("todayScheduleCollapsed", collapsed ? "1" : "0");
+    applyTodayScheduleCollapsed(collapsed);
+  });
+}
+
+const todayScheduleOpen = document.getElementById("todayScheduleOpen");
+if (todayScheduleOpen)
+  todayScheduleOpen.addEventListener("click", () => switchTab("calendar"));
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".today-schedule-add"))
+    openScheduleModal({ date: localDateKey(new Date()) });
+});
+
+/* Task mutations reach the calendar surfaces from renderTodos, which every write
+   path already calls. The grid is only rebuilt while its tab is on screen, so
+   typing in the search box doesn't churn 42 month cells per keystroke. */
+function renderScheduleSurfaces() {
+  renderTodaySchedule();
+  const section = document.querySelector('section[data-tab="calendar"]');
+  if (section && !section.classList.contains("tab-hidden")) renderCalendar();
+}
+
+/* ===== Donate ===== */
+const donateToggle = document.getElementById("donateToggle");
+if (donateToggle) {
+  donateToggle.addEventListener("click", () => {
+    const embed = document.getElementById("donateEmbed");
+    if (!embed) return;
+    const open = embed.classList.toggle("open");
+    donateToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    donateToggle.classList.toggle("open", open);
+    const label = donateToggle.querySelector(".donate-toggle-label");
+    if (label) label.textContent = open ? "Maybe later" : "Support this app";
+  });
+}
+
 /* ===== Init ===== */
+// Runs here rather than beside `let goldenTaskId`, because dropping a stale id
+// triggers a render and a render reads state declared further down the file.
+validateGoldenTask();
+
 const savedTab = localStorage.getItem("activeTab") || "dashboard";
 switchTab(savedTab);
 
@@ -3757,6 +4826,8 @@ renderWeeklyStats();
 renderQuarterlyGoals();
 updateDashboardStats();
 renderDashboardUpNext();
+renderTodaySchedule();
+renderCalendar();
 loadQuotes();
 loadVersion();
 
@@ -3775,6 +4846,7 @@ document.addEventListener("visibilitychange", () => {
    resolve a promise on dismiss. */
 const DIALOGS = [
   { id: "taskModal", close: () => closeModal() },
+  { id: "scheduleModal", close: () => closeScheduleModal() },
   { id: "supportModal", close: () => closeSupportModal() },
   { id: "helpOverlay", close: () => helpOverlay.classList.add("hidden") },
 ];

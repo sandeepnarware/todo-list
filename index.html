@@ -105,6 +105,10 @@
         <span class="material-symbols-outlined">emoji_events</span>
         <span class="text-body-md">Goals</span>
       </button>
+      <button class="tab flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 active:scale-[0.98] font-body" data-tab="calendar">
+        <span class="material-symbols-outlined">calendar_month</span>
+        <span class="text-body-md">Calendar</span>
+      </button>
     </nav>
     <!-- Profile Card -->
     <div class="mt-auto px-4 py-4 bg-surface-container rounded-organic">
@@ -115,11 +119,22 @@
           <p id="appVersion" class="text-xs opacity-50 font-mono">v2.0.0</p>
         </div>
       </div>
-      <!-- Donate — Razorpay renders its button into this form -->
+      <!-- Donate — Razorpay renders its button into this form. The widget is a
+           cross-origin iframe, so its own styling can't be themed from here;
+           instead an app-styled pill fronts it and reveals it on demand. The
+           embed stays clipped rather than display:none so the iframe still gets
+           laid out (and sized) by Razorpay at load. -->
       <div class="donate-wrap">
-        <form>
-          <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
-        </form>
+        <button type="button" id="donateToggle" class="donate-toggle" aria-expanded="false" aria-controls="donateEmbed">
+          <span class="material-symbols-outlined donate-heart">favorite</span>
+          <span class="donate-toggle-label">Support this app</span>
+          <span class="material-symbols-outlined donate-chevron">expand_more</span>
+        </button>
+        <div id="donateEmbed" class="donate-embed">
+          <form>
+            <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_THdduXsaa77yQd" async> </script>
+          </form>
+        </div>
       </div>
     </div>
   </aside>
@@ -136,11 +151,11 @@
         <h2 id="pageTitle" class="font-display font-bold" style="font-size:24px;line-height:32px;font-weight:600">Dashboard</h2>
       </div>
       <div class="flex items-center gap-2">
-        <div class="hidden sm:flex bg-surface-container-low px-4 py-2 rounded-full items-center gap-2 border border-outline-variant/50">
+        <div class="header-control hidden sm:flex bg-surface-container-low px-4 rounded-full items-center gap-2 border border-outline-variant/50">
           <span class="material-symbols-outlined text-sm opacity-50">search</span>
           <input id="headerSearch" class="bg-transparent border-none focus:ring-0 text-sm w-36 md:w-48 outline-none" style="color:var(--on-surface)" placeholder="Search tasks..." type="text">
         </div>
-        <button id="headerAddBtn" class="hidden sm:flex bg-primary text-on-primary px-4 py-2 rounded-full items-center gap-2 active:scale-95 transition-transform font-mono text-xs font-bold tracking-wide hover:bg-primary/90">
+        <button id="headerAddBtn" class="header-control hidden sm:flex bg-primary text-on-primary px-4 rounded-full items-center gap-2 active:scale-95 transition-transform font-mono text-xs font-bold tracking-wide hover:bg-primary/90">
           <span class="material-symbols-outlined text-sm">add</span>
           <span class="hidden md:inline">New Task</span>
         </button>
@@ -199,8 +214,22 @@
               <!-- Quotes -->
               <div id="dashQuotes" class="flex flex-col gap-2"></div>
             </div>
-            <!-- Right: Timer + Up Next -->
+            <!-- Right: Today's Schedule + Timer + Up Next -->
             <div class="lg:col-span-7 flex flex-col gap-4">
+              <!-- Today's Schedule — collapses to its header so it can be hidden
+                   without losing the way back. State persists in localStorage. -->
+              <section id="todaySchedule" class="organic-card bg-surface-container-low p-4 today-schedule">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary" style="font-size:20px">event_note</span>
+                  <h4 class="font-display font-semibold" style="font-size:16px;line-height:24px">Today's Schedule</h4>
+                  <span id="todayScheduleCount" class="font-mono text-[10px] font-bold tracking-wider text-on-surface-variant opacity-60"></span>
+                  <button id="todayScheduleOpen" class="ml-auto font-mono text-[10px] font-bold tracking-wider text-primary hover:underline">OPEN CALENDAR</button>
+                  <button id="todayScheduleToggle" class="today-schedule-toggle" aria-expanded="true" aria-controls="todayScheduleBody" title="Hide today's schedule">
+                    <span class="material-symbols-outlined">expand_less</span>
+                  </button>
+                </div>
+                <div id="todayScheduleBody" class="today-schedule-body"></div>
+              </section>
               <!-- Timer Widget -->
               <div class="organic-card bg-surface-container-highest p-8 flex flex-col items-center justify-center relative">
                 <div class="absolute inset-0 opacity-5 pointer-events-none" style="background:radial-gradient(circle at center, var(--primary-container), transparent 70%)"></div>
@@ -314,7 +343,10 @@
 
       <!-- ===== TASKS TAB ===== -->
       <section class="px-4 pt-6 md:pt-8" data-tab="tasks">
-        <div class="flex flex-col lg:flex-row gap-4" style="max-width:1000px;margin:0 auto">
+        <!-- The task list is the point of this tab, so it takes the full width the
+             viewport offers (capped only so lines don't get unreadably long on
+             ultrawide displays). The sidebar drops below it under lg. -->
+        <div class="flex flex-col lg:flex-row gap-4 w-full" style="max-width:1600px;margin:0 auto">
           <!-- Task List -->
           <div class="flex-1 min-w-0">
             <!-- Quick Add -->
@@ -343,7 +375,7 @@
               </div>
             </div>
             <div id="taskScrollArea" class="overflow-y-auto" style="max-height:calc(100vh - 260px)">
-              <ul id="todoList" class="space-y-2"></ul>
+              <ul id="todoList" class="space-y-1"></ul>
               <div class="flex items-center justify-between mt-4 pt-3 border-t border-surface-container text-sm font-mono text-on-surface-variant flex-wrap gap-2">
                 <span><span id="taskCount">0</span> tasks</span>
                 <button id="completedToggle" class="hidden px-3 py-1 rounded-full border border-outline-variant text-xs font-semibold hover:bg-surface-container-low transition-all"></button>
@@ -353,20 +385,40 @@
           <!-- Tag Cloud Sidebar (Desktop) -->
           <aside class="hidden lg:block w-64 flex-shrink-0">
             <div class="bg-surface-container-lowest p-5 rounded-2xl organic-shadow border border-surface-container sticky top-4">
-              <h3 class="font-display font-bold text-sm mb-4">Project Focus</h3>
-              <div id="tagCloudSidebar" class="flex flex-wrap gap-2 mb-6"></div>
-              <h3 class="font-display font-bold text-sm mb-4">Active Tags</h3>
-              <div id="tagCloudTags" class="flex flex-wrap gap-2"></div>
+              <!-- Shown only while some project still has open work — see renderTagCloud -->
+              <div id="projectFocusBlock">
+                <h3 class="font-display font-bold text-sm mb-4">Project Focus</h3>
+                <div id="tagCloudSidebar" class="flex flex-wrap gap-2 mb-6"></div>
+              </div>
+              <div id="activeTagsBlock">
+                <h3 class="font-display font-bold text-sm mb-4">Active Tags</h3>
+                <div id="tagCloudTags" class="flex flex-wrap gap-2"></div>
+              </div>
+              <!-- Reflects the current tag/project filter, and gives a way out of it -->
+              <button id="tagFilterClear" class="tag-filter-clear hidden">
+                <span class="material-symbols-outlined">filter_alt_off</span>
+                <span id="tagFilterClearLabel">Clear filter</span>
+              </button>
               <!-- Focus Score -->
               <div class="mt-6 pt-5 border-t border-surface-container">
                 <div class="flex items-center justify-between text-xs font-mono font-bold mb-2">
-                  <span>Focus Score</span>
+                  <span class="flex items-center gap-1">
+                    Focus Score
+                    <button id="focusScoreInfo" class="focus-score-info" aria-expanded="false" aria-controls="focusScoreHelp" aria-label="What is the Focus Score?" title="What is the Focus Score?">
+                      <span class="material-symbols-outlined">info</span>
+                    </button>
+                  </span>
                   <span id="focusScorePct" class="text-primary">0%</span>
                 </div>
                 <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
                   <div id="focusScoreBar" class="bg-primary h-full rounded-full" style="width:0%"></div>
                 </div>
                 <p id="focusScoreText" class="text-[10px] mt-2 opacity-50 text-center font-mono">Complete tasks to boost your score!</p>
+                <div id="focusScoreHelp" class="focus-score-help hidden">
+                  <p><strong>Focus Score</strong> is the share of every task you've ever created that is now finished:</p>
+                  <p class="focus-score-formula">completed ÷ (completed + still open) × 100</p>
+                  <p>Ticking a task off raises it. Adding a new task lowers it until you finish it — so it rewards closing work out rather than piling more on. It counts tasks only; pomodoros and subtasks don't affect it.</p>
+                </div>
               </div>
             </div>
           </aside>
@@ -427,6 +479,7 @@
             <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="hours">Productivity Peaks</button>
             <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="projects">Projects Breakdown</button>
             <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="trends">Trends</button>
+            <button class="pb-3 text-sm font-mono transition-all text-on-surface-variant hover:text-on-surface" data-view="cloud">Word Cloud</button>
           </div>
           <div id="statsViews"></div>
         </div>
@@ -449,12 +502,43 @@
         </div>
       </section>
 
+      <!-- ===== CALENDAR TAB ===== -->
+      <section class="px-4 pt-6 md:pt-8" data-tab="calendar">
+        <div class="mx-auto" style="max-width:1600px">
+          <div class="cal-toolbar">
+            <div class="cal-toolbar-group">
+              <button id="calPrev" class="cal-nav-btn" aria-label="Previous period">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+              <button id="calNext" class="cal-nav-btn" aria-label="Next period">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+              <button id="calToday" class="cal-today-btn">Today</button>
+              <h3 id="calLabel" class="font-display font-bold cal-label"></h3>
+            </div>
+            <div class="cal-toolbar-group">
+              <div id="calViewSwitch" class="cal-view-switch" role="tablist" aria-label="Calendar view">
+                <button class="cal-view-btn active" data-cal-view="month">Month</button>
+                <button class="cal-view-btn" data-cal-view="week">Week</button>
+                <button class="cal-view-btn" data-cal-view="day">Day</button>
+              </div>
+              <button id="calAddBtn" class="cal-add-btn">
+                <span class="material-symbols-outlined">add</span>
+                <span>Schedule task</span>
+              </button>
+            </div>
+          </div>
+          <div id="calendarContent"></div>
+          <p class="cal-hint">Click an empty slot to schedule something there, or a block to edit the task. A task can hold as many time blocks as you like.</p>
+        </div>
+      </section>
+
     </div><!-- /content -->
 
   </main>
 
   <!-- ===== MOBILE BOTTOM NAV ===== -->
-  <nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-low dark:bg-[#0f0d0c] flex justify-around items-center py-2 z-50 border-t border-outline-variant/10" style="padding-bottom:max(8px,env(safe-area-inset-bottom))">
+  <nav id="mobileNav" class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-low dark:bg-[#0f0d0c] flex justify-around items-center py-2 z-50 border-t border-outline-variant/10" style="padding-bottom:max(8px,env(safe-area-inset-bottom))">
     <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="dashboard">
       <span class="material-symbols-outlined text-xl">space_dashboard</span>
       <span class="text-[10px] font-mono font-bold">Home</span>
@@ -474,6 +558,10 @@
     <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="goals">
       <span class="material-symbols-outlined text-xl">emoji_events</span>
       <span class="text-[10px] font-mono font-bold">Goals</span>
+    </button>
+    <button class="tab flex flex-col items-center gap-0.5 text-on-surface-variant transition-all duration-200" data-tab="calendar">
+      <span class="material-symbols-outlined text-xl">calendar_month</span>
+      <span class="text-[10px] font-mono font-bold">Plan</span>
     </button>
   </nav>
 
@@ -540,6 +628,14 @@
           </div>
         </div>
         <div class="form-group">
+          <label>Scheduled Times</label>
+          <div id="modalScheduleList" class="modal-schedule-list"></div>
+          <button type="button" id="taskScheduleAdd" class="schedule-add-btn">
+            <span class="material-symbols-outlined">more_time</span> Add time block
+          </button>
+          <p class="subtask-hint">Each block shows up on the Calendar tab. Add as many as you need.</p>
+        </div>
+        <div class="form-group">
           <label>Subtasks</label>
           <div id="modalSubtaskList" class="modal-subtask-list"></div>
           <div class="subtask-add">
@@ -551,6 +647,52 @@
         <div class="modal-actions">
           <button id="modalCancel" class="btn-secondary">Cancel</button>
           <button id="modalSave" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== QUICK SCHEDULE MODAL =====
+       Reached from the Calendar tab: pick (or create) a task and give it one time
+       block. Editing every block of a task at once lives in the task modal. -->
+  <div id="scheduleModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
+    <div class="modal max-w-md w-full mx-4">
+      <div class="modal-header">
+        <h2 id="scheduleModalTitle" class="font-display font-bold text-lg">Schedule a task</h2>
+        <button id="scheduleClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all" aria-label="Close">
+          <span class="material-symbols-outlined text-sm">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="schedTaskId" value="">
+        <input type="hidden" id="schedBlockId" value="">
+        <div class="form-group">
+          <label for="schedTask">Task</label>
+          <select id="schedTask"></select>
+        </div>
+        <div class="form-group hidden" id="schedNewTitleGroup">
+          <label for="schedNewTitle">New task title</label>
+          <input type="text" id="schedNewTitle" maxlength="200" placeholder="What needs doing?">
+        </div>
+        <div class="form-group">
+          <label for="schedDate">Date</label>
+          <input type="date" id="schedDate">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="schedStart">Start</label>
+            <input type="time" id="schedStart" value="09:00">
+          </div>
+          <div class="form-group">
+            <label for="schedEnd">End</label>
+            <input type="time" id="schedEnd" value="10:00">
+          </div>
+        </div>
+        <p id="schedError" class="support-status error hidden" role="status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button id="scheduleDelete" class="btn-danger hidden">Unschedule</button>
+          <button id="scheduleCancel" class="btn-secondary">Cancel</button>
+          <button id="scheduleSave" class="btn-primary">Save</button>
         </div>
       </div>
     </div>
@@ -661,10 +803,14 @@
           <li><strong>Edit</strong> — Click ✏ to edit all fields.</li>
           <li><strong>Delete</strong> — Click ✕ (undo available via toast).</li>
           <li><strong>Reorder</strong> — Drag tasks when sorted by Custom.</li>
-          <li><strong>Subtasks</strong> — Click ☑ on a task to open its checklist, then add and tick items. Completing the task closes the whole checklist. Pomodoros stay on the parent task.</li>
+          <li><strong>Subtasks</strong> — Click ☑ on a task to open its checklist, then add and tick items. Click any subtask's text to rename it in place (Enter saves, Esc cancels). Completing the task closes the whole checklist. Pomodoros stay on the parent task.</li>
         </ul>
         <h3>Tags &amp; Filter</h3>
-        <p>Add tags in the task form. Click a tag pill to filter. Projects appear as <code>project:NAME</code> in the tag cloud.</p>
+        <p>Add tags in the task form. Click a tag or project pill to filter — the selected pill gets a ✓ and a ring, and a "Clear filter" button appears below the list.</p>
+        <h3>Focus Score</h3>
+        <p>The share of every task you've ever created that is now finished: <code>completed ÷ (completed + still open) × 100</code>. Ticking a task off raises it; adding a new one lowers it until you finish it. Tasks only — pomodoros and subtasks don't count.</p>
+        <h3>Calendar</h3>
+        <p>Give a task one or more time blocks (in the task form, or by clicking an empty slot on the Calendar tab) and it appears in Month, Week and Day views. Today's blocks also show at the top of the Dashboard, where the chevron collapses the panel out of the way.</p>
         <h3>Due Dates &amp; Repeat</h3>
         <p>Set a due date and optional repeat frequency. Recurring tasks auto-recreate on completion.</p>
         <h3>Golden Task</h3>

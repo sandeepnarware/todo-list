@@ -77,7 +77,7 @@ check('app name still rendered', [...doc.querySelectorAll('p')].some(p => p.text
 check('avatar + name still share a flex row',
   doc.getElementById('sidebarAvatar').parentElement.className.includes('flex items-center'),
   doc.getElementById('sidebarAvatar').parentElement.className);
-check('all 5 nav tabs still present', doc.querySelectorAll('aside .tab').length === 5, doc.querySelectorAll('aside .tab').length);
+check('all 6 nav tabs still present', doc.querySelectorAll('aside .tab').length === 6, doc.querySelectorAll('aside .tab').length);
 
 console.log('\n5. CSS constrains the injected widget');
 check('.donate-wrap styled', /\.donate-wrap\s*\{/.test(css));

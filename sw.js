@@ -1,4 +1,4 @@
-const CACHE = 'pomodone-v4';
+const CACHE = 'pomodone-v5';
 // Scope-relative so the same list works at the domain root and under /todo-list/.
 const URLS = ['./', './index.html', './style.css', './app.js', './quotes.json', './version.json', './icon.svg', './manifest.json'];
 

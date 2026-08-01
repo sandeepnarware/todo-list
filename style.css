@@ -269,14 +269,17 @@ section[data-tab].tab-hidden { display: none !important; }
 /* ===== TASK LIST ===== */
 #todoList { list-style: none; }
 
-/* --- Individual task item --- */
+/* --- Individual task item ---
+   Deliberately dense: the vertical rhythm here decides how many tasks are on
+   screen at once, so padding, the gap to the action icons and the row gap are all
+   kept tight. Touch targets are held at >=28px by the action-button padding. */
 #todoList > li {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 8px 12px;
   background: var(--surface-container-lowest);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: 0 8px 20px -4px var(--shadow-color);
   border: 1px solid var(--surface-container);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -318,13 +321,13 @@ section[data-tab].tab-hidden { display: none !important; }
 #todoList > li input[type="checkbox"] {
   appearance: none;
   background: transparent;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: 2px solid var(--outline);
   border-radius: 50%;
   cursor: pointer;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
   position: relative;
   transition: all 0.25s ease;
 }
@@ -346,17 +349,17 @@ section[data-tab].tab-hidden { display: none !important; }
 }
 
 .task-content { flex: 1; min-width: 0; }
-.task-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.task-text { font-weight: 600; word-break: break-word; font-size: 15px; }
-.task-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.task-tags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.task-desc { font-size: 13px; color: var(--on-surface-variant); margin-top: 4px; line-height: 1.5; }
+.task-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.task-text { font-weight: 600; word-break: break-word; font-size: 15px; line-height: 1.35; }
+.task-badges { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.task-tags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.task-desc { font-size: 13px; color: var(--on-surface-variant); margin-top: 3px; line-height: 1.4; }
 .task-actions-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 3px;
   border-top: 1px solid var(--surface-container);
 }
 
@@ -364,7 +367,7 @@ section[data-tab].tab-hidden { display: none !important; }
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 3px 5px;
   border-radius: 8px;
   transition: all 0.2s;
   font-size: 14px;
@@ -423,8 +426,8 @@ section[data-tab].tab-hidden { display: none !important; }
 }
 
 .subtask-panel {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
   background: var(--surface-container-low);
   border: 1px solid var(--surface-container);
   border-radius: 12px;
@@ -456,6 +459,36 @@ section[data-tab].tab-hidden { display: none !important; }
 .subtask-item:hover { background: var(--surface-container); }
 .subtask-text { flex: 1; min-width: 0; font-size: 13px; word-break: break-word; }
 .subtask-item.done .subtask-text { text-decoration: line-through; color: var(--on-surface-variant); opacity: 0.6; }
+
+/* Click-to-rename. The label carries the same padding as the field that replaces
+   it, so switching between them doesn't shift the row. */
+.subtask-text[role="button"], .dash-subtask-text[role="button"] {
+  cursor: text;
+  padding: 1px 5px;
+  margin-left: -5px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.subtask-text[role="button"]:hover, .dash-subtask-text[role="button"]:hover {
+  background: var(--surface-container-high);
+}
+.subtask-text[role="button"]:focus-visible, .dash-subtask-text[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+input.subtask-edit-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-container-high);
+  border: 1.5px solid var(--primary);
+  border-radius: 8px;
+  padding: 1px 5px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: var(--on-surface);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-fixed);
+}
 
 /* Smaller square checkbox — overrides the round 22px task checkbox */
 #todoList > li .subtask-item input[type="checkbox"] {
@@ -1387,16 +1420,65 @@ select:-webkit-autofill {
 .support-copy-btn:active { transform: scale(0.95); }
 .support-copy-btn .material-symbols-outlined { font-size: 16px; }
 
-/* Donate button (Razorpay) — keep the injected widget inside the narrow sidebar card */
+/* Donate (Razorpay) — the widget is a cross-origin iframe, so it can't be themed
+   from here. An app-styled pill fronts it instead and reveals it on demand. The
+   embed is clipped rather than display:none so Razorpay can still measure and
+   size its iframe at load. */
 .donate-wrap {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--outline-variant);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 .donate-wrap form { max-width: 100%; }
 .donate-wrap iframe { max-width: 100% !important; border: 0; }
+
+.donate-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+}
+.donate-toggle:hover { border-color: var(--primary); background: var(--primary-fixed); }
+.donate-toggle:active { transform: scale(0.97); }
+.donate-toggle.open { background: var(--primary-fixed); border-color: var(--primary); }
+.donate-toggle .donate-heart {
+  font-size: 16px;
+  color: var(--primary-text);
+  font-variation-settings: 'FILL' 1;
+  flex-shrink: 0;
+}
+.donate-toggle .donate-toggle-label { flex: 1; text-align: left; }
+.donate-toggle .donate-chevron {
+  font-size: 18px;
+  color: var(--on-surface-variant);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.donate-toggle.open .donate-chevron { transform: rotate(180deg); }
+
+.donate-embed {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  display: flex;
+  justify-content: center;
+}
+.donate-embed.open { max-height: 260px; opacity: 1; }
 
 /* Quote topic chip — every dashboard quote is tagged time / success / hard work */
 .quote-topic {
@@ -1433,6 +1515,621 @@ select:-webkit-autofill {
 
 .rounded-organic { border-radius: 16px; }
 
+/* ===== HEADER CONTROLS =====
+   The search field and the New Task pill share one height, so neither out-grows
+   the icon buttons beside them (the bordered search box used to sit ~3px taller
+   than the button next to it). */
+.header-control { height: 36px; box-sizing: border-box; }
+#headerSearch { height: 100%; padding: 0; line-height: 1; }
+
+/* ===== TAG PILLS (sidebar clouds) =====
+   The sidebar clouds had no rule of their own, so their pills rendered as bare
+   coloured text. Shape lives here; the per-tag hue still arrives inline. */
+#tagCloudSidebar .tag-pill,
+#tagCloudTags .tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s, filter 0.15s;
+}
+#tagCloudSidebar .tag-pill:hover,
+#tagCloudTags .tag-pill:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.tag-pill:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Selected: a leading ✓ and heavier text. The ring and the solid border come in
+   inline from renderTagCloud, because the pill's hue does too. */
+.tag-pill.active { font-weight: 800; }
+.tag-pill.active::before {
+  content: 'check';
+  font-family: 'Material Symbols Outlined';
+  font-size: 13px;
+  line-height: 1;
+  font-variation-settings: 'FILL' 1, 'wght' 700;
+}
+
+.tag-filter-clear {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 14px;
+  background: var(--primary-fixed);
+  color: var(--on-primary-container);
+  border: 1.5px solid var(--primary);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.15s;
+}
+.tag-filter-clear.hidden { display: none; }
+.tag-filter-clear:hover { filter: brightness(1.06); }
+.tag-filter-clear:active { transform: scale(0.97); }
+.tag-filter-clear .material-symbols-outlined { font-size: 15px; flex-shrink: 0; }
+.tag-filter-clear span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== FOCUS SCORE EXPLAINER =====
+   A title attribute is useless on touch, so the definition lives in a panel the
+   info button expands. */
+.focus-score-info {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+  display: inline-flex;
+  align-items: center;
+  transition: opacity 0.2s, color 0.2s;
+}
+.focus-score-info:hover,
+.focus-score-info[aria-expanded="true"] { opacity: 1; color: var(--primary-text); }
+.focus-score-info .material-symbols-outlined { font-size: 14px; }
+
+.focus-score-help {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--on-surface-variant);
+}
+.focus-score-help.hidden { display: none; }
+.focus-score-help p + p { margin-top: 6px; }
+.focus-score-help strong { color: var(--on-surface); }
+.focus-score-formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--primary-text);
+  background: var(--surface-container-high);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+/* ===== STATS: WORD CLOUD ===== */
+.cloud-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+.cloud-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.cloud-legend-swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--outline); }
+.cloud-legend-swatch.is-project { border-radius: 999px; background: var(--primary); }
+.cloud-legend-note { opacity: 0.7; }
+
+.wordcloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
+  padding: 28px 18px;
+  min-height: 200px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--surface-container);
+  border-radius: 16px;
+}
+.cloud-word {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  line-height: 1.15;
+  transition: transform 0.15s, background 0.15s;
+}
+.cloud-word:hover { transform: scale(1.08); background: var(--surface-container-high); }
+.cloud-word:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* The word's colour is its tag's hue, set inline, and the TAG_COLORS palette was
+   picked for tinted pills rather than for bare text. Untouched, the yellows and
+   limes fall to ~1.6:1 on a light surface and the deep purple to ~2.2:1 on a dark
+   one. A per-theme brightness nudge lifts the whole palette past 3:1 in both
+   directions without giving up the hue that identifies the tag. */
+html:not(.dark) .cloud-word { filter: brightness(0.62); }
+html.dark .cloud-word { filter: brightness(1.3) saturate(0.95); }
+/* Projects read as headings, tags as words — the legend says which is which. */
+.cloud-word.is-project { text-transform: uppercase; letter-spacing: 0.5px; }
+.cloud-word.active { background: var(--surface-container-high); box-shadow: inset 0 -3px 0 currentColor; }
+
+.cloud-podium { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.cloud-podium-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--on-surface-variant);
+}
+.cloud-rank {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--surface-container);
+  border-radius: 12px;
+  font-size: 13px;
+}
+.cloud-rank-pos { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--on-surface-variant); width: 12px; flex-shrink: 0; }
+.cloud-rank-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+.cloud-rank-name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cloud-rank-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--on-surface-variant); flex-shrink: 0; }
+
+/* ===== TASK MODAL: SCHEDULE EDITOR =====
+   Repeatable rows are how one task gets more than one time block. */
+.modal-schedule-list { display: flex; flex-direction: column; gap: 8px; }
+.modal-schedule-row { display: flex; align-items: center; gap: 6px; }
+/* An id selector is needed to outrank `.form-group input:not(...)`, whose
+   width:100% would otherwise stack the three fields instead of forming a row. */
+#modalScheduleList input {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+#modalScheduleList input[type="date"] { flex: 1.5 1 0; }
+.modal-schedule-sep { flex-shrink: 0; font-size: 12px; color: var(--on-surface-variant); }
+.schedule-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  border: 1.5px dashed var(--outline-variant);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.schedule-add-btn:hover { border-color: var(--primary); color: var(--primary-text); }
+.schedule-add-btn .material-symbols-outlined { font-size: 16px; }
+
+.btn-danger {
+  padding: 10px 20px;
+  border: 1.5px solid var(--error);
+  border-radius: 999px;
+  background: none;
+  color: var(--error);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s;
+  margin-right: auto; /* sits apart from Cancel/Save */
+}
+.btn-danger:hover { background: var(--error-container); color: var(--on-error-container); }
+.btn-danger.hidden { display: none; }
+
+/* ===== CALENDAR TAB ===== */
+.cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.cal-toolbar-group { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cal-label { font-size: 20px; line-height: 28px; margin-left: 4px; }
+
+.cal-nav-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-container);
+  color: var(--on-surface);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.cal-nav-btn:hover { background: var(--surface-container-high); }
+.cal-nav-btn .material-symbols-outlined { font-size: 20px; }
+
+.cal-today-btn {
+  background: var(--surface-container);
+  color: var(--on-surface);
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.cal-today-btn:hover { border-color: var(--primary); color: var(--primary-text); }
+
+.cal-view-switch { display: inline-flex; background: var(--surface-container); border-radius: 999px; padding: 3px; gap: 2px; }
+.cal-view-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  padding: 5px 14px;
+  border-radius: 999px;
+  transition: all 0.15s;
+}
+.cal-view-btn:hover:not(.active) { color: var(--on-surface); }
+.cal-view-btn.active { background: var(--surface-container-lowest); color: var(--primary-text); box-shadow: 0 1px 3px var(--shadow-color); }
+
+.cal-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.cal-add-btn:hover { opacity: 0.9; }
+.cal-add-btn:active { transform: scale(0.96); }
+.cal-add-btn .material-symbols-outlined { font-size: 16px; }
+
+.cal-hint {
+  margin-top: 12px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  opacity: 0.65;
+}
+
+/* --- Month view --- */
+.cal-month {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--surface-container);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.cal-month-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--surface-container);
+}
+.cal-month-dayname {
+  padding: 8px 6px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+.cal-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(96px, auto); }
+.cal-month-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 4px 5px 6px;
+  border-right: 1px solid var(--surface-container);
+  border-bottom: 1px solid var(--surface-container);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cal-month-cell:nth-child(7n) { border-right: none; }
+.cal-month-cell:hover { background: var(--surface-container-low); }
+.cal-month-cell.other-month { background: var(--surface-container-low); opacity: 0.55; }
+.cal-month-cell.is-today { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.cal-month-daynum {
+  align-self: flex-start;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  transition: background 0.15s, color 0.15s;
+}
+.cal-month-daynum:hover { background: var(--surface-container-high); color: var(--on-surface); }
+.cal-month-cell.is-today .cal-month-daynum { background: var(--primary); color: var(--on-primary); }
+.cal-month-events { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.cal-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 5px;
+  text-align: left;
+  background: var(--surface-container-high);
+  border: none;
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cal-chip:hover { background: var(--primary-fixed); }
+.cal-chip.done { opacity: 0.5; border-left-color: var(--secondary); }
+.cal-chip.done .cal-chip-title { text-decoration: line-through; }
+.cal-chip-time { flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; color: var(--primary-text); }
+.cal-chip-title { min-width: 0; font-size: 11px; font-weight: 600; color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-more {
+  padding: 1px 5px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--primary-text);
+}
+.cal-more:hover { text-decoration: underline; }
+
+/* --- Week / day time grid --- */
+.cal-grid {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--surface-container);
+  border-radius: 16px;
+  overflow: hidden;
+}
+/* Sticky inside .cal-grid-scroll so the day headers stay put vertically and stay
+   glued to their columns when a week scrolls sideways. */
+.cal-grid-head {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--surface-container);
+}
+.cal-gutter-head { width: 60px; flex-shrink: 0; }
+.cal-day-head {
+  flex: 1;
+  min-width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-left: 1px solid var(--surface-container);
+}
+.cal-day-name { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--on-surface-variant); }
+.cal-day-num { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 700; line-height: 1.1; }
+.cal-day-head.is-today .cal-day-name { color: var(--primary-text); }
+.cal-day-head.is-today .cal-day-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 15px;
+}
+
+.cal-grid-scroll { max-height: min(62vh, 660px); overflow: auto; }
+/* A week needs the gutter plus seven 78px columns before it starts scrolling
+   sideways; a single day has no floor to hold. */
+.cal-grid.is-week .cal-grid-inner { min-width: 606px; }
+.cal-grid-body { display: flex; }
+.cal-gutter { width: 60px; flex-shrink: 0; }
+.cal-hour-label {
+  padding-right: 8px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--on-surface-variant);
+  opacity: 0.75;
+  transform: translateY(-6px);
+}
+.cal-day-col { position: relative; flex: 1; min-width: 78px; border-left: 1px solid var(--surface-container); }
+.cal-day-col.is-today { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.cal-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--surface-container);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.cal-slot:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+.cal-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--error); z-index: 3; pointer-events: none; }
+.cal-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 999px; background: var(--error); }
+
+.cal-block {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 3px 5px;
+  background: var(--primary-fixed);
+  color: var(--on-primary-container);
+  border-left: 3px solid var(--primary);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: filter 0.15s, box-shadow 0.15s;
+}
+.cal-block:hover { filter: brightness(1.06); box-shadow: 0 4px 12px -4px var(--shadow-color); z-index: 4; }
+.cal-block:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.cal-block.golden {
+  background: color-mix(in srgb, var(--tertiary-fixed) 70%, transparent);
+  border-left-color: var(--tertiary-fixed-dim);
+  color: var(--on-tertiary-fixed);
+}
+.cal-block.active { border-left-color: var(--secondary); box-shadow: inset 0 0 0 1.5px var(--secondary); }
+.cal-block.done { opacity: 0.55; }
+.cal-block.done .cal-block-title { text-decoration: line-through; }
+.cal-block-time { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-block-title { font-size: 11px; font-weight: 700; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; }
+.cal-block-project { font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-block-del {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-container-lowest);
+  color: var(--on-surface-variant);
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.cal-block:hover .cal-block-del { opacity: 0.9; }
+.cal-block-del:hover { color: var(--error); }
+
+/* ===== DASHBOARD: TODAY'S SCHEDULE ===== */
+.today-schedule-toggle {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+.today-schedule-toggle:hover { opacity: 1; color: var(--primary-text); background: var(--surface-container); }
+.today-schedule-toggle .material-symbols-outlined { font-size: 20px; }
+
+.today-schedule-body { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.today-schedule.collapsed .today-schedule-body { display: none; }
+.today-schedule-empty { font-size: 12px; color: var(--on-surface-variant); opacity: 0.75; }
+.today-schedule-add {
+  margin-left: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-text);
+  text-decoration: underline;
+}
+
+.today-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--surface-container);
+  border-left: 3px solid var(--outline-variant);
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.today-row:hover { background: var(--surface-container-high); }
+.today-row.now { border-left-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.today-row.past { opacity: 0.6; }
+.today-row.done { opacity: 0.5; border-left-color: var(--secondary-text); }
+.today-row.done .today-title { text-decoration: line-through; }
+.today-time {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 54px;
+  line-height: 1.2;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+}
+.today-time-end { opacity: 0.55; font-weight: 600; }
+.today-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-project { margin-left: 8px; font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--on-surface-variant); opacity: 0.7; }
+.today-now-badge {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.today-check, .today-play {
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  transition: transform 0.15s, color 0.15s;
+}
+.today-check { font-size: 18px !important; color: var(--outline-variant); }
+.today-check:hover { color: var(--secondary-text); transform: scale(1.12); }
+.today-row.done .today-check { color: var(--secondary-text); }
+.today-play { font-size: 22px !important; color: var(--primary-text); }
+.today-play:hover { transform: scale(1.12); }
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 639px) {
   .px-container-padding { padding-left: 16px; padding-right: 16px; }
@@ -1440,6 +2137,11 @@ select:-webkit-autofill {
   .sort-controls { width: 100%; justify-content: center; }
   .slots-container { grid-template-columns: 1fr; }
   .view-tabs { width: 100%; justify-content: center; }
+
+  /* A native date input has a wide intrinsic minimum, so on a narrow modal it
+     takes its own line and the two times share the next one. */
+  .modal-schedule-row { flex-wrap: wrap; }
+  #modalScheduleList input[type="date"] { flex: 1 1 100%; }
 }
 
 /* ===== DARK MODE OVERRIDES ===== */
@@ -1496,6 +2198,29 @@ input.stitch-checkbox:checked::after {
 @media (max-width: 767px) {
   #ambientBg .absolute { width: 200px; height: 200px; }
   .calendar-grid .day-cell { font-size: 11px; }
+
+  /* Six tabs now share the bottom bar, so they need to give up their padding.
+     Targeted by id rather than the `md:hidden` utility, which can't be written
+     reliably as a plain-CSS selector. */
+  #mobileNav .tab { padding-left: 2px; padding-right: 2px; }
+
+  /* Calendar: the month grid gets shorter rows and drops chip times; the week
+     grid keeps its 560px floor and scrolls sideways instead of crushing. */
+  .cal-toolbar { gap: 8px; }
+  .cal-label { order: 3; width: 100%; margin-left: 0; font-size: 16px; line-height: 22px; }
+  .cal-toolbar-group { width: 100%; justify-content: space-between; }
+  .cal-month-grid { grid-auto-rows: minmax(70px, auto); }
+  .cal-month-dayname { padding: 6px 2px; font-size: 9px; letter-spacing: 0; }
+  .cal-month-cell { padding: 3px; gap: 2px; }
+  .cal-chip-time { display: none; }
+  .cal-chip { padding: 2px 4px; }
+  .cal-grid-scroll { max-height: 62vh; }
+  .cal-view-btn { padding: 5px 10px; font-size: 11px; }
+
+  /* The cloud's largest words are set inline, so only the box tightens here. */
+  .wordcloud { padding: 20px 12px; min-height: 160px; gap: 2px 12px; }
+
+  .today-time { min-width: 48px; }
 }
 
 /* ===== POMODORO HELPER ===== */
