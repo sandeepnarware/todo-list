@@ -711,6 +711,63 @@ const TAG_COLORS = [
   "#badc58",
 ];
 
+/* ===== Schedule block colours =====
+   Eight, not twenty like TAG_COLORS: a swatch row you scan in one glance is
+   worth more than a full picker, and eight hues stay tellable apart at the 3px
+   width a calendar border actually gets.
+
+   Blocks store the `id`, never the hex. That keeps the palette re-tunable
+   without rewriting anyone's saved data, and — because rendering looks the id
+   up rather than trusting it — a hand-edited localStorage value can't inject a
+   colour, or anything else, into the style attribute.
+
+   Mid-luminance on purpose: each one has to stay legible as a border on the
+   near-white light surface and the near-black dark one. */
+const BLOCK_COLORS = [
+  { id: "tomato", label: "Tomato", hex: "#e5484d" },
+  { id: "orange", label: "Orange", hex: "#f76b15" },
+  { id: "amber", label: "Amber", hex: "#ffb224" },
+  { id: "grass", label: "Grass", hex: "#46a758" },
+  { id: "teal", label: "Teal", hex: "#12a594" },
+  { id: "blue", label: "Blue", hex: "#3e63dd" },
+  { id: "violet", label: "Violet", hex: "#8e4ec6" },
+  { id: "pink", label: "Pink", hex: "#d6409f" },
+];
+
+/* Hashed, not assigned in sequence the way tag colours are. A colour that
+   depended on how many projects existed, or on their order, would repaint the
+   whole calendar the moment one was renamed or emptied. */
+function projectColorId(project) {
+  const name = String(project || "").trim().toLowerCase();
+  if (!name) return null;
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return BLOCK_COLORS[Math.abs(h) % BLOCK_COLORS.length].id;
+}
+
+/* An explicit choice on the block wins; otherwise the task's project decides,
+   so a calendar is colour-coded before anyone has picked anything. */
+function blockColorId(task, block) {
+  if (block && block.color) return block.color;
+  return projectColorId(task && task.project);
+}
+
+/* null when nothing resolves, or when a stored id is not one we know. Callers
+   use that to leave the neutral styling alone. */
+function blockColorHex(task, block) {
+  const id = blockColorId(task, block);
+  const found = BLOCK_COLORS.find((c) => c.id === id);
+  return found ? found.hex : null;
+}
+
+/* The class + inline custom property every coloured surface shares. */
+function blockColorAttrs(task, block) {
+  const hex = blockColorHex(task, block);
+  return hex
+    ? { cls: " has-color", style: `--block-color:${hex}` }
+    : { cls: "", style: "" };
+}
+
 function calcNextDue(dueDate, frequency) {
   if (!dueDate || frequency === "none") return null;
   const d = new Date(dueDate + "T00:00:00");
@@ -4257,6 +4314,7 @@ function makeScheduleBlock(date, start, end, extra) {
     interval: 1,
     until: null, // inclusive last date, or null for "forever"
     exdates: [], // occurrences deleted or overridden individually
+    color: null, // a BLOCK_COLORS id, or null to inherit from the task's project
     ...extra,
   };
 }
@@ -4469,7 +4527,8 @@ function calBlockHtml(entry) {
     .filter(Boolean)
     .join(" ");
   const tip = `${range} — ${task.title}${rule ? ` (${rule})` : ""}`;
-  return `<div class="${cls}" style="top:${top}px;height:${height}px;left:${lane * width}%;width:calc(${width}% - 3px)"
+  const color = blockColorAttrs(task, block);
+  return `<div class="${cls}${color.cls}" style="top:${top}px;height:${height}px;left:${lane * width}%;width:calc(${width}% - 3px)${color.style ? ";" + color.style : ""}"
       data-task-id="${task.id}" data-block-id="${block.id}" data-date="${date}"
       title="${escapeHtml(tip)}" role="button" tabindex="0">
       <span class="cal-block-time">${escapeHtml(range)}${rule ? '<span class="cal-repeat-mark" aria-label="Repeating">↻</span>' : ""}</span>
@@ -4560,7 +4619,8 @@ function renderCalMonthHTML() {
       .map(({ task, block }) => {
         const rule = describeRepeat(block);
         const tip = `${calFormatTime(block.start)} – ${calFormatTime(block.end)} — ${task.title}${rule ? ` (${rule})` : ""}`;
-        return `<button class="cal-chip${task.done ? " done" : ""}${rule ? " repeating" : ""}" data-task-id="${task.id}" data-block-id="${block.id}" data-date="${key}" title="${escapeHtml(tip)}">
+        const color = blockColorAttrs(task, block);
+        return `<button class="cal-chip${task.done ? " done" : ""}${rule ? " repeating" : ""}${color.cls}"${color.style ? ` style="${color.style}"` : ""} data-task-id="${task.id}" data-block-id="${block.id}" data-date="${key}" title="${escapeHtml(tip)}">
             <span class="cal-chip-time">${escapeHtml(calFormatTime(block.start))}</span>
             <span class="cal-chip-title">${escapeHtml(task.title)}</span>
             ${rule ? '<span class="cal-repeat-mark" aria-label="Repeating">↻</span>' : ""}
@@ -4790,6 +4850,76 @@ function setSchedScopeVisible(visible) {
   }
 }
 
+/* ===== Schedule colour picker =====
+   "" means automatic — inherit from the task's project. Anything else is an id
+   from BLOCK_COLORS, pinned to this block. */
+let schedColor = "";
+
+/* Which task the dialog is pointed at, so Auto can name the project it would
+   borrow from. Null while "New task" is selected: there is no project yet. */
+function schedCurrentTask() {
+  const id = schedBlockIdField.value
+    ? schedTaskIdField.value
+    : schedTaskSelect && schedTaskSelect.value;
+  if (!id || id === NEW_TASK_OPTION) return null;
+  return todos.find((t) => t.id === id) || null;
+}
+
+function renderSchedColors() {
+  const wrap = document.getElementById("schedColors");
+  if (!wrap) return;
+  // The Auto swatch previews the colour it would actually produce, so the
+  // choice is between two visible outcomes rather than a colour and a word.
+  const autoHex = blockColorHex(schedCurrentTask(), null);
+  const swatches = [{ id: "", label: "Automatic", hex: autoHex }, ...BLOCK_COLORS];
+  wrap.innerHTML = swatches
+    .map((c) => {
+      const on = c.id === schedColor;
+      const style = c.hex ? ` style="--swatch:${c.hex}"` : "";
+      return `<button type="button" class="sched-swatch${c.id ? "" : " is-auto"}${on ? " selected" : ""}${c.hex ? "" : " is-empty"}"
+        role="radio" aria-checked="${on}" tabindex="${on ? "0" : "-1"}"
+        data-color-id="${escapeHtml(c.id)}" title="${escapeHtml(c.label)}" aria-label="${escapeHtml(c.label)}"${style}></button>`;
+    })
+    .join("");
+  syncSchedColorHint();
+}
+
+function syncSchedColorHint() {
+  const hint = document.getElementById("schedColorHint");
+  if (!hint) return;
+  if (schedColor) {
+    const c = BLOCK_COLORS.find((x) => x.id === schedColor);
+    hint.textContent = c ? `${c.label}, set on this block.` : "";
+    return;
+  }
+  const task = schedCurrentTask();
+  const project = task && task.project ? task.project.trim() : "";
+  hint.textContent = project
+    ? `Automatic — matches the ${project} project.`
+    : "Automatic — give the task a project to colour it.";
+}
+
+function setSchedColor(id) {
+  // An unknown id (an older export, a hand-edited store) falls back to
+  // automatic rather than leaving the picker showing nothing selected.
+  schedColor = BLOCK_COLORS.some((c) => c.id === id) ? id : "";
+  renderSchedColors();
+}
+
+/* Roving focus, the way a radiogroup is expected to behave: one tab stop, and
+   the arrows move between swatches. */
+function moveSchedColorFocus(delta) {
+  const wrap = document.getElementById("schedColors");
+  if (!wrap) return;
+  const all = [...wrap.querySelectorAll(".sched-swatch")];
+  const at = all.findIndex((b) => b.classList.contains("selected"));
+  const next = all[(at + delta + all.length) % all.length];
+  if (!next) return;
+  setSchedColor(next.dataset.colorId);
+  const moved = document.getElementById("schedColors").querySelector(".selected");
+  if (moved) moved.focus();
+}
+
 function openScheduleModal(opts = {}) {
   if (!scheduleModal) return;
   const startMins = calMinutes(opts.start) ?? calMinutes(CAL_DEFAULT_START);
@@ -4806,6 +4936,9 @@ function openScheduleModal(opts = {}) {
   if (schedUntil) schedUntil.value = opts.until || "";
   syncSchedRepeatUI();
   populateSchedTaskOptions(opts.taskId);
+  // After populateSchedTaskOptions: the Auto preview reads the selected task's
+  // project, and until the options exist there is no selected task to read.
+  setSchedColor(opts.color || "");
   // The task of an existing block is fixed — moving a block between tasks would
   // be an unexpected side effect of editing its time.
   schedTaskSelect.disabled = !!opts.blockId;
@@ -4876,6 +5009,9 @@ function saveScheduleModal() {
     repeat: rule.repeat,
     interval: rule.interval,
     until: rule.until,
+    // null rather than "" so the stored shape matches makeScheduleBlock's
+    // default and "automatic" reads the same however the block was created.
+    color: schedColor || null,
   };
   if (!existing) {
     blocks.push(makeScheduleBlock(date, start, end, fields));
@@ -4885,7 +5021,7 @@ function saveScheduleModal() {
     // overridden occurrence, and it keeps the rest of the series untouched.
     const originalDate = schedOccurrenceDate || existing.date;
     blockExdates(existing).push(originalDate);
-    blocks.push(makeScheduleBlock(date, start, end));
+    blocks.push(makeScheduleBlock(date, start, end, { color: schedColor || null }));
   } else {
     Object.assign(existing, fields);
     // A series that stops repeating has no exceptions left to honour.
@@ -4975,7 +5111,27 @@ if (scheduleModal) {
     if (e.target === scheduleModal) closeScheduleModal();
   });
   if (schedTaskSelect)
-    schedTaskSelect.addEventListener("change", syncSchedNewTitle);
+    schedTaskSelect.addEventListener("change", () => {
+      syncSchedNewTitle();
+      // Switching task switches the project, and Auto previews that project.
+      renderSchedColors();
+    });
+  const schedColorsEl = document.getElementById("schedColors");
+  if (schedColorsEl) {
+    schedColorsEl.addEventListener("click", (e) => {
+      const swatch = e.target.closest(".sched-swatch");
+      if (swatch) setSchedColor(swatch.dataset.colorId);
+    });
+    schedColorsEl.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        moveSchedColorFocus(1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        moveSchedColorFocus(-1);
+      }
+    });
+  }
   // The summary line reads back the rule in words, so "every 2 weeks on Tuesday
   // until 1 Dec" is checkable before saving.
   [schedRepeat, schedInterval, schedUntil, schedDate].forEach((el) => {
@@ -5076,6 +5232,7 @@ if (calendarContentEl) {
           repeat: blockRepeat(block),
           interval: blockInterval(block),
           until: block.until,
+          color: block.color || "",
         });
       return;
     }
@@ -5101,44 +5258,80 @@ if (calendarContentEl) {
 }
 
 /* ===== Dashboard: Today's Schedule ===== */
+
+/* One row. `block` is null for a task that is due today but never got a slot —
+   those rows show a dash where the times would be, so titles stay aligned with
+   the timed rows above them. */
+function todayRowHtml(task, block) {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  let state = "";
+  if (task.done) state = "done";
+  else if (block) {
+    const s = calMinutes(block.start) ?? 0;
+    const e = calMinutes(block.end) ?? s + 30;
+    if (nowMins >= s && nowMins < e) state = "now";
+    else if (e <= nowMins) state = "past";
+  }
+  const isActive = task.id === activeTaskId;
+  // Only a real block can repeat, so an untimed row never carries the mark.
+  const rule = block ? describeRepeat(block) : "";
+  const time = block
+    ? `${escapeHtml(calFormatTime(block.start))}<span class="today-time-end">${escapeHtml(calFormatTime(block.end))}</span>`
+    : '<span class="today-time-none" aria-label="No time set">—</span>';
+  const color = blockColorAttrs(task, block);
+  return `<div class="today-row ${state}${color.cls}"${color.style ? ` style="${color.style}"` : ""}${rule ? ` title="${escapeHtml(rule)}"` : ""}>
+    <span class="today-time">${time}</span>
+    ${rule ? '<span class="cal-repeat-mark today-repeat" aria-label="Repeating">↻</span>' : ""}
+    <button class="dash-task-check material-symbols-outlined today-check" data-task-id="${task.id}" aria-label="${task.done ? "Mark task not done" : "Mark task complete"}">${task.done ? "check_circle" : "radio_button_unchecked"}</button>
+    <span class="today-title">${escapeHtml(task.title)}${task.project ? `<span class="today-project">${escapeHtml(task.project)}</span>` : ""}</span>
+    ${state === "now" ? '<span class="today-now-badge">NOW</span>' : ""}
+    ${task.done ? "" : `<button class="dash-task-play material-symbols-outlined today-play" data-task-id="${task.id}" aria-label="${isActive ? "Pause" : "Focus on this task"}">${isActive ? "pause_circle" : "play_circle"}</button>`}
+  </div>`;
+}
+
 function renderTodaySchedule() {
   const body = document.getElementById("todayScheduleBody");
   if (!body) return;
   const countEl = document.getElementById("todayScheduleCount");
-  const entries = blocksForDate(localDateKey(new Date()));
-  if (countEl)
-    countEl.textContent = entries.length
-      ? `${entries.length} BLOCK${entries.length === 1 ? "" : "S"}`
-      : "";
+  const todayKey = localDateKey(new Date());
+  const entries = blocksForDate(todayKey);
 
-  if (entries.length === 0) {
+  /* Tasks due today that were never given a slot. Without these the panel only
+     ever showed what had been dragged onto the calendar, so a day full of work
+     could read as almost empty. Order is the todo list's own order, which is
+     the one the user arranged by hand. */
+  const blocked = new Set(entries.map((e) => e.task.id));
+  const untimed = todos.filter(
+    (t) => t.dueDate === todayKey && !blocked.has(t.id),
+  );
+
+  if (countEl) {
+    const parts = [];
+    if (entries.length)
+      parts.push(`${entries.length} BLOCK${entries.length === 1 ? "" : "S"}`);
+    if (untimed.length)
+      parts.push(
+        entries.length
+          ? `${untimed.length} MORE`
+          : `${untimed.length} TASK${untimed.length === 1 ? "" : "S"}`,
+      );
+    countEl.textContent = parts.join(" · ");
+  }
+
+  if (!entries.length && !untimed.length) {
     body.innerHTML = `<p class="today-schedule-empty">Nothing scheduled today.
       <button class="today-schedule-add">Add a time block</button></p>`;
     return;
   }
 
-  const now = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-  body.innerHTML = entries
-    .map(({ task, block }) => {
-      const s = calMinutes(block.start) ?? 0;
-      const e = calMinutes(block.end) ?? s + 30;
-      let state = "";
-      if (task.done) state = "done";
-      else if (nowMins >= s && nowMins < e) state = "now";
-      else if (e <= nowMins) state = "past";
-      const isActive = task.id === activeTaskId;
-      const rule = describeRepeat(block);
-      return `<div class="today-row ${state}"${rule ? ` title="${escapeHtml(rule)}"` : ""}>
-        <span class="today-time">${escapeHtml(calFormatTime(block.start))}<span class="today-time-end">${escapeHtml(calFormatTime(block.end))}</span></span>
-        ${rule ? '<span class="cal-repeat-mark today-repeat" aria-label="Repeating">↻</span>' : ""}
-        <button class="dash-task-check material-symbols-outlined today-check" data-task-id="${task.id}" aria-label="${task.done ? "Mark task not done" : "Mark task complete"}">${task.done ? "check_circle" : "radio_button_unchecked"}</button>
-        <span class="today-title">${escapeHtml(task.title)}${task.project ? `<span class="today-project">${escapeHtml(task.project)}</span>` : ""}</span>
-        ${state === "now" ? '<span class="today-now-badge">NOW</span>' : ""}
-        ${task.done ? "" : `<button class="dash-task-play material-symbols-outlined today-play" data-task-id="${task.id}" aria-label="${isActive ? "Pause" : "Focus on this task"}">${isActive ? "pause_circle" : "play_circle"}</button>`}
-      </div>`;
-    })
-    .join("");
+  let html = entries.map(({ task, block }) => todayRowHtml(task, block)).join("");
+  if (untimed.length) {
+    // The divider only earns its space when there is something above to divide.
+    if (entries.length) html += '<p class="today-divider">No time set</p>';
+    html += untimed.map((t) => todayRowHtml(t, null)).join("");
+  }
+  body.innerHTML = html;
 }
 
 /* Collapses to its header rather than disappearing, so there is always a way

@@ -1982,6 +1982,9 @@ input.sched-radio:checked::after {
 }
 .cal-chip:hover { background: var(--primary-fixed); }
 .cal-chip.done { opacity: 0.5; border-left-color: var(--secondary); }
+/* After .done on purpose: a finished block keeps its colour, because the
+   strikethrough and the fade already say it is done. */
+.cal-chip.has-color { border-left-color: var(--block-color); }
 .cal-chip.done .cal-chip-title { text-decoration: line-through; }
 .cal-chip-time { flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; color: var(--primary-text); }
 .cal-chip-title { min-width: 0; font-size: 11px; font-weight: 600; color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2094,6 +2097,21 @@ input.sched-radio:checked::after {
 .cal-block.active { border-left-color: var(--secondary); box-shadow: inset 0 0 0 1.5px var(--secondary); }
 .cal-block.done { opacity: 0.55; }
 .cal-block.done .cal-block-title { text-decoration: line-through; }
+
+/* A block's colour beats the golden and active tints — the swatch you picked
+   should be the colour you get. Both states keep an inset ring instead, so they
+   stay identifiable on a fully colour-coded calendar. The ring rules come first
+   so .has-color can still win on background and border below. */
+.cal-block.golden { box-shadow: inset 0 0 0 1.5px var(--tertiary-fixed-dim); }
+.cal-block.has-color {
+  /* Mixed down into the page surface rather than used neat: a 3px border can
+     carry a saturated colour, a filled box behind 11px text cannot. Mixing into
+     --surface-container-lowest is what makes one rule work in both themes —
+     it resolves light on light and dark on dark. */
+  background: color-mix(in srgb, var(--block-color) 20%, var(--surface-container-lowest));
+  border-left-color: var(--block-color);
+  color: var(--on-surface);
+}
 .cal-block-time { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-block-title { font-size: 11px; font-weight: 700; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; }
 .cal-block-project { font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2136,7 +2154,9 @@ input.sched-radio:checked::after {
 .today-schedule-toggle .material-symbols-outlined { font-size: 20px; }
 
 /* Scrolls past ~9 rows rather than growing the column without limit, matching
-   the treatment Up Next already has. */
+   the treatment Up Next already has (both cap at 340px). This is what keeps a
+   day with twenty due tasks from making the dashboard taller than a day with
+   three. */
 .today-schedule-body {
   display: flex;
   flex-direction: column;
@@ -2176,6 +2196,11 @@ input.sched-radio:checked::after {
 .today-row.past { opacity: 0.6; }
 .today-row.done { opacity: 0.5; border-left-color: var(--secondary-text); }
 .today-row.done .today-title { text-decoration: line-through; }
+/* Last, so a coloured row keeps its colour through the now/past/done states.
+   The NOW row still stands out — it just glows in its own colour instead of the
+   theme's primary. */
+.today-row.has-color { border-left-color: var(--block-color); }
+.today-row.has-color.now { background: color-mix(in srgb, var(--block-color) 14%, transparent); }
 .today-time {
   display: flex;
   flex-direction: column;
@@ -2188,6 +2213,72 @@ input.sched-radio:checked::after {
   color: var(--on-surface-variant);
 }
 .today-time-end { opacity: 0.55; font-weight: 600; }
+/* Placeholder for a task due today with no slot. It sits inside .today-time so
+   it keeps that column's width and the titles below stay in line with the ones
+   above. */
+.today-time-none { opacity: 0.45; }
+
+/* Separates the timed rows from the due-today-but-unscheduled ones. */
+.today-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 2px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+}
+.today-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--outline-variant);
+}
+
+/* ===== SCHEDULE COLOUR PICKER ===== */
+/* Matches .form-group label so the section header sits in line with the rest of
+   the dialog — it is a <span>, not a <label>, because it labels a group of
+   buttons rather than one control. */
+.sched-color-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sched-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.sched-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--swatch, var(--outline-variant));
+  cursor: pointer;
+  /* The ring is drawn outside the circle so selecting one doesn't resize it. */
+  box-shadow: 0 0 0 1.5px var(--surface-container-lowest) inset;
+  transition: transform 0.15s, outline-color 0.15s;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.sched-swatch:hover { transform: scale(1.1); }
+.sched-swatch.selected { outline-color: var(--on-surface); }
+.sched-swatch:focus-visible { outline-color: var(--on-surface); }
+/* Automatic: a dashed ring says "derived", while the fill still previews the
+   colour the current project would produce. */
+.sched-swatch.is-auto {
+  border: 2px dashed var(--outline);
+  background: var(--swatch, transparent);
+}
+/* Automatic with no project to inherit from — nothing to preview. */
+.sched-swatch.is-auto.is-empty { background: transparent; }
 .today-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-project { margin-left: 8px; font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--on-surface-variant); opacity: 0.7; }
 .today-now-badge {

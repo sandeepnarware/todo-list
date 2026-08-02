@@ -723,6 +723,15 @@
             <input type="time" id="schedEnd" value="10:00">
           </div>
         </div>
+        <!-- Swatches are buttons, not radio inputs: a native radio can't show a
+             colour without being restyled past recognition, and this way the
+             stylesheet audits still see every real control in the dialog. The
+             group carries the radio semantics for assistive tech instead. -->
+        <div class="form-group">
+          <span class="sched-color-label" id="schedColorLabel">Colour</span>
+          <div id="schedColors" class="sched-colors" role="radiogroup" aria-labelledby="schedColorLabel"></div>
+          <span class="support-hint" id="schedColorHint"></span>
+        </div>
         <div class="form-group">
           <label for="schedRepeat">Repeat</label>
           <select id="schedRepeat">

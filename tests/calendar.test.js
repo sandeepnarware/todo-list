@@ -43,6 +43,7 @@ function boot(seed) {
     get calView() { return calView; },
     get scheduleDraft() { return scheduleDraft; },
     switchTab, setCalView, openEditModal, layoutDayBlocks, blocksForDate, calMinutes,
+    openScheduleModal, projectColorId, blockColorHex, BLOCK_COLORS,
   };`;
   const s = w.document.createElement('script');
   s.textContent = appJs + bridge;
@@ -313,6 +314,180 @@ console.log('\n11. Dashboard: Today\'s Schedule');
   check('the header survives collapse, so it can be reopened', !!a.$('todayScheduleToggle'));
   click(a, a.$('todayScheduleToggle'));
   check('expands again', !a.$('todaySchedule').classList.contains('collapsed'));
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n11b. Today\'s Schedule also lists what is due today without a slot');
+{
+  const a = boot({
+    todos: [
+      mkTask({ id: 'T1', title: 'Timed block', schedule: [{ id: 'B1', date: todayKey, start: '09:00', end: '10:00' }] }),
+      mkTask({ id: 'T2', title: 'Due today, no slot', dueDate: todayKey }),
+      mkTask({ id: 'T3', title: 'Also due today', dueDate: todayKey }),
+      mkTask({ id: 'T4', title: 'Due tomorrow', dueDate: '2099-01-01' }),
+      mkTask({ id: 'T5', title: 'No due date at all' }),
+    ],
+    activeTab: 'dashboard',
+  });
+  const body = a.$('todayScheduleBody');
+  const rows = [...body.querySelectorAll('.today-row')];
+  check('timed and due-today rows are both listed', rows.length === 3,
+    rows.map(r => r.textContent.replace(/\s+/g, ' ').trim()));
+  check('a task due another day is not listed', !/Due tomorrow/.test(body.textContent));
+  check('a task with no due date is not listed', !/No due date at all/.test(body.textContent));
+
+  check('the timed block comes first', /Timed block/.test(rows[0].textContent));
+  check('untimed rows follow, in the order the user arranged them',
+    /Due today, no slot/.test(rows[1].textContent) && /Also due today/.test(rows[2].textContent),
+    rows.map(r => r.textContent.replace(/\s+/g, ' ').trim()));
+  check('a divider separates them', !!body.querySelector('.today-divider'));
+  check('an untimed row shows a dash instead of a time',
+    !!rows[1].querySelector('.today-time-none') && !rows[0].querySelector('.today-time-none'));
+  check('the count reports both groups', /1 BLOCK · 2 MORE/.test(a.$('todayScheduleCount').textContent),
+    a.$('todayScheduleCount').textContent);
+
+  // The rows are the same component, so the controls have to work on both.
+  click(a, rows[1].querySelector('.dash-task-check'));
+  check('an untimed row can complete its task',
+    a.t.todos.find(t => t.id === 'T2').done === true);
+  check('and it renders as done',
+    [...a.$('todayScheduleBody').querySelectorAll('.today-row')][1].classList.contains('done'));
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n11d. Schedule block colours');
+{
+  const a = boot({
+    todos: [
+      mkTask({ id: 'T1', title: 'Work thing', project: 'Work',
+        schedule: [{ id: 'B1', date: todayKey, start: '09:00', end: '10:00' }] }),
+      mkTask({ id: 'T2', title: 'Personal thing', project: 'Personal',
+        schedule: [{ id: 'B2', date: todayKey, start: '11:00', end: '12:00' }] }),
+      mkTask({ id: 'T3', title: 'No project', project: '',
+        schedule: [{ id: 'B3', date: todayKey, start: '13:00', end: '14:00' }] }),
+      mkTask({ id: 'T4', title: 'Hand-picked', project: 'Work',
+        schedule: [{ id: 'B4', date: todayKey, start: '15:00', end: '16:00', color: 'violet' }] }),
+    ],
+    activeTab: 'dashboard',
+  });
+  const rowFor = (title) => [...a.$('todayScheduleBody').querySelectorAll('.today-row')]
+    .find(r => r.textContent.includes(title));
+  const colorOf = (el) => el && el.style.getPropertyValue('--block-color').trim();
+
+  check('a block inherits a colour from its project with no setup',
+    !!colorOf(rowFor('Work thing')), rowFor('Work thing').getAttribute('style'));
+  check('two projects get different colours',
+    colorOf(rowFor('Work thing')) !== colorOf(rowFor('Personal thing')),
+    [colorOf(rowFor('Work thing')), colorOf(rowFor('Personal thing'))]);
+  check('a task with no project stays neutral',
+    !rowFor('No project').classList.contains('has-color'),
+    rowFor('No project').getAttribute('style'));
+  check('an explicit block colour overrides the project',
+    colorOf(rowFor('Hand-picked')) !== colorOf(rowFor('Work thing')),
+    [colorOf(rowFor('Hand-picked')), colorOf(rowFor('Work thing'))]);
+
+  // The mapping is hashed, not sequential, so it must not depend on how many
+  // projects exist or what order they were created in.
+  const b = boot({
+    todos: [
+      mkTask({ id: 'X1', title: 'Filler', project: 'Zebra' }),
+      mkTask({ id: 'X2', title: 'Another', project: 'Alpha' }),
+      mkTask({ id: 'T1', title: 'Work thing', project: 'Work',
+        schedule: [{ id: 'B1', date: todayKey, start: '09:00', end: '10:00' }] }),
+    ],
+    activeTab: 'dashboard',
+  });
+  const bRow = [...b.$('todayScheduleBody').querySelectorAll('.today-row')]
+    .find(r => r.textContent.includes('Work thing'));
+  check('a project keeps its colour when other projects are added',
+    colorOf(bRow) === colorOf(rowFor('Work thing')),
+    [colorOf(bRow), colorOf(rowFor('Work thing'))]);
+
+  // A stored id is looked up, never interpolated, so a doctored store cannot
+  // reach the style attribute.
+  const c = boot({
+    todos: [mkTask({ id: 'T1', title: 'Injected', project: '',
+      schedule: [{ id: 'B1', date: todayKey, start: '09:00', end: '10:00',
+        color: 'red;background:url(javascript:alert(1))' }] })],
+    activeTab: 'dashboard',
+  });
+  const cRow = c.$('todayScheduleBody').querySelector('.today-row');
+  check('an unknown stored colour is ignored rather than rendered',
+    !cRow.classList.contains('has-color') && !/javascript/i.test(cRow.getAttribute('style') || ''),
+    cRow.getAttribute('style'));
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n11e. The colour picker in the Schedule dialog');
+{
+  const a = boot({
+    todos: [
+      mkTask({ id: 'T1', title: 'Work thing', project: 'Work',
+        schedule: [{ id: 'B1', date: todayKey, start: '09:00', end: '10:00' }] }),
+    ],
+    activeTab: 'calendar',
+  });
+  a.t.openScheduleModal({
+    taskId: 'T1', blockId: 'B1', date: todayKey, start: '09:00', end: '10:00', color: '',
+  });
+  const swatches = () => [...a.$('schedColors').querySelectorAll('.sched-swatch')];
+  check('the picker offers automatic plus the palette',
+    swatches().length === 9, swatches().length);
+  check('automatic is selected when the block has no colour of its own',
+    swatches()[0].classList.contains('selected') &&
+    swatches()[0].getAttribute('aria-checked') === 'true');
+  check('automatic previews the colour the project would give',
+    !!swatches()[0].style.getPropertyValue('--swatch').trim(),
+    swatches()[0].getAttribute('style'));
+  check('the hint names the project it would inherit from',
+    /matches the Work project/i.test(a.$('schedColorHint').textContent),
+    a.$('schedColorHint').textContent);
+  check('only the selected swatch is in the tab order',
+    swatches().filter(s => s.getAttribute('tabindex') === '0').length === 1);
+
+  click(a, swatches()[3]);
+  check('picking a swatch selects it', swatches()[3].classList.contains('selected'));
+  check('and deselects automatic', !swatches()[0].classList.contains('selected'));
+  check('the hint switches to the chosen colour',
+    /set on this block/i.test(a.$('schedColorHint').textContent),
+    a.$('schedColorHint').textContent);
+
+  const chosen = swatches()[3].dataset.colorId;
+  click(a, a.$('scheduleSave'));
+  check('saving stores the colour id on the block',
+    a.t.todos[0].schedule[0].color === chosen,
+    a.t.todos[0].schedule[0]);
+  check('the id is stored, not a hex value',
+    !/^#/.test(a.t.todos[0].schedule[0].color), a.t.todos[0].schedule[0].color);
+
+  // Reopening has to show what was saved, or the picker lies about the state.
+  a.t.openScheduleModal({
+    taskId: 'T1', blockId: 'B1', date: todayKey, start: '09:00', end: '10:00',
+    color: a.t.todos[0].schedule[0].color,
+  });
+  check('reopening restores the saved swatch',
+    swatches().find(s => s.classList.contains('selected')).dataset.colorId === chosen);
+
+  click(a, swatches()[0]);
+  click(a, a.$('scheduleSave'));
+  check('choosing automatic again clears the stored colour',
+    a.t.todos[0].schedule[0].color === null, a.t.todos[0].schedule[0].color);
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n11c. Today\'s Schedule with nothing timed at all');
+{
+  const a = boot({
+    todos: [mkTask({ id: 'T1', title: 'Only a due date', dueDate: todayKey })],
+    activeTab: 'dashboard',
+  });
+  const body = a.$('todayScheduleBody');
+  check('the due-today task still shows', body.querySelectorAll('.today-row').length === 1,
+    body.textContent);
+  check('no divider when there is nothing above it to divide',
+    !body.querySelector('.today-divider'));
+  check('the count reads as tasks, not blocks',
+    a.$('todayScheduleCount').textContent === '1 TASK', a.$('todayScheduleCount').textContent);
   check('no errors', a.errors.length === 0, a.errors);
 }
 
