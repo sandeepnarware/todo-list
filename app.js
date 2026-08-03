@@ -491,6 +491,10 @@ const toastMsg = document.getElementById("toastMsg");
 const toastUndo = document.getElementById("toastUndo");
 
 let todos = loadTodos();
+// Calendar-only entries — a meeting or a train, not work to finish. Kept in
+// their own store so nothing outside the calendar has to know they exist. See
+// the events section further down.
+let events = loadEvents();
 let goldenTaskId = loadGoldenTask();
 // validateGoldenTask() deliberately runs from the init block, not here: it can
 // clear the id, and clearing renders — which would read tagFilter / sortBy /
@@ -827,6 +831,58 @@ function loadTodos() {
 
 function saveTodos() {
   localStorage.setItem("todos", JSON.stringify(todos));
+}
+
+/* ===== Calendar-only events =====
+   Not everything on a calendar is a task. A stand-up, a dentist appointment or a
+   flight takes up the day without ever wanting a checkbox, a priority or a
+   Pomodoro, so scheduling one no longer forces a task into the list.
+
+   An event owns its time blocks exactly the way a task does — same `schedule`
+   array, same recurrence rules — which is what lets the calendar render, colour,
+   repeat and unschedule both from one code path. What it deliberately lacks is
+   the rest of a task: it never reaches the todo list, the stats, or the timer.
+
+   Stored under its own key, so an older build (or an export made by one) simply
+   sees no events rather than a list full of half-tasks. */
+function loadEvents() {
+  try {
+    const data = JSON.parse(localStorage.getItem("calEvents"));
+    if (!Array.isArray(data)) return [];
+    return data.map(migrateEvent).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function saveEvents() {
+  localStorage.setItem("calEvents", JSON.stringify(events));
+}
+
+function makeEvent(fields = {}) {
+  return {
+    id: crypto.randomUUID(),
+    title: "Untitled",
+    // Read by the shared calendar rendering to tell the two owners apart.
+    isEvent: true,
+    // Present so the block renderers can read them without a null check. An
+    // event is never done, and has no project to inherit a colour from.
+    done: false,
+    project: "",
+    createdAt: Date.now(),
+    schedule: [],
+    ...fields,
+  };
+}
+
+function migrateEvent(old) {
+  if (!old || typeof old !== "object" || !old.id) return null;
+  old.isEvent = true;
+  old.done = false;
+  old.project = typeof old.project === "string" ? old.project : "";
+  if (typeof old.title !== "string") old.title = String(old.title ?? "Untitled");
+  if (!Array.isArray(old.schedule)) old.schedule = [];
+  return old;
 }
 
 /* Single definition of a task's shape. Previously this literal was repeated in
@@ -1794,7 +1850,7 @@ function openEditModal(index) {
   renderTagChips();
   subtasksDraft = getSubtasks(todo).map((s) => ({ ...s }));
   renderModalSubtasks();
-  scheduleDraft = taskSchedule(todo).map((b) => ({ ...b }));
+  scheduleDraft = ownerSchedule(todo).map((b) => ({ ...b }));
   renderModalSchedule();
   taskModal.classList.remove("hidden");
   taskTitle.focus();
@@ -2320,6 +2376,7 @@ document.getElementById("exportBtn").addEventListener("click", () => {
   const data = {
     exportedAt: new Date().toISOString(),
     todos: loadTodos(),
+    calEvents: loadEvents(),
     quarterlyGoals: loadQuarterlyGoals(),
     pomodoroHistory: loadHistory(),
     goldenTaskId: loadGoldenTask(),
@@ -4221,10 +4278,11 @@ function setupDashDragDrop(container) {
 }
 
 /* ===== Calendar tab =====
-   A task owns its time blocks (`schedule: [{ id, date, start, end }]`), and the
-   calendar is nothing but a view over the flattened set of them. Storing blocks
-   on the task rather than per-day means deleting or completing a task can't leave
-   an orphaned entry behind, and one task can hold as many blocks as it needs. */
+   An owner — a task, or a calendar-only event — holds its time blocks
+   (`schedule: [{ id, date, start, end }]`), and the calendar is nothing but a
+   view over the flattened set of them. Storing blocks on the owner rather than
+   per-day means deleting or completing one can't leave an orphaned entry behind,
+   and one owner can hold as many blocks as it needs. */
 const CAL_HOUR_PX = 44; // rendered height of one hour in the week/day grid
 const CAL_DEFAULT_START = "09:00";
 const CAL_DEFAULT_MINUTES = 60;
@@ -4299,9 +4357,32 @@ function calFormatHour(hour) {
   return d.toLocaleTimeString(undefined, { hour: "numeric" });
 }
 
-function taskSchedule(todo) {
-  if (!Array.isArray(todo.schedule)) todo.schedule = [];
-  return todo.schedule;
+function ownerSchedule(owner) {
+  if (!Array.isArray(owner.schedule)) owner.schedule = [];
+  return owner.schedule;
+}
+
+/* Everything the calendar draws, in one list. The two stores stay separate —
+   only the calendar has a reason to look at both. */
+function scheduleOwners() {
+  return todos.concat(events);
+}
+
+function findScheduleOwner(id) {
+  return (
+    todos.find((t) => t.id === id) || events.find((e) => e.id === id) || null
+  );
+}
+
+function isEventOwner(owner) {
+  return !!(owner && owner.isEvent);
+}
+
+/* Both stores, because one calendar edit can touch either and the caller
+   shouldn't have to care which. */
+function persistSchedules() {
+  saveTodos();
+  saveEvents();
 }
 
 function makeScheduleBlock(date, start, end, extra) {
@@ -4422,15 +4503,16 @@ function describeRepeat(block) {
   return text;
 }
 
-/* Every occurrence landing on one local day, earliest first. `date` is the
-   occurrence's own date, which is not the block's date once it repeats — callers
-   must use it when they need to act on the occurrence the user clicked. */
+/* Every occurrence landing on one local day, earliest first. `owner` is the task
+   or event the block belongs to. `date` is the occurrence's own date, which is
+   not the block's date once it repeats — callers must use it when they need to
+   act on the occurrence the user clicked. */
 function blocksForDate(dateKey) {
   const out = [];
-  todos.forEach((t) => {
-    taskSchedule(t).forEach((b) => {
+  scheduleOwners().forEach((owner) => {
+    ownerSchedule(owner).forEach((b) => {
       if (b && blockOccursOn(b, dateKey))
-        out.push({ task: t, block: b, date: dateKey });
+        out.push({ owner, block: b, date: dateKey });
     });
   });
   out.sort(
@@ -4451,7 +4533,7 @@ function layoutDayBlocks(entries) {
     // `date` rides along: for a repeating block it is the occurrence's date, and
     // the click handler needs it to know which occurrence was hit.
     return {
-      task: e.task,
+      owner: e.owner,
       block: e.block,
       date: e.date,
       start: s,
@@ -4511,30 +4593,34 @@ function calLabelText() {
 }
 
 function calBlockHtml(entry) {
-  const { task, block, date, start, end, lane, lanes } = entry;
+  const { owner, block, date, start, end, lane, lanes } = entry;
   const top = (start / 60) * CAL_HOUR_PX;
   const height = Math.max(18, ((end - start) / 60) * CAL_HOUR_PX);
   const width = 100 / lanes;
   const range = `${calFormatTime(block.start)} – ${calFormatTime(block.end)}`;
   const rule = describeRepeat(block);
+  // The golden and active rings mark the task you're working on, so an event —
+  // which can be neither — never wears them.
+  const isEvent = isEventOwner(owner);
   const cls = [
     "cal-block",
-    task.done ? "done" : "",
-    task.id === goldenTaskId ? "golden" : "",
-    task.id === activeTaskId ? "active" : "",
+    isEvent ? "is-event" : "",
+    owner.done ? "done" : "",
+    !isEvent && owner.id === goldenTaskId ? "golden" : "",
+    !isEvent && owner.id === activeTaskId ? "active" : "",
     rule ? "repeating" : "",
   ]
     .filter(Boolean)
     .join(" ");
-  const tip = `${range} — ${task.title}${rule ? ` (${rule})` : ""}`;
-  const color = blockColorAttrs(task, block);
+  const tip = `${range} — ${owner.title}${isEvent ? " (event)" : ""}${rule ? ` (${rule})` : ""}`;
+  const color = blockColorAttrs(owner, block);
   return `<div class="${cls}${color.cls}" style="top:${top}px;height:${height}px;left:${lane * width}%;width:calc(${width}% - 3px)${color.style ? ";" + color.style : ""}"
-      data-task-id="${task.id}" data-block-id="${block.id}" data-date="${date}"
+      data-task-id="${owner.id}" data-block-id="${block.id}" data-date="${date}"
       title="${escapeHtml(tip)}" role="button" tabindex="0">
       <span class="cal-block-time">${escapeHtml(range)}${rule ? '<span class="cal-repeat-mark" aria-label="Repeating">↻</span>' : ""}</span>
-      <span class="cal-block-title">${escapeHtml(task.title)}</span>
-      ${task.project ? `<span class="cal-block-project">${escapeHtml(task.project)}</span>` : ""}
-      <button class="cal-block-del" data-task-id="${task.id}" data-block-id="${block.id}" data-date="${date}" aria-label="Unschedule this block" title="Unschedule">&times;</button>
+      <span class="cal-block-title">${escapeHtml(owner.title)}</span>
+      ${owner.project ? `<span class="cal-block-project">${escapeHtml(owner.project)}</span>` : ""}
+      <button class="cal-block-del" data-task-id="${owner.id}" data-block-id="${block.id}" data-date="${date}" aria-label="${isEvent ? "Remove this event" : "Unschedule this block"}" title="${isEvent ? "Remove" : "Unschedule"}">&times;</button>
     </div>`;
 }
 
@@ -4616,13 +4702,14 @@ function renderCalMonthHTML() {
     const entries = blocksForDate(key);
     const chips = entries
       .slice(0, MAX_CHIPS)
-      .map(({ task, block }) => {
+      .map(({ owner, block }) => {
         const rule = describeRepeat(block);
-        const tip = `${calFormatTime(block.start)} – ${calFormatTime(block.end)} — ${task.title}${rule ? ` (${rule})` : ""}`;
-        const color = blockColorAttrs(task, block);
-        return `<button class="cal-chip${task.done ? " done" : ""}${rule ? " repeating" : ""}${color.cls}"${color.style ? ` style="${color.style}"` : ""} data-task-id="${task.id}" data-block-id="${block.id}" data-date="${key}" title="${escapeHtml(tip)}">
+        const isEvent = isEventOwner(owner);
+        const tip = `${calFormatTime(block.start)} – ${calFormatTime(block.end)} — ${owner.title}${isEvent ? " (event)" : ""}${rule ? ` (${rule})` : ""}`;
+        const color = blockColorAttrs(owner, block);
+        return `<button class="cal-chip${isEvent ? " is-event" : ""}${owner.done ? " done" : ""}${rule ? " repeating" : ""}${color.cls}"${color.style ? ` style="${color.style}"` : ""} data-task-id="${owner.id}" data-block-id="${block.id}" data-date="${key}" title="${escapeHtml(tip)}">
             <span class="cal-chip-time">${escapeHtml(calFormatTime(block.start))}</span>
-            <span class="cal-chip-title">${escapeHtml(task.title)}</span>
+            <span class="cal-chip-title">${escapeHtml(owner.title)}</span>
             ${rule ? '<span class="cal-repeat-mark" aria-label="Repeating">↻</span>' : ""}
           </button>`;
       })
@@ -4735,6 +4822,7 @@ const schedRepeat = document.getElementById("schedRepeat");
 const schedInterval = document.getElementById("schedInterval");
 const schedUntil = document.getElementById("schedUntil");
 const NEW_TASK_OPTION = "__new__";
+const NEW_EVENT_OPTION = "__event__";
 // Which occurrence the modal was opened for. schedDate.value starts out equal to
 // it but the user can move it, and "just this occurrence" has to exclude the date
 // that was clicked, not the one that was typed.
@@ -4754,7 +4842,20 @@ function setSchedError(msg) {
 
 function populateSchedTaskOptions(selectedId) {
   if (!schedTaskSelect) return;
-  const options = [`<option value="${NEW_TASK_OPTION}">+ New task…</option>`];
+  // The two "+ New …" rows are the whole choice this dialog exists to offer:
+  // block out the time as work to finish, or as an event that just occupies it.
+  const options = [
+    `<option value="${NEW_TASK_OPTION}">+ New task…</option>`,
+    `<option value="${NEW_EVENT_OPTION}">+ New event (no task)…</option>`,
+  ];
+  // An existing event is listed only while its own block is being edited: events
+  // hold one commitment each, so there is nothing to be gained by scheduling a
+  // second block onto someone else's.
+  const event = events.find((e) => e.id === selectedId);
+  if (event)
+    options.push(
+      `<option value="${event.id}">${escapeHtml(event.title)} (event)</option>`,
+    );
   // Pending tasks are what you normally schedule; a completed one only appears
   // when an existing block already points at it.
   todos
@@ -4765,20 +4866,36 @@ function populateSchedTaskOptions(selectedId) {
       );
     });
   schedTaskSelect.innerHTML = options.join("");
-  schedTaskSelect.value =
-    selectedId && todos.some((t) => t.id === selectedId)
-      ? selectedId
-      : NEW_TASK_OPTION;
+  schedTaskSelect.value = findScheduleOwner(selectedId)
+    ? selectedId
+    : NEW_TASK_OPTION;
   syncSchedNewTitle();
+}
+
+/* Which kind of thing the title field is naming, or null when an existing task
+   was picked and there is no title to type. Editing an event counts: its title
+   is only reachable here, so the field doubles as its rename box. */
+function schedTitleMode() {
+  if (schedBlockIdField.value)
+    return isEventOwner(findScheduleOwner(schedTaskIdField.value))
+      ? "event"
+      : null;
+  if (!schedTaskSelect) return null;
+  if (schedTaskSelect.value === NEW_EVENT_OPTION) return "event";
+  return schedTaskSelect.value === NEW_TASK_OPTION ? "task" : null;
 }
 
 function syncSchedNewTitle() {
   const group = document.getElementById("schedNewTitleGroup");
-  if (!group || !schedTaskSelect) return;
-  group.classList.toggle(
-    "hidden",
-    schedTaskSelect.value !== NEW_TASK_OPTION,
-  );
+  if (!group) return;
+  const mode = schedTitleMode();
+  group.classList.toggle("hidden", !mode);
+  const label = document.getElementById("schedNewTitleLabel");
+  if (label)
+    label.textContent = mode === "event" ? "Event title" : "New task title";
+  if (schedNewTitle)
+    schedNewTitle.placeholder =
+      mode === "event" ? "What's happening?" : "What needs doing?";
 }
 
 /* The rule as the form currently describes it — used for the live summary line
@@ -4855,14 +4972,15 @@ function setSchedScopeVisible(visible) {
    from BLOCK_COLORS, pinned to this block. */
 let schedColor = "";
 
-/* Which task the dialog is pointed at, so Auto can name the project it would
-   borrow from. Null while "New task" is selected: there is no project yet. */
-function schedCurrentTask() {
+/* Which task or event the dialog is pointed at, so Auto can name the project it
+   would borrow from. Null while a "+ New …" row is selected: there is no project
+   yet. */
+function schedCurrentOwner() {
   const id = schedBlockIdField.value
     ? schedTaskIdField.value
     : schedTaskSelect && schedTaskSelect.value;
-  if (!id || id === NEW_TASK_OPTION) return null;
-  return todos.find((t) => t.id === id) || null;
+  if (!id || id === NEW_TASK_OPTION || id === NEW_EVENT_OPTION) return null;
+  return findScheduleOwner(id);
 }
 
 function renderSchedColors() {
@@ -4870,7 +4988,7 @@ function renderSchedColors() {
   if (!wrap) return;
   // The Auto swatch previews the colour it would actually produce, so the
   // choice is between two visible outcomes rather than a colour and a word.
-  const autoHex = blockColorHex(schedCurrentTask(), null);
+  const autoHex = blockColorHex(schedCurrentOwner(), null);
   const swatches = [{ id: "", label: "Automatic", hex: autoHex }, ...BLOCK_COLORS];
   wrap.innerHTML = swatches
     .map((c) => {
@@ -4892,11 +5010,18 @@ function syncSchedColorHint() {
     hint.textContent = c ? `${c.label}, set on this block.` : "";
     return;
   }
-  const task = schedCurrentTask();
-  const project = task && task.project ? task.project.trim() : "";
-  hint.textContent = project
-    ? `Automatic — matches the ${project} project.`
-    : "Automatic — give the task a project to colour it.";
+  const owner = schedCurrentOwner();
+  const project = owner && owner.project ? owner.project.trim() : "";
+  if (project) {
+    hint.textContent = `Automatic — matches the ${project} project.`;
+    return;
+  }
+  // An event has no project to inherit from, ever, so pointing at one would be
+  // advice it can't act on.
+  hint.textContent =
+    schedTitleMode() === "event"
+      ? "Automatic — pick a colour to tell this event apart."
+      : "Automatic — give the task a project to colour it.";
 }
 
 function setSchedColor(id) {
@@ -4920,6 +5045,8 @@ function moveSchedColorFocus(delta) {
   if (moved) moved.focus();
 }
 
+/* `opts.taskId` is the id of whatever owns the block being edited — a task or a
+   calendar-only event. Absent for a new block: the dialog asks which. */
 function openScheduleModal(opts = {}) {
   if (!scheduleModal) return;
   const startMins = calMinutes(opts.start) ?? calMinutes(CAL_DEFAULT_START);
@@ -4930,7 +5057,10 @@ function openScheduleModal(opts = {}) {
   schedDate.value = opts.date || localDateKey(new Date());
   schedStart.value = calHHMM(startMins);
   schedEnd.value = calHHMM(Math.min(endMins, 24 * 60 - 1));
-  if (schedNewTitle) schedNewTitle.value = "";
+  // Prefilled for an event so the dialog can rename it, empty for anything else.
+  const editing = opts.blockId ? findScheduleOwner(opts.taskId) : null;
+  if (schedNewTitle)
+    schedNewTitle.value = isEventOwner(editing) ? editing.title : "";
   if (schedRepeat) schedRepeat.value = opts.repeat || "none";
   if (schedInterval) schedInterval.value = opts.interval || 1;
   if (schedUntil) schedUntil.value = opts.until || "";
@@ -4939,7 +5069,7 @@ function openScheduleModal(opts = {}) {
   // After populateSchedTaskOptions: the Auto preview reads the selected task's
   // project, and until the options exist there is no selected task to read.
   setSchedColor(opts.color || "");
-  // The task of an existing block is fixed — moving a block between tasks would
+  // The owner of an existing block is fixed — moving a block between tasks would
   // be an unexpected side effect of editing its time.
   schedTaskSelect.disabled = !!opts.blockId;
   // Editing one occurrence of a series needs the "which ones?" question asked
@@ -4948,9 +5078,18 @@ function openScheduleModal(opts = {}) {
   syncSchedScopeUI();
   const title = document.getElementById("scheduleModalTitle");
   if (title)
-    title.textContent = opts.blockId ? "Edit time block" : "Schedule a task";
+    title.textContent = !opts.blockId
+      ? "Add to calendar"
+      : isEventOwner(editing)
+        ? "Edit event"
+        : "Edit time block";
   const del = document.getElementById("scheduleDelete");
-  if (del) del.classList.toggle("hidden", !opts.blockId);
+  if (del) {
+    del.classList.toggle("hidden", !opts.blockId);
+    // An event is nothing but its time, so dropping the block drops the event —
+    // "Unschedule" would undersell that.
+    del.textContent = isEventOwner(editing) ? "Remove" : "Unschedule";
+  }
   setSchedError("");
   scheduleModal.classList.remove("hidden");
   (opts.blockId ? schedStart : schedTaskSelect).focus();
@@ -4981,26 +5120,33 @@ function saveScheduleModal() {
       "The repeat can't end before the first occurrence — clear the end date or move it later.",
     );
 
-  let task;
+  const typedTitle = (schedNewTitle && schedNewTitle.value.trim()) || "";
+  // Whichever of the two the user asked for. `owner` is a task or an event from
+  // here on: both hold blocks the same way, so nothing below has to branch.
+  let owner;
   const blockId = schedBlockIdField.value;
   if (blockId) {
-    task = todos.find((t) => t.id === schedTaskIdField.value);
-    if (!task) return setSchedError("That task no longer exists.");
-  } else if (schedTaskSelect.value === NEW_TASK_OPTION) {
-    const title = (schedNewTitle && schedNewTitle.value.trim()) || "";
-    if (!title) {
-      setSchedError("Give the new task a title.");
-      if (schedNewTitle) schedNewTitle.focus();
-      return;
+    owner = findScheduleOwner(schedTaskIdField.value);
+    if (!owner) return setSchedError("That entry no longer exists.");
+    // The title field is an event's only rename box, so honour what's in it.
+    if (isEventOwner(owner)) {
+      if (!typedTitle) return failSchedTitle("Give the event a title.");
+      owner.title = typedTitle;
     }
-    task = makeTodo({ title });
-    todos.push(task);
+  } else if (schedTaskSelect.value === NEW_TASK_OPTION) {
+    if (!typedTitle) return failSchedTitle("Give the new task a title.");
+    owner = makeTodo({ title: typedTitle });
+    todos.push(owner);
+  } else if (schedTaskSelect.value === NEW_EVENT_OPTION) {
+    if (!typedTitle) return failSchedTitle("Give the event a title.");
+    owner = makeEvent({ title: typedTitle });
+    events.push(owner);
   } else {
-    task = todos.find((t) => t.id === schedTaskSelect.value);
-    if (!task) return setSchedError("Pick a task to schedule.");
+    owner = todos.find((t) => t.id === schedTaskSelect.value);
+    if (!owner) return setSchedError("Pick a task to schedule.");
   }
 
-  const blocks = taskSchedule(task);
+  const blocks = ownerSchedule(owner);
   const existing = blockId ? blocks.find((b) => b.id === blockId) : null;
   const fields = {
     date,
@@ -5033,7 +5179,7 @@ function saveScheduleModal() {
       (calMinutes(a.start) ?? 0) - (calMinutes(b.start) ?? 0),
   );
 
-  saveTodos();
+  persistSchedules();
   closeScheduleModal();
   renderTagCloud();
   // renderTodos ends in renderScheduleSurfaces, which repaints the grid and the
@@ -5041,49 +5187,64 @@ function saveScheduleModal() {
   renderTodos();
 }
 
+/* The one error the dialog can fix for you: say what's missing and put the cursor
+   in the field that's missing it. */
+function failSchedTitle(msg) {
+  setSchedError(msg);
+  if (schedNewTitle) schedNewTitle.focus();
+}
+
 /* Drops the whole block — the single date for a one-off, every date for a series. */
-function unscheduleBlock(taskId, blockId) {
-  const task = todos.find((t) => t.id === taskId);
-  if (!task) return;
-  const blocks = taskSchedule(task);
+function unscheduleBlock(ownerId, blockId) {
+  const owner = findScheduleOwner(ownerId);
+  if (!owner) return;
+  const blocks = ownerSchedule(owner);
   const idx = blocks.findIndex((b) => b.id === blockId);
   if (idx === -1) return;
   const [removed] = blocks.splice(idx, 1);
   const repeating = blockRepeat(removed) !== "none";
-  saveTodos();
+  // An event is nothing but its time: with the last block gone there is no event
+  // left, so it goes too rather than lingering invisibly in storage.
+  const eventIdx =
+    isEventOwner(owner) && !blocks.length ? events.indexOf(owner) : -1;
+  if (eventIdx !== -1) events.splice(eventIdx, 1);
+  persistSchedules();
   renderTodos();
   showToast(
     repeating
-      ? `Removed the whole series for "${task.title}"`
-      : `Unscheduled "${task.title}"`,
+      ? `Removed the whole series for "${owner.title}"`
+      : isEventOwner(owner)
+        ? `Removed "${owner.title}"`
+        : `Unscheduled "${owner.title}"`,
     () => {
-      taskSchedule(task).splice(idx, 0, removed);
-      saveTodos();
+      ownerSchedule(owner).splice(idx, 0, removed);
+      if (eventIdx !== -1) events.splice(eventIdx, 0, owner);
+      persistSchedules();
       renderTodos();
     },
   );
 }
 
 /* Drops one date out of a series, leaving the rest of it alone. */
-function unscheduleOccurrence(taskId, blockId, dateKey) {
-  const task = todos.find((t) => t.id === taskId);
-  if (!task) return;
-  const block = taskSchedule(task).find((b) => b.id === blockId);
+function unscheduleOccurrence(ownerId, blockId, dateKey) {
+  const owner = findScheduleOwner(ownerId);
+  if (!owner) return;
+  const block = ownerSchedule(owner).find((b) => b.id === blockId);
   if (!block || !dateKey) return;
   const exdates = blockExdates(block);
   if (exdates.includes(dateKey)) return;
   exdates.push(dateKey);
-  saveTodos();
+  persistSchedules();
   renderTodos();
   const when = calParseKey(dateKey).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
-  showToast(`Skipped ${when} for "${task.title}"`, () => {
+  showToast(`Skipped ${when} for "${owner.title}"`, () => {
     const list = blockExdates(block);
     const i = list.indexOf(dateKey);
     if (i !== -1) list.splice(i, 1);
-    saveTodos();
+    persistSchedules();
     renderTodos();
   });
 }
@@ -5200,12 +5361,12 @@ if (calendarContentEl) {
       e.stopPropagation();
       // On the grid, ✕ means "not this one" — the least destructive reading.
       // Removing a whole series is deliberate, via the block's own dialog.
-      const task = todos.find((t) => t.id === del.dataset.taskId);
-      const block = task
-        ? taskSchedule(task).find((b) => b.id === del.dataset.blockId)
+      const owner = findScheduleOwner(del.dataset.taskId);
+      const block = owner
+        ? ownerSchedule(owner).find((b) => b.id === del.dataset.blockId)
         : null;
       if (block && blockRepeat(block) !== "none")
-        unscheduleOccurrence(task.id, block.id, del.dataset.date);
+        unscheduleOccurrence(owner.id, block.id, del.dataset.date);
       else unscheduleBlock(del.dataset.taskId, del.dataset.blockId);
       return;
     }
@@ -5217,13 +5378,13 @@ if (calendarContentEl) {
     }
     const chip = e.target.closest(".cal-chip, .cal-block");
     if (chip) {
-      const task = todos.find((t) => t.id === chip.dataset.taskId);
-      const block = task
-        ? taskSchedule(task).find((b) => b.id === chip.dataset.blockId)
+      const owner = findScheduleOwner(chip.dataset.taskId);
+      const block = owner
+        ? ownerSchedule(owner).find((b) => b.id === chip.dataset.blockId)
         : null;
-      if (task && block)
+      if (owner && block)
         openScheduleModal({
-          taskId: task.id,
+          taskId: owner.id,
           blockId: block.id,
           // The occurrence that was clicked, which for a series is not block.date.
           date: chip.dataset.date || block.date,
@@ -5259,34 +5420,41 @@ if (calendarContentEl) {
 
 /* ===== Dashboard: Today's Schedule ===== */
 
-/* One row. `block` is null for a task that is due today but never got a slot —
-   those rows show a dash where the times would be, so titles stay aligned with
-   the timed rows above them. */
-function todayRowHtml(task, block) {
+/* One row, for a task or a calendar-only event. `block` is null for a task that
+   is due today but never got a slot — those rows show a dash where the times
+   would be, so titles stay aligned with the timed rows above them. */
+function todayRowHtml(owner, block) {
   const now = new Date();
   const nowMins = now.getHours() * 60 + now.getMinutes();
   let state = "";
-  if (task.done) state = "done";
+  if (owner.done) state = "done";
   else if (block) {
     const s = calMinutes(block.start) ?? 0;
     const e = calMinutes(block.end) ?? s + 30;
     if (nowMins >= s && nowMins < e) state = "now";
     else if (e <= nowMins) state = "past";
   }
-  const isActive = task.id === activeTaskId;
+  const isActive = owner.id === activeTaskId;
   // Only a real block can repeat, so an untimed row never carries the mark.
   const rule = block ? describeRepeat(block) : "";
   const time = block
     ? `${escapeHtml(calFormatTime(block.start))}<span class="today-time-end">${escapeHtml(calFormatTime(block.end))}</span>`
     : '<span class="today-time-none" aria-label="No time set">—</span>';
-  const color = blockColorAttrs(task, block);
+  const color = blockColorAttrs(owner, block);
+  // An event has nothing to tick off and nothing to focus on, so it gets a
+  // calendar glyph where the checkbox goes — the column keeps its width, and the
+  // titles stay in line with the task rows around it.
+  const isEvent = isEventOwner(owner);
+  const lead = isEvent
+    ? '<span class="material-symbols-outlined today-check today-event-mark" title="Event" aria-label="Event">event</span>'
+    : `<button class="dash-task-check material-symbols-outlined today-check" data-task-id="${owner.id}" aria-label="${owner.done ? "Mark task not done" : "Mark task complete"}">${owner.done ? "check_circle" : "radio_button_unchecked"}</button>`;
   return `<div class="today-row ${state}${color.cls}"${color.style ? ` style="${color.style}"` : ""}${rule ? ` title="${escapeHtml(rule)}"` : ""}>
     <span class="today-time">${time}</span>
     ${rule ? '<span class="cal-repeat-mark today-repeat" aria-label="Repeating">↻</span>' : ""}
-    <button class="dash-task-check material-symbols-outlined today-check" data-task-id="${task.id}" aria-label="${task.done ? "Mark task not done" : "Mark task complete"}">${task.done ? "check_circle" : "radio_button_unchecked"}</button>
-    <span class="today-title">${escapeHtml(task.title)}${task.project ? `<span class="today-project">${escapeHtml(task.project)}</span>` : ""}</span>
+    ${lead}
+    <span class="today-title">${escapeHtml(owner.title)}${owner.project ? `<span class="today-project">${escapeHtml(owner.project)}</span>` : ""}</span>
     ${state === "now" ? '<span class="today-now-badge">NOW</span>' : ""}
-    ${task.done ? "" : `<button class="dash-task-play material-symbols-outlined today-play" data-task-id="${task.id}" aria-label="${isActive ? "Pause" : "Focus on this task"}">${isActive ? "pause_circle" : "play_circle"}</button>`}
+    ${isEvent || owner.done ? "" : `<button class="dash-task-play material-symbols-outlined today-play" data-task-id="${owner.id}" aria-label="${isActive ? "Pause" : "Focus on this task"}">${isActive ? "pause_circle" : "play_circle"}</button>`}
   </div>`;
 }
 
@@ -5301,7 +5469,7 @@ function renderTodaySchedule() {
      ever showed what had been dragged onto the calendar, so a day full of work
      could read as almost empty. Order is the todo list's own order, which is
      the one the user arranged by hand. */
-  const blocked = new Set(entries.map((e) => e.task.id));
+  const blocked = new Set(entries.map((e) => e.owner.id));
   const untimed = todos.filter(
     (t) => t.dueDate === todayKey && !blocked.has(t.id),
   );
@@ -5325,7 +5493,9 @@ function renderTodaySchedule() {
     return;
   }
 
-  let html = entries.map(({ task, block }) => todayRowHtml(task, block)).join("");
+  let html = entries
+    .map(({ owner, block }) => todayRowHtml(owner, block))
+    .join("");
   if (untimed.length) {
     // The divider only earns its space when there is something above to divide.
     if (entries.length) html += '<p class="today-divider">No time set</p>';

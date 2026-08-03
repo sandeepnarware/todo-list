@@ -6,6 +6,7 @@ A personal productivity system with task management, Pomodoro focus sessions, qu
 
 - **Task Management** — tasks with priorities, projects, tags, due dates, and recurring schedules
 - **Pomodoro Timer** — 25 min focus / 5 min break cycles with progress ring, PiP mode, and session tracking
+- **Calendar** — month/week/day views; block out time for a task, or add an event that never becomes one
 - **Golden Task** — mark your most important task and keep it front and center
 - **Quarterly Goals** — set and track goals month by month
 - **Analytics** — calendar heatmap, 24-hour distribution chart, and time-slot breakdown

@@ -42,7 +42,7 @@ function boot(seed) {
     get calCursor() { return calCursor; },
     set calCursor(v) { calCursor = v; },
     blockOccursOn, describeRepeat, blockRepeat, blockInterval, blocksForDate,
-    taskSchedule, openScheduleModal, setCalView, renderCalendar, openEditModal,
+    ownerSchedule, openScheduleModal, setCalView, renderCalendar, openEditModal,
     switchTab,
   };`;
   const s = w.document.createElement('script');

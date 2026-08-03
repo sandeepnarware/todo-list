@@ -688,12 +688,13 @@
   </div>
 
   <!-- ===== QUICK SCHEDULE MODAL =====
-       Reached from the Calendar tab: pick (or create) a task and give it one time
+       Reached from the Calendar tab: choose what the time is for — an existing
+       task, a new task, or an event that never becomes one — and give it one time
        block. Editing every block of a task at once lives in the task modal. -->
   <div id="scheduleModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
     <div class="modal max-w-md w-full mx-4">
       <div class="modal-header">
-        <h2 id="scheduleModalTitle" class="font-display font-bold text-lg">Schedule a task</h2>
+        <h2 id="scheduleModalTitle" class="font-display font-bold text-lg">Add to calendar</h2>
         <button id="scheduleClose" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-all" aria-label="Close">
           <span class="material-symbols-outlined text-sm">close</span>
         </button>
@@ -702,11 +703,13 @@
         <input type="hidden" id="schedTaskId" value="">
         <input type="hidden" id="schedBlockId" value="">
         <div class="form-group">
-          <label for="schedTask">Task</label>
+          <label for="schedTask">Task or event</label>
           <select id="schedTask"></select>
         </div>
+        <!-- Names a new task, a new event, or renames the event being edited —
+             the label and placeholder are rewritten to say which. -->
         <div class="form-group hidden" id="schedNewTitleGroup">
-          <label for="schedNewTitle">New task title</label>
+          <label for="schedNewTitle" id="schedNewTitleLabel">New task title</label>
           <input type="text" id="schedNewTitle" maxlength="200" placeholder="What needs doing?">
         </div>
         <div class="form-group">
