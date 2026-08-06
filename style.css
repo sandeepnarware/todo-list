@@ -678,6 +678,68 @@ input.subtask-input:focus {
 .sort-btn:hover { color: var(--primary-text); }
 .sort-btn.active { color: var(--primary-text); font-weight: 700; border-bottom-color: var(--primary); }
 
+/* ===== DUE WINDOW FILTER =====
+   Pills rather than the sort bar's underlines: sorting and filtering sit side by
+   side here, and they need to look like two different kinds of control. */
+.due-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-container-low);
+  color: var(--on-surface-variant);
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.due-filter-btn:hover { color: var(--primary-text); border-color: var(--primary); }
+.due-filter-btn.active {
+  background: var(--primary-fixed);
+  color: var(--on-primary-container);
+  border-color: var(--primary);
+  font-weight: 700;
+}
+.due-filter-btn .due-filter-count {
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+.due-filter-btn.active .due-filter-count { background: var(--surface-container-lowest); }
+/* Hidden rather than zeroed: a count only earns its space once it says something
+   the label doesn't. */
+.due-filter-btn .due-filter-count:empty { display: none; }
+
+/* Shown only when a due window is what emptied the list, so the plain empty list
+   keeps looking the way it always has. */
+.task-empty-note {
+  list-style: none;
+  text-align: center;
+  padding: 28px 12px;
+  color: var(--on-surface-variant);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.task-empty-note button {
+  display: block;
+  margin: 10px auto 0;
+  background: transparent;
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 4px 12px;
+  color: var(--primary-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.task-empty-note button:hover { border-color: var(--primary); }
+
 /* ===== DUE SECTION HEADERS ===== */
 .due-section-header {
   display: flex;

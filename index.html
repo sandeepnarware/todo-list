@@ -371,12 +371,22 @@
                  never added to the markup. -->
             <div id="tagCloud" class="lg:hidden flex flex-wrap gap-2 mb-3"></div>
             <!-- Sort/Filter Bar -->
-            <div class="flex items-center justify-between py-2 border-b border-surface-container mb-3">
+            <div class="flex items-center justify-between gap-x-6 gap-y-2 flex-wrap py-2 border-b border-surface-container mb-3">
               <div class="flex gap-4 text-sm font-mono overflow-x-auto">
                 <button class="sort-btn active" data-sort="custom">Custom</button>
                 <button class="sort-btn" data-sort="date">Date</button>
                 <button class="sort-btn" data-sort="priority">Priority</button>
                 <button class="sort-btn" data-sort="title">Title</button>
+              </div>
+              <!-- Due-window filter. Each window is cumulative and includes
+                   overdue work, so "Today" answers "what has to be done by
+                   tonight" rather than hiding what is already late. -->
+              <div id="dueFilterBar" class="flex flex-wrap gap-1.5" role="group" aria-label="Filter by due date">
+                <button class="due-filter-btn active" data-due="all" aria-pressed="true" title="Every task, dated or not">All</button>
+                <button class="due-filter-btn" data-due="today" aria-pressed="false" title="Due today or already overdue">Today</button>
+                <button class="due-filter-btn" data-due="tomorrow" aria-pressed="false" title="Due by tomorrow, overdue included">Tomorrow</button>
+                <button class="due-filter-btn" data-due="week" aria-pressed="false" title="Due by the end of this week, overdue included">This Week</button>
+                <button class="due-filter-btn" data-due="month" aria-pressed="false" title="Due by the end of this month, overdue included">This Month</button>
               </div>
             </div>
             <div id="taskScrollArea" class="overflow-y-auto" style="max-height:calc(100vh - 260px)">
@@ -895,6 +905,8 @@
         </ul>
         <h3>Tags &amp; Filter</h3>
         <p>Add tags in the task form. Click a tag or project pill to filter — the selected pill gets a ✓ and a ring, and a "Clear filter" button appears below the list.</p>
+        <h3>Due Filter</h3>
+        <p>The Today / Tomorrow / This Week / This Month pills above the list narrow it to what is due by the end of that window. Anything already overdue shows in all of them, and undated tasks only appear under "All". The number on each pill is how many open tasks it would show. Click the selected pill again to go back to All.</p>
         <h3>Focus Score</h3>
         <p>The share of every task you've ever created that is now finished: <code>completed ÷ (completed + still open) × 100</code>. Ticking a task off raises it; adding a new one lowers it until you finish it. Tasks only — pomodoros and subtasks don't count.</p>
         <h3>Calendar</h3>

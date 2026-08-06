@@ -507,6 +507,8 @@ let scheduleDraft = [];
 let showCompleted = false;
 let completedPage = 0;
 let sortBy = "custom";
+// "all" | "today" | "tomorrow" | "week" | "month" — see dueFilterEndKey.
+let dueFilter = "all";
 let searchQuery = "";
 let toastTimer = null;
 let undoData = null;
@@ -1517,6 +1519,7 @@ function renderTodoItem(todo, tagColors, showCompleted) {
   // Drag is disabled while the subtask panel is open so its inputs stay usable.
   li.draggable =
     !tagFilter &&
+    dueFilter === "all" &&
     !searchQuery.trim() &&
     sortBy === "custom" &&
     !todo.done &&
@@ -1644,6 +1647,39 @@ function getDueGroup(todo) {
   return "later";
 }
 
+const DUE_FILTER_LABELS = {
+  today: "today",
+  tomorrow: "by tomorrow",
+  week: "this week",
+  month: "this month",
+};
+
+/* Inclusive last day of each due window, as a YYYY-MM-DD key. The windows are
+   cumulative and open at the start: "This Week" is everything due by Saturday,
+   overdue work included. Dropping late tasks from a "what must I finish by X"
+   view would hide precisely the work that matters most. Returns null for "all",
+   which means no due filtering at all. */
+function dueFilterEndKey(kind, now = new Date()) {
+  const today = calStartOfDay(now);
+  if (kind === "today") return localDateKey(today);
+  if (kind === "tomorrow") return localDateKey(calAddDays(today, 1));
+  // Weeks start Sunday here, as everywhere else in the app.
+  if (kind === "week") return localDateKey(calAddDays(calStartOfWeek(today), 6));
+  // Day 0 of next month is the last day of this one.
+  if (kind === "month")
+    return localDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+  return null;
+}
+
+/* Undated tasks fall outside every window — a task with no due date cannot be
+   said to be due this week. They stay reachable under "All". */
+function matchesDueFilter(todo, kind) {
+  const end = dueFilterEndKey(kind);
+  if (!end) return true;
+  if (!todo.dueDate) return false;
+  return String(todo.dueDate) <= end;
+}
+
 /* Orders the pending list in place for the active sort. The golden task is pinned
    to the top in every mode, which is why each comparator opens the same way. */
 const TASK_PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
@@ -1692,6 +1728,12 @@ function renderTodos() {
         getSubtasks(t).some((s) => s.title.toLowerCase().includes(q)),
     );
 
+  // Counts come off the tag/search-filtered set, before the due window is
+  // applied — each pill has to show what picking it would give you.
+  renderDueFilterCounts(filtered.filter((t) => !t.done));
+  if (dueFilter !== "all")
+    filtered = filtered.filter((t) => matchesDueFilter(t, dueFilter));
+
   const pending = filtered.filter((t) => !t.done);
   const completed = filtered.filter((t) => t.done);
 
@@ -1731,6 +1773,19 @@ function renderTodos() {
     addSection("No Date", groups.none);
   } else {
     pending.forEach((todo) => renderTodoItem(todo, tagColors, false));
+  }
+
+  // An empty list is normal when nothing is due; say so, and offer the way back
+  // out. Only for the due filter — an unfiltered empty list reads fine bare.
+  if (pending.length === 0 && dueFilter !== "all") {
+    const note = document.createElement("li");
+    note.className = "task-empty-note";
+    note.textContent = `Nothing due ${DUE_FILTER_LABELS[dueFilter]}.`;
+    const reset = document.createElement("button");
+    reset.textContent = "Show all tasks";
+    reset.addEventListener("click", () => setDueFilter("all"));
+    note.appendChild(reset);
+    todoList.appendChild(note);
   }
 
   // Completed tasks
@@ -2278,6 +2333,42 @@ document.querySelectorAll(".sort-btn").forEach((btn) => {
     sortBy = btn.dataset.sort;
     renderTodos();
   });
+});
+
+function setDueFilter(kind) {
+  dueFilter = kind;
+  document.querySelectorAll(".due-filter-btn").forEach((b) => {
+    const on = b.dataset.due === kind;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+  renderTodos();
+}
+
+/* Counts sit on the pills so you can see there is nothing due tomorrow without
+   selecting it first. "All" carries no count — the task total is already at the
+   foot of the list. */
+function renderDueFilterCounts(pending) {
+  document.querySelectorAll(".due-filter-btn").forEach((btn) => {
+    let badge = btn.querySelector(".due-filter-count");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "due-filter-count";
+      btn.appendChild(badge);
+    }
+    const kind = btn.dataset.due;
+    badge.textContent =
+      kind === "all"
+        ? ""
+        : String(pending.filter((t) => matchesDueFilter(t, kind)).length);
+  });
+}
+
+document.querySelectorAll(".due-filter-btn").forEach((btn) => {
+  // Re-clicking the active window clears it, matching how the tag pills behave.
+  btn.addEventListener("click", () =>
+    setDueFilter(dueFilter === btn.dataset.due ? "all" : btn.dataset.due),
+  );
 });
 
 /* ===== Tab Switching ===== */
