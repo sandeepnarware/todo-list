@@ -1488,6 +1488,18 @@ select:-webkit-autofill {
 .support-diag .stitch-checkbox { margin-top: 2px; flex-shrink: 0; }
 .support-diag .support-hint { margin-top: 2px; }
 
+/* Same shape as .support-diag — the schedule dialog's "Create a task for this". */
+.sched-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--on-surface);
+}
+.sched-check .stitch-checkbox { margin-top: 1px; flex-shrink: 0; }
+.sched-check .support-hint { margin-top: 2px; }
+
 /* Honeypot — invisible to people, still submittable by bots */
 .support-botcheck { display: none !important; }
 

@@ -5123,6 +5123,7 @@ function calShift(direction) {
 const scheduleModal = document.getElementById("scheduleModal");
 const schedTaskSelect = document.getElementById("schedTask");
 const schedNewTitle = document.getElementById("schedNewTitle");
+const schedMakeTask = document.getElementById("schedMakeTask");
 const schedDate = document.getElementById("schedDate");
 const schedStart = document.getElementById("schedStart");
 const schedEnd = document.getElementById("schedEnd");
@@ -5181,6 +5182,7 @@ function populateSchedTaskOptions(selectedId) {
     ? selectedId
     : NEW_TASK_OPTION;
   syncSchedNewTitle();
+  syncSchedMakeTask();
 }
 
 /* Which kind of thing the title field is naming, or null when an existing task
@@ -5194,6 +5196,25 @@ function schedTitleMode() {
   if (!schedTaskSelect) return null;
   if (schedTaskSelect.value === NEW_EVENT_OPTION) return "event";
   return schedTaskSelect.value === NEW_TASK_OPTION ? "task" : null;
+}
+
+/* Keeps the "Create a task for this" checkbox and the select telling the same
+   story. The select is still the source of truth — the checkbox is a friendlier
+   way to reach its two "+ New …" rows, which were buried under the whole task
+   list and easy to miss entirely.
+
+   Hidden when an existing task is chosen (it already is a task) and while an
+   existing block is edited (its owner is fixed — see schedTaskSelect.disabled). */
+function syncSchedMakeTask() {
+  const group = document.getElementById("schedMakeTaskGroup");
+  if (!group || !schedTaskSelect) return;
+  const creating =
+    !schedBlockIdField.value &&
+    (schedTaskSelect.value === NEW_TASK_OPTION ||
+      schedTaskSelect.value === NEW_EVENT_OPTION);
+  group.classList.toggle("hidden", !creating);
+  if (creating && schedMakeTask)
+    schedMakeTask.checked = schedTaskSelect.value === NEW_TASK_OPTION;
 }
 
 function syncSchedNewTitle() {
@@ -5585,7 +5606,18 @@ if (scheduleModal) {
   if (schedTaskSelect)
     schedTaskSelect.addEventListener("change", () => {
       syncSchedNewTitle();
+      syncSchedMakeTask();
       // Switching task switches the project, and Auto previews that project.
+      renderSchedColors();
+    });
+  // The checkbox writes back to the select, which every other reader already
+  // consults — so saving needs no new branch.
+  if (schedMakeTask)
+    schedMakeTask.addEventListener("change", () => {
+      schedTaskSelect.value = schedMakeTask.checked
+        ? NEW_TASK_OPTION
+        : NEW_EVENT_OPTION;
+      syncSchedNewTitle();
       renderSchedColors();
     });
   const schedColorsEl = document.getElementById("schedColors");

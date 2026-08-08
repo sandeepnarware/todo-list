@@ -716,6 +716,19 @@
           <label for="schedTask">Task or event</label>
           <select id="schedTask"></select>
         </div>
+        <!-- The plain-language front for the two "+ New …" rows in the select
+             above: unticking it is what makes a calendar-only event. Shown only
+             while creating something new — an existing task already is one, and
+             an existing block's owner is fixed. -->
+        <div class="form-group hidden" id="schedMakeTaskGroup">
+          <label class="sched-check" for="schedMakeTask">
+            <input type="checkbox" id="schedMakeTask" class="stitch-checkbox" checked>
+            <span>
+              Create a task for this
+              <span class="support-hint">Leave this unticked to block out the time only — it won't join your task list, Focus Score or timer.</span>
+            </span>
+          </label>
+        </div>
         <!-- Names a new task, a new event, or renames the event being edited —
              the label and placeholder are rewritten to say which. -->
         <div class="form-group hidden" id="schedNewTitleGroup">
@@ -913,6 +926,7 @@
         <h3>Calendar</h3>
         <p>Give a task one or more time blocks (in the task form, or by clicking an empty slot on the Calendar tab) and it appears in Month, Week and Day views. Today's blocks also show at the top of the Dashboard, where the chevron collapses the panel out of the way.</p>
         <ul>
+          <li><strong>Task, or just an event</strong> — the Add to calendar dialog has a <strong>"Create a task for this"</strong> tick box, on by default. Leave it unticked for a meeting, an appointment or a flight: it takes up the time on the calendar but never joins your task list, Focus Score or timer.</li>
           <li><strong>Repeat</strong> — a block can repeat daily, every weekday, weekly, monthly or annually, every <em>n</em> of those, and optionally stop on a date. Repeating blocks are marked ↻.</li>
           <li><strong>Changing one, or all</strong> — open a repeating block and pick "Just this occurrence" or "The entire series". The ✕ on the grid always skips just that one day, so you can't wipe a series by accident.</li>
           <li><strong>Two kinds of repeat</strong> — this is the calendar's, and it repeats a <em>time slot</em>. The <strong>Repeat</strong> field in the task form is separate: it recreates the whole <em>task</em> with a new due date when you complete it.</li>

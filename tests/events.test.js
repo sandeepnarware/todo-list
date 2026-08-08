@@ -261,5 +261,78 @@ console.log('\n8. A damaged or absent event store cannot take the app down');
   check('no errors', a.errors.length === 0 && b.errors.length === 0, [a.errors, b.errors]);
 }
 
+console.log('\n9. The "Create a task for this" checkbox fronts that choice');
+{
+  const a = boot({ todos: [mkTask()], activeTab: 'calendar' });
+  click(a, a.$('calAddBtn'));
+  const box = a.$('schedMakeTask');
+  const group = a.$('schedMakeTaskGroup');
+  check('it is offered when creating something new', !!box && !group.classList.contains('hidden'));
+  check('ticked by default, matching the default "+ New task…"', box.checked === true);
+  check('it says what unticking costs',
+    /task list|Focus Score|timer/i.test(group.textContent), group.textContent);
+
+  // Unticking must drive the select, since saving reads only the select.
+  box.checked = false;
+  box.dispatchEvent(new a.w.Event('change', { bubbles: true }));
+  check('unticking selects the event row', a.$('schedTask').value === '__event__', a.$('schedTask').value);
+  check('and the title field relabels', a.$('schedNewTitleLabel').textContent === 'Event title',
+    a.$('schedNewTitleLabel').textContent);
+
+  box.checked = true;
+  box.dispatchEvent(new a.w.Event('change', { bubbles: true }));
+  check('re-ticking goes back to a task', a.$('schedTask').value === '__new__', a.$('schedTask').value);
+  check('and relabels again', a.$('schedNewTitleLabel').textContent === 'New task title');
+
+  // ...and the select drives it back, so the two can never disagree.
+  pick(a, '__event__');
+  check('choosing the event row unticks it', box.checked === false);
+  pick(a, '__new__');
+  check('choosing the task row re-ticks it', box.checked === true);
+
+  pick(a, 'T1');
+  check('an existing task hides it — it already is a task', group.classList.contains('hidden'));
+  check('no errors', a.errors.length === 0, a.errors);
+}
+
+console.log('\n10. Unticking the box is all it takes to get an event');
+{
+  const a = boot({ todos: [], activeTab: 'calendar' });
+  click(a, a.$('calAddBtn'));
+  const box = a.$('schedMakeTask');
+  box.checked = false;
+  box.dispatchEvent(new a.w.Event('change', { bubbles: true }));
+  a.$('schedNewTitle').value = 'Flight to Delhi';
+  a.$('schedStart').value = '06:00';
+  a.$('schedEnd').value = '09:00';
+  click(a, a.$('scheduleSave'));
+  check('an event is created', a.t.events.length === 1 && a.t.events[0].title === 'Flight to Delhi', a.t.events);
+  check('and no task with it', a.t.todos.length === 0, a.t.todos);
+  check('it lands on the calendar', /Flight to Delhi/.test(a.$('calendarContent').textContent));
+
+  // The default path must still make a task — the checkbox cannot have inverted it.
+  const b = boot({ todos: [], activeTab: 'calendar' });
+  click(b, b.$('calAddBtn'));
+  b.$('schedNewTitle').value = 'Write the deck';
+  click(b, b.$('scheduleSave'));
+  check('leaving it ticked still makes a task', b.t.todos.length === 1 && b.t.todos[0].title === 'Write the deck', b.t.todos);
+  check('and no stray event', b.t.events.length === 0, b.t.events);
+  check('no errors', a.errors.length === 0 && b.errors.length === 0, [a.errors, b.errors]);
+}
+
+console.log('\n11. The checkbox stays out of the way when editing an existing block');
+{
+  const a = boot({ calEvents: [mkEvent()], activeTab: 'calendar' });
+  a.t.setCalView('day');
+  click(a, a.$('calendarContent').querySelector('.cal-block'));
+  check('hidden while editing an event', a.$('schedMakeTaskGroup').classList.contains('hidden'));
+
+  const b = boot({ todos: [mkTask({ schedule: [{ id: 'B1', date: todayKey, start: '10:00', end: '11:00' }] })], activeTab: 'calendar' });
+  b.t.setCalView('day');
+  click(b, b.$('calendarContent').querySelector('.cal-block'));
+  check('and while editing a task block', b.$('schedMakeTaskGroup').classList.contains('hidden'));
+  check('no errors', a.errors.length === 0 && b.errors.length === 0, [a.errors, b.errors]);
+}
+
 console.log(fails === 0 ? '\nALL CHECKS PASSED' : `\n${fails} CHECK(S) FAILED`);
 process.exit(fails === 0 ? 0 : 1);
