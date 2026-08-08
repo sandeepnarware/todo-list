@@ -1336,16 +1336,233 @@ function buildTaskBadges(todo, showCompleted) {
   }
 
   const dueInfo = parseDueInfo(todo);
-  if (dueInfo)
-    add(
-      "due-badge" + (dueInfo.overdue && !todo.done ? " overdue" : ""),
-      "📅 " + dueInfo.label,
-    );
+  // Finished work keeps an inert label — there is nothing left to reschedule.
+  if (todo.done) {
+    if (dueInfo) add("due-badge", "📅 " + dueInfo.label);
+  } else {
+    badges.appendChild(buildDueBadge(todo, dueInfo));
+  }
 
   if (showCompleted && todo.completedAt)
     add("completed-badge", "✓ " + new Date(todo.completedAt).toLocaleDateString());
 
   return badges;
+}
+
+/* The due badge doubles as the reschedule control. An undated task gets one too,
+   dimmed to a bare icon: without it there was nothing on the row to aim at, and
+   setting a first due date meant opening the whole edit modal. */
+function buildDueBadge(todo, dueInfo) {
+  const btn = document.createElement("button");
+  btn.className =
+    "due-badge" +
+    (dueInfo ? "" : " is-empty") +
+    (dueInfo && dueInfo.overdue ? " overdue" : "");
+  btn.textContent = dueInfo ? "📅 " + dueInfo.label : "📅";
+  btn.setAttribute(
+    "aria-label",
+    dueInfo ? `Change due date — ${dueInfo.label}` : "Set due date",
+  );
+  btn.setAttribute("aria-haspopup", "dialog");
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openDuePicker(todo, btn);
+  });
+  return btn;
+}
+
+/* ===== Inline due-date picker =====
+   Rescheduling is the edit this list gets most often, and routing it through the
+   full edit modal was far more ceremony than it deserved.
+
+   The popover lives on <body> rather than inside the task row for two reasons:
+   renderTodos() clears #todoList wholesale, and #taskScrollArea clips its
+   overflow — either one would take the picker with it. */
+const DUE_PICKER_MARGIN = 8;
+let duePicker = null; // built once, on first use
+let duePickerTodo = null;
+let duePickerAnchor = null;
+let duePickerMonth = null; // first of the month currently drawn
+
+function duePickerOpen() {
+  return !!duePicker && !duePicker.classList.contains("hidden");
+}
+
+function buildDuePicker() {
+  const el = document.createElement("div");
+  el.className = "due-picker hidden";
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", "Set due date");
+  // One delegated handler: the grid is rebuilt on every month step, so per-cell
+  // listeners would have to be rebound each time.
+  el.addEventListener("click", (e) => {
+    const step = e.target.closest("[data-month-step]");
+    if (step) {
+      duePickerMonth = new Date(
+        duePickerMonth.getFullYear(),
+        duePickerMonth.getMonth() + Number(step.dataset.monthStep),
+        1,
+      );
+      renderDuePicker();
+      return;
+    }
+    // "Clear date" carries an empty key, which setTodoDueDate reads as null.
+    const pick = e.target.closest("[data-pick]");
+    if (pick) setTodoDueDate(duePickerTodo, pick.dataset.pick);
+  });
+  document.body.appendChild(el);
+  return el;
+}
+
+function renderDuePicker() {
+  if (!duePicker || !duePickerTodo) return;
+  const selected = duePickerTodo.dueDate || null;
+  const todayKey = localDateKey(new Date());
+  const month = duePickerMonth.getMonth();
+  // Same 42-cell, Sunday-start grid the calendar's month view builds.
+  const gridStart = calStartOfWeek(
+    new Date(duePickerMonth.getFullYear(), month, 1),
+  );
+
+  const heads = CAL_DAY_NAMES.map(
+    (n) => `<div class="due-picker-dayname">${n}</div>`,
+  ).join("");
+
+  let cells = "";
+  for (let i = 0; i < 42; i++) {
+    const d = calAddDays(gridStart, i);
+    const key = localDateKey(d);
+    const cls = [
+      "due-picker-day",
+      d.getMonth() === month ? "" : "other-month",
+      key === todayKey ? "is-today" : "",
+      key === selected ? "is-selected" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    cells += `<button type="button" class="${cls}" data-pick="${key}"${key === selected ? ' aria-current="date"' : ""}>${d.getDate()}</button>`;
+  }
+
+  const today = calStartOfDay(new Date());
+  const presets = [
+    ["Today", localDateKey(today)],
+    ["Tomorrow", localDateKey(calAddDays(today, 1))],
+    ["Next week", localDateKey(calAddDays(today, 7))],
+  ]
+    .map(
+      ([label, key]) =>
+        `<button type="button" class="due-picker-preset" data-pick="${key}">${label}</button>`,
+    )
+    .join("");
+  // Nothing to clear on a task that has no date yet.
+  const clear = selected
+    ? '<button type="button" class="due-picker-preset is-clear" data-pick="">✕ Clear date</button>'
+    : "";
+
+  const title = duePickerMonth.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+
+  duePicker.innerHTML = `
+    <div class="due-picker-head">
+      <button type="button" class="due-picker-nav" data-month-step="-1" aria-label="Previous month">‹</button>
+      <span class="due-picker-title">${escapeHtml(title)}</span>
+      <button type="button" class="due-picker-nav" data-month-step="1" aria-label="Next month">›</button>
+    </div>
+    <div class="due-picker-grid">${heads}${cells}</div>
+    <div class="due-picker-presets">${presets}${clear}</div>`;
+}
+
+function positionDuePicker() {
+  if (!duePicker || !duePickerAnchor) return;
+  const a = duePickerAnchor.getBoundingClientRect();
+  const w = duePicker.offsetWidth;
+  const h = duePicker.offsetHeight;
+  // Flip above the badge when the space below can't hold the popover but the
+  // space above can.
+  const below = window.innerHeight - a.bottom;
+  const top =
+    below < h + DUE_PICKER_MARGIN && a.top > h + DUE_PICKER_MARGIN
+      ? a.top - h - 4
+      : a.bottom + 4;
+  const maxLeft = window.innerWidth - w - DUE_PICKER_MARGIN;
+  duePicker.style.top = `${Math.max(DUE_PICKER_MARGIN, top)}px`;
+  duePicker.style.left = `${Math.max(DUE_PICKER_MARGIN, Math.min(a.left, maxLeft))}px`;
+}
+
+function openDuePicker(todo, anchor) {
+  // A second click on the same badge closes it, the way a toggle should.
+  if (duePickerOpen() && duePickerTodo === todo) {
+    closeDuePicker({ restoreFocus: true });
+    return;
+  }
+  duePicker = duePicker || buildDuePicker();
+  duePickerTodo = todo;
+  duePickerAnchor = anchor;
+  duePickerMonth = todo.dueDate
+    ? calParseKey(todo.dueDate)
+    : calStartOfDay(new Date());
+  duePickerMonth.setDate(1);
+  renderDuePicker();
+  duePicker.classList.remove("hidden");
+  positionDuePicker();
+  // Re-adding an identical listener is a no-op, so switching straight from one
+  // task's badge to another's cannot stack these up.
+  document.addEventListener("keydown", onDuePickerKey, true);
+  document.addEventListener("click", onDuePickerOutside, true);
+  window.addEventListener("resize", positionDuePicker);
+  // Capture phase: the list scrolls inside #taskScrollArea, whose scroll events
+  // never reach window by bubbling.
+  window.addEventListener("scroll", positionDuePicker, true);
+  const focusTarget = duePicker.querySelector(
+    ".due-picker-day.is-selected, .due-picker-day:not(.other-month)",
+  );
+  if (focusTarget) focusTarget.focus();
+}
+
+function closeDuePicker({ restoreFocus = false } = {}) {
+  if (!duePicker) return;
+  duePicker.classList.add("hidden");
+  document.removeEventListener("keydown", onDuePickerKey, true);
+  document.removeEventListener("click", onDuePickerOutside, true);
+  window.removeEventListener("resize", positionDuePicker);
+  window.removeEventListener("scroll", positionDuePicker, true);
+  const anchor = duePickerAnchor;
+  duePickerTodo = null;
+  duePickerAnchor = null;
+  // Only worth doing when the row survives — after a pick the list is re-rendered
+  // and the old anchor is already detached.
+  if (restoreFocus && anchor && anchor.isConnected) anchor.focus();
+}
+
+function onDuePickerKey(e) {
+  if (e.key === "Escape") {
+    e.stopPropagation();
+    closeDuePicker({ restoreFocus: true });
+  }
+}
+
+function onDuePickerOutside(e) {
+  // A click on any due badge is left to that badge's own handler, which either
+  // toggles this picker shut or re-points it at another task.
+  if (duePicker.contains(e.target) || e.target.closest(".due-badge")) return;
+  closeDuePicker({ restoreFocus: true });
+}
+
+/* Everything that keys off dueDate has to be refreshed, not just the list: the
+   dashboard's Up Next splits on "due today", and Today's Schedule lists work
+   that is due today without a time block. */
+function setTodoDueDate(todo, key) {
+  if (!todo) return;
+  todo.dueDate = key || null;
+  saveTodos();
+  // Close before re-rendering: renderTodos() destroys the anchor badge, and
+  // under an active due window the task may leave the list altogether.
+  closeDuePicker();
+  renderTodos();
+  renderDashboardUpNext();
+  renderTodaySchedule();
 }
 
 /* The control strip under a task: golden star, focus, subtask toggle, pomodoro
@@ -2311,6 +2528,9 @@ document.addEventListener("keydown", (e) => {
     e.key === "n" &&
     !e.ctrlKey &&
     !e.metaKey &&
+    // The due picker is all buttons, so without this any "n" typed while it has
+    // focus would yank the caret into quick-add.
+    !duePickerOpen() &&
     !e.target.closest("input,textarea,select,[contenteditable]")
   ) {
     e.preventDefault();

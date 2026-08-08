@@ -410,6 +410,130 @@ section[data-tab].tab-hidden { display: none !important; }
 .due-badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: var(--surface-container-high); color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
 .due-badge.overdue { background: var(--error-container); color: var(--on-error-container); }
 
+/* On an open task the badge is a button that opens the inline date picker. It
+   inherits the pill above unchanged, so a dated row looks exactly as it did. */
+button.due-badge {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s, filter 0.2s, background 0.2s;
+}
+button.due-badge:hover { filter: brightness(1.08); }
+/* An undated task has no date to show, so the icon sits back until it's wanted.
+   Always present rather than hover-only — touch has no hover. */
+button.due-badge.is-empty {
+  background: transparent;
+  opacity: 0.45;
+  padding: 2px 4px;
+}
+button.due-badge.is-empty:hover,
+button.due-badge.is-empty:focus-visible {
+  background: var(--surface-container-high);
+  opacity: 1;
+}
+
+/* ===== INLINE DUE-DATE PICKER =====
+   Anchored to the badge but parented to <body>, so neither the task list's
+   re-render nor #taskScrollArea's overflow can clip it. Sits above the list and
+   below the modals (which are 1000+). */
+.due-picker {
+  position: fixed;
+  z-index: 900;
+  width: 244px;
+  padding: 10px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px -6px var(--shadow-color);
+  font-family: 'JetBrains Mono', monospace;
+}
+.due-picker.hidden { display: none; }
+
+.due-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.due-picker-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+.due-picker-nav {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.due-picker-nav:hover { background: var(--surface-container); color: var(--primary-text); }
+
+.due-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.due-picker-dayname {
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  opacity: 0.7;
+  padding-bottom: 4px;
+}
+.due-picker-day {
+  aspect-ratio: 1;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--on-surface);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.due-picker-day:hover { background: var(--surface-container-high); }
+.due-picker-day.other-month { opacity: 0.32; }
+/* Today is outlined, the chosen day is filled — so both can show at once. */
+.due-picker-day.is-today { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.due-picker-day.is-selected {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+
+.due-picker-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--surface-container);
+}
+.due-picker-preset {
+  flex: 1 1 auto;
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.due-picker-preset:hover { color: var(--primary-text); border-color: var(--primary); }
+.due-picker-preset.is-clear { flex-basis: 100%; color: var(--error); }
+.due-picker-preset.is-clear:hover { border-color: var(--error); color: var(--error); }
+
 /* Est. pomo badge */
 .task-pomo-count { font-size: 11px; color: var(--on-surface-variant); white-space: nowrap; display: flex; align-items: center; gap: 2px; }
 .est-pomo-done { color: var(--secondary-text); font-weight: 700; }

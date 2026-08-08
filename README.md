@@ -6,6 +6,7 @@ A personal productivity system with task management, Pomodoro focus sessions, qu
 
 - **Task Management** — tasks with priorities, projects, tags, due dates, and recurring schedules
 - **Due Filter** — narrow the task list to what is due today, tomorrow, this week, or this month (overdue work included)
+- **Inline Rescheduling** — click a task's 📅 badge for a pop-up calendar with Today / Tomorrow / Next week presets; no edit form needed
 - **Pomodoro Timer** — 25 min focus / 5 min break cycles with progress ring, PiP mode, and session tracking
 - **Calendar** — month/week/day views; block out time for a task, or add an event that never becomes one
 - **Golden Task** — mark your most important task and keep it front and center
